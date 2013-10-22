@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
 # We'll just run these for best practice!
-sudo apt-get update
-sudo apt-get -y install python-software-properties
+apt-get update
+apt-get -y install python-software-properties
 
 # We now add the PHP5 (latest, at time of writing PHP 5.5.5) PPA like so
-sudo add-apt-repository -y ppa:ondrej/php5-stable
-sudo apt-get update
+add-apt-repository -y ppa:ondrej/php5
+apt-get update
 # People could use (if they wanted PHP 5.4):
 #add-apt-repository -y ppa:ondrej/php5 >> /tmp/ppa_ondrej.txt 2>&1
 
@@ -14,13 +14,13 @@ sudo apt-get update
 #php5 -v
 
 # We specifically specify 'php5-common' as we don't want Apache etc installed too!
-sudo apt-get -y install php5-common php5-cli php-apc php5-curl php5-gd php5-mcrypt php5-sqlite
+apt-get -y install php5-common php5-cli php-apc php5-curl php5-gd php5-mcrypt php5-sqlite
 
 # We install the Git Client to enable auto deployments etc.
-sudo apt-get -y install git
+apt-get -y install git
 
 # We now install Nginx
-sudo apt-get -y install nginx
+apt-get -y install nginx
 
 # Now we'll install a few other bits, namely MySQL, Beanstalkd
 
