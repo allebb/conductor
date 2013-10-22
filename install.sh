@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
 # We'll just run these for best practice!
-apt-get update
-apt-get -y install python-software-properties
+sudo apt-get update
+sudo apt-get -y install python-software-properties
 
 # We now add the PHP5 (latest, at time of writing PHP 5.5.5) PPA like so
-add-apt-repository -y ppa:ondrej/php5
-apt-get update
+sudo add-apt-repository -y ppa:ondrej/php5
+sudo apt-get update
 # People could use (if they wanted PHP 5.4):
 #add-apt-repository -y ppa:ondrej/php5 >> /tmp/ppa_ondrej.txt 2>&1
 
@@ -14,13 +14,13 @@ apt-get update
 #php5 -v
 
 # We specifically specify 'php5-common' as we don't want Apache etc installed too!
-apt-get -y install php5-common php5-cli php-apc php5-curl php5-gd php5-mcrypt php5-sqlite
+sudo apt-get -y install php5-common php5-cli php-apc php5-curl php5-gd php5-mcrypt php5-sqlite
 
 # We install the Git Client to enable auto deployments etc.
-apt-get -y install git
+sudo apt-get -y install git
 
 # We now install Nginx
-apt-get -y install nginx
+sudo apt-get -y install nginx
 
 # Now we'll install a few other bits, namely MySQL, Beanstalkd
 
@@ -46,7 +46,7 @@ sudo sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/tmp\/php5-fpm\.sock/g" /e
 
 # Now we need to pull 'conductor' from GitHub and we'll now deploy the application ready for it to be used.
 cd /etc/conductor
-git clone https://github.com/bobsta63/conductor.git ./
+sudo git clone https://github.com/bobsta63/conductor.git ./
 
 # Now we link the Nginx config...
 sudo ln -s /etc/conductor/configs/conductor_nginx.conf /etc/nginx/sites-enabled/conductor
