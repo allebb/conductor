@@ -25,9 +25,9 @@ sudo apt-get -y install nginx
 # Now we'll install a few other bits, namely MySQL, Beanstalkd
 
 
-
 # Lets now create a default folder structure to hold all of our applications.
-sudo mkdir /etc/conductor # We'll store the main L4 application here (handles creating vhosts etc.)
+# Now we need to pull 'conductor' from GitHub and we'll now deploy the application ready for it to be used.
+sudo git clone https://github.com/bobsta63/conductor.git /etc/conductor
 sudo mkdir /etc/conductor/configs # Stores the user application configs in here.
 sudo mkdir /var/conductor # We'll create a folder structure here to store all of the apps.
 sudo mkdir /var/conductor/applications
@@ -44,14 +44,30 @@ echo "Configuring PHP-FPM for Nginx..."
 # Lets now configure PHP-FPM...
 sudo sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/tmp\/php5-fpm\.sock/g" /etc/php5/fpm/pool.d/www.conf
 
-# Now we need to pull 'conductor' from GitHub and we'll now deploy the application ready for it to be used.
-cd /etc/conductor
-sudo git clone https://github.com/bobsta63/conductor.git ./
-
 # Now we link the Nginx config...
 sudo ln -s /etc/conductor/configs/conductor_nginx.conf /etc/nginx/sites-enabled/conductor
 
+# Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
+MYSQL_ROOT_PASS='change_me'
+echo mysql-server-5.5 mysql-server/root_password password $MYSQL_ROOT_PASS | debconf-set-selections
+echo mysql-server-5.5 mysql-server/root_password_again password $MYSQL_ROOT_PASS | debconf-set-selections
+sudo apt-get -y install mysql-server-5.5
 
+# We'll now install Redis Server
+sudo apt-get -y install redis-server
+sudo /etc/init.d/redis-server restart
+
+# Now we'll install Beanstalkd
+sudo apt-get -y install beanstalkd
+sudo sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/tmp\/php5-fpm\.sock/g" /etc/default/beanstalkd
+sudo /etc/init.d/beanstalkd start
+
+# A good idea that we get Supervisord installed here too!
+
+
+#Lets now start PHP5-FPM and Nginx!
+sudo /etc/init.d/php5-fpm restart
+sudo /etc/init.d/nginx restart
 
 # Now we register the CLI handlers...
 #   conductor list - Lists all hosted applications
