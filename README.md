@@ -26,6 +26,7 @@ Out of the box this script will install and configure the following packages usi
 * Git Client
 * APC
 * MySQL
+* Redis
 * Beanstalkd
 
 Help and support
