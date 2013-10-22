@@ -13,7 +13,7 @@ Installation
 Installation can be done effortlessly by simply running this command from the console!
 
 ```shell
-curl -sS https://github.com/bobsta63/conductor/blob/master/install.sh | sh
+curl -sS https://raw.github.com/bobsta63/conductor/master/install.sh | sh
 ```
 
 What does this install
