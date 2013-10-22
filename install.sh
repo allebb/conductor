@@ -48,9 +48,6 @@ sudo sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/tmp\/php5-fpm\.sock/g" /e
 sudo ln -s /etc/conductor/configs/conductor_nginx.conf /etc/nginx/sites-enabled/conductor
 
 # Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
-MYSQL_ROOT_PASS='change_me'
-echo mysql-server-5.5 mysql-server/root_password password $MYSQL_ROOT_PASS | debconf-set-selections
-echo mysql-server-5.5 mysql-server/root_password_again password $MYSQL_ROOT_PASS | debconf-set-selections
 sudo apt-get -y install mysql-server-5.5
 
 # We'll now install Redis Server
@@ -59,7 +56,7 @@ sudo /etc/init.d/redis-server restart
 
 # Now we'll install Beanstalkd
 sudo apt-get -y install beanstalkd
-sudo sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/tmp\/php5-fpm\.sock/g" /etc/default/beanstalkd
+sudo sed -i "s/\#START=yes/START=yes/g" /etc/default/beanstalkd
 sudo /etc/init.d/beanstalkd start
 
 # A good idea that we get Supervisord installed here too!
