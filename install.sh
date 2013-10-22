@@ -14,7 +14,7 @@ sudo apt-get update
 #php5 -v
 
 # We specifically specify 'php5-common' as we don't want Apache etc installed too!
-sudo apt-get -y install php5-common php5-cli php-apc php5-curl php5-gd php5-mcrypt php5-sqlite
+sudo apt-get -y install php5-common php5-cli php5-fpm php-apc php5-curl php5-gd php5-mcrypt php5-sqlite
 
 # We install the Git Client to enable auto deployments etc.
 sudo apt-get -y install git
