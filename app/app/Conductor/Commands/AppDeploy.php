@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputArgument;
 use Illuminate\Support\Facades\Event;
+use Conductor\Application;
 
 class AppDeploy extends Command
 {
@@ -79,16 +80,21 @@ class AppDeploy extends Command
 
         if ($mysql_generate) {
             // A new MySQL User and DB should be created!
-            Event::fire('mysql.provision', $app_details);
+            $this->info(' > Creating new MySQL database');
+            $this->info(' > Creating new MySQL user');
+            $this->info(' > Securing database');
+            //Event::fire('mysql.provision', $app_details);
         }
 
         if ($git_deploy) {
             // We have to deploy from Git!
-            Event::fire('git.deploy', $app_details);
+            $this->info(' > Deploying application using Git');
+            //Event::fire('git.deploy', $app_details);
         }
 
+        //$data = json_decode(json_encode($app_details));
 
-
+        $this->info('Provisioning new application.');
         Event::fire('application.create', $app_details);
     }
 
