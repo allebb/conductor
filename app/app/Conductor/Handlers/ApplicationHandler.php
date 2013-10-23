@@ -5,6 +5,7 @@ namespace Conductor\Handlers;
 use Conductor\Application;
 use Conductor\Validators\ApplicationCreationValidator;
 use Conductor\Helpers\ConductorApp;
+use Illuminate\Support\Facades\Config;
 
 class ApplicationHandler
 {
@@ -12,6 +13,8 @@ class ApplicationHandler
     // Creates Nginx configuration file and reloads the Nginx configuration for changes to take affect.
     public function provisionApplication(ConductorApp $data)
     {
+        touch(Config::get('conductor.vhconf_root_dir') . '/' . $data->name . '.conf');
+        mkdir(Config::get('conductor.app_root_dir') . '/' . $data->name);
         return true;
     }
 
@@ -20,7 +23,7 @@ class ApplicationHandler
      * @param \Conductor\Helpers\ConductorApp $data
      * @return boolean
      */
-    public function saveApplication(ConductorApp $data)
+    public function createApplication(ConductorApp $data)
     {
         $validator = new ApplicationCreationValidator;
         $result = $validator->validateNewApplication($data);
@@ -33,6 +36,7 @@ class ApplicationHandler
             $application->mysql_pass = $data->mysql_pass;
             $application->mysql_name = $data->mysql_name;
             if ($application->save()) {
+                $this->provisionApplication($data);
                 return true;
             } else {
                 return false;

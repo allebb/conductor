@@ -55,10 +55,17 @@ class AppDeploy extends Command
             $app_defaults = array_add($app_defaults, 'mysql_name', strtolower($name));
             $app_defaults = array_add($app_defaults, 'mysql_user', strtolower($name));
             $app_defaults = array_add($app_defaults, 'mysql_pass', str_random(10));
+        } else {
+            // Its quick and dirty for now but I'll sort this later!
+            $app_defaults = array_add($app_defaults, 'mysql_name', null);
+            $app_defaults = array_add($app_defaults, 'mysql_user', null);
+            $app_defaults = array_add($app_defaults, 'mysql_pass', null);
         }
         if ($this->confirm('Is this application to be deployed from Git? [Y/n] ', true)) {
             $clone_uri = $this->ask('Enter the clone URI: ');
             $app_defaults = array_add($app_defaults, 'git_uri', $clone_uri);
+        } else {
+            $app_defaults = array_add($app_defaults, 'git_uri', null);
         }
 
         // We'll create a new container for our application config!
@@ -72,6 +79,10 @@ class AppDeploy extends Command
 
         $this->info('Provisioning new application...');
         Event::fire('application.create', $apptainer);
+
+        if ($app_defaults->git_uri != null) {
+            Event::fire('git.deploy', $apptainer);
+        }
     }
 
     /**
