@@ -38,4 +38,5 @@ return array(
     'Conductor' => array($baseDir . '/app'),
     'ClassPreloader' => array($vendorDir . '/classpreloader/classpreloader/src'),
     'Carbon' => array($vendorDir . '/nesbot/carbon/src'),
+    'Ballen\\Executioner' => array($vendorDir . '/ballen/executioner/src'),
 );

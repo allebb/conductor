@@ -7,6 +7,7 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'Applications' => $baseDir . '/app/database/migrations/2013_10_23_125750_Applications.php',
+    'Ballen\\Executioner\\Executer' => $vendorDir . '/ballen/executioner/src/Ballen/Executioner/Executer.php',
     'BaseController' => $baseDir . '/app/controllers/BaseController.php',
     'Carbon\\Carbon' => $vendorDir . '/nesbot/carbon/src/Carbon/Carbon.php',
     'ClassPreloader\\Application' => $vendorDir . '/classpreloader/classpreloader/src/ClassPreloader/Application.php',
@@ -29,6 +30,11 @@ return array(
     'Conductor\\Commands\\AppRollback' => $baseDir . '/app/Conductor/Commands/AppRollback.php',
     'Conductor\\Commands\\AppUpgrade' => $baseDir . '/app/Conductor/Commands/AppUpgrade.php',
     'Conductor\\Handlers\\ApplicationHandler' => $baseDir . '/app/Conductor/Handlers/ApplicationHandler.php',
+    'Conductor\\Handlers\\GitHandler' => $baseDir . '/app/Conductor/Handlers/GitHandler.php',
+    'Conductor\\Handlers\\MysqlHandler' => $baseDir . '/app/Conductor/Handlers/MysqlHandler.php',
+    'Conductor\\Helpers\\ConductorApp' => $baseDir . '/app/Conductor/Helpers/ConductorApp.php',
+    'Conductor\\User' => $baseDir . '/app/Conductor/User.php',
+    'Conductor\\Validators\\ApplicationCreationValidator' => $baseDir . '/app/Conductor/Validators/ApplicationCreationValidator.php',
     'DatabaseSeeder' => $baseDir . '/app/database/seeds/DatabaseSeeder.php',
     'Doctrine\\Common\\Annotations\\Annotation' => $vendorDir . '/doctrine/annotations/lib/Doctrine/Common/Annotations/Annotation.php',
     'Doctrine\\Common\\Annotations\\AnnotationException' => $vendorDir . '/doctrine/annotations/lib/Doctrine/Common/Annotations/AnnotationException.php',
