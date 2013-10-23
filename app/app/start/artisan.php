@@ -11,3 +11,12 @@
 |
 */
 
+
+Artisan::add(new Conductor\Commands\AppList);
+Artisan::add(new Conductor\Commands\AppDeploy);
+Artisan::add(new Conductor\Commands\AppDestroy);
+Artisan::add(new Conductor\Commands\AppUpgrade);
+Artisan::add(new Conductor\Commands\AppRollback);
+Artisan::add(new Conductor\Commands\AppBackup);
+Artisan::add(new Conductor\Commands\AppRestore);
+Artisan::add(new Conductor\Commands\AppDepUpgrade);
