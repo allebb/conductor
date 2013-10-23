@@ -3,6 +3,7 @@
 namespace Conductor\Validators;
 
 use Illuminate\Support\Facades\Validator;
+use Conductor\Helpers\ConductorApp;
 
 class ApplicationCreationValidator
 {
@@ -11,32 +12,23 @@ class ApplicationCreationValidator
      * Valiadtes new application settings.
      * @param array $data
      */
-    public function validateNewApplication($data)
+    public function validateNewApplication(ConductorApp $data)
     {
         $validator = Validator::make(
                         array(
-                    'name' => $data['name'],
-                    'fqdn' => $data['fqdn'],
-                    'git_enabled' => $data['git']['enabled'],
-                    'git uri' => $data['git']['uri'],
-                    'mysql_db_name' => $data['mysql']['name'],
-                    'mysql_user' => $data['mysql']['user'],
-                    'mysql_pass' => $data['mysql']['pass'],
+                    'name' => $data->name,
+                    'fqdn' => $data->fqdn,
+                    'git uri' => $data->git_uri,
+                    'mysql_ame' => $data->mysql_name,
+                    'mysql_user' => $data->mysql_user,
+                    'mysql_pass' => $data->mysql_pass,
                         ), array(
                     'name' => array('required', 'min:5', 'unique:application,name'),
                     'fqdn' => array('required', 'unique:application,fqdn'),
-                    'gitenabled' => array('required'),
-                        //'git uri' => array() # We validate this with ->sometimes() instead.
-                        //'mysql db name' => array(), # We validate this with ->sometimes() instead.
-                        //'mysql user' => array(), # We validate this with ->sometimes() instead.
-                        //'mysql pass' => array(), # We validate this with ->sometimes() instead.
                         )
         );
-        $validator->sometimes('git_uri', 'required', function($input) {
-            return $input->git_enabled = true;
-        });
         $validator->sometimes(array('mysql_user', 'mysql_pass'), 'required', function($input) {
-            return $input->mysql_db_name = true;
+            return !empty($input->mysql_name); // If a MySQL database name 'mysql_name' has been added, we'll additonally require the 'mysql_user' and 'mysql_pass'.
         });
         return $validator;
     }

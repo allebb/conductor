@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputArgument;
 use Illuminate\Support\Facades\Event;
+use Conductor\Helpers\ConductorApp;
 use Conductor\Application;
 
 class AppDeploy extends Command
@@ -43,59 +44,25 @@ class AppDeploy extends Command
     public function fire()
     {
 
-        // First we'll set a few defaults to avoid horrible 'not declared' errors...
-        $mysql_generate = false;
-        $git_deploy = false;
-        $clone_uri = null;
-        $mysql_user = null;
-        $mysql_db = null;
-        $mysql_pass = null;
-
         // We'll first gather some answers so we know what we need to do...
         $name = $this->ask('Application name (eg. myapp): ');
         $fqdn = $this->ask('Hosting FQDN (eg. myapp.mytest.com): ');
+        $app_defaults = array(
+            'name' => strtolower($name),
+            'fqdn' => strtolower($fqdn)
+        );
         if ($this->confirm('Would you like a MySQL DB and user generated? [Y/n] ', true)) {
-            $mysql_generate = true;
+            $app_defaults = array_add($app_defaults, 'mysql_name', strtolower($name));
+            $app_defaults = array_add($app_defaults, 'mysql_user', strtolower($name));
+            $app_defaults = array_add($app_defaults, 'mysql_pass', str_random(10));
         }
         if ($this->confirm('Is this application to be deployed from Git? [Y/n] ', true)) {
-            $git_deploy = true;
             $clone_uri = $this->ask('Enter the clone URI: ');
+            $app_defaults = array_add($app_defaults, 'git_uri', $clone_uri);
         }
-
-        // We'll now collate this infomation so we can easily pass it to the event handlers to be used as requird.
-        $app_details = array(
-            'name' => $name,
-            'fqdn' => strtolower($fqdn),
-            'git' => array(
-                'enabled' => $git_deploy,
-                'uri' => $clone_uri,
-            ),
-            'db' => array(
-                'created' => $mysql_generate,
-                'user' => $mysql_user,
-                'pass' => $mysql_pass,
-                'name' => $mysql_db,
-            ),
-        );
-
-        if ($mysql_generate) {
-            // A new MySQL User and DB should be created!
-            $this->info(' > Creating new MySQL database');
-            $this->info(' > Creating new MySQL user');
-            $this->info(' > Securing database');
-            //Event::fire('mysql.provision', $app_details);
-        }
-
-        if ($git_deploy) {
-            // We have to deploy from Git!
-            $this->info(' > Deploying application using Git');
-            //Event::fire('git.deploy', $app_details);
-        }
-
-        //$data = json_decode(json_encode($app_details));
 
         $this->info('Provisioning new application.');
-        Event::fire('application.create', $app_details);
+        Event::fire('application.create', new ConductorApp($app_defaults));
     }
 
     /**
