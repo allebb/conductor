@@ -72,7 +72,7 @@ class AppDeploy extends Command
         $apptainer = new ConductorApp();
         $apptainer->set($app_defaults);
 
-        if ($app_defaults['mysql_name']) {
+        if ($apptainer->mysql_name) {
             $this->info('Creating MySQL user and database...');
             Event::fire('mysql.provision', $apptainer);
         }
@@ -80,7 +80,7 @@ class AppDeploy extends Command
         $this->info('Provisioning new application...');
         Event::fire('application.create', $apptainer);
 
-        if ($app_defaults->git_uri != null) {
+        if ($apptainer->git_uri) {
             Event::fire('git.deploy', $apptainer);
         }
     }

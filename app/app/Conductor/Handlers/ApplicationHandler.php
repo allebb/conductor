@@ -6,6 +6,7 @@ use Conductor\Application;
 use Conductor\Validators\ApplicationCreationValidator;
 use Conductor\Helpers\ConductorApp;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Event;
 
 class ApplicationHandler
 {
@@ -14,7 +15,8 @@ class ApplicationHandler
     public function provisionApplication(ConductorApp $data)
     {
         touch(Config::get('conductor.vhconf_root_dir') . '/' . $data->name . '.conf');
-        mkdir(Config::get('conductor.app_root_dir') . '/' . $data->name);
+        echo 'ias';
+        mkdir(Config::get('conductor.app_root_dir') . '/' . $data->name . '/', 755);
         return true;
     }
 
@@ -36,7 +38,7 @@ class ApplicationHandler
             $application->mysql_pass = $data->mysql_pass;
             $application->mysql_name = $data->mysql_name;
             if ($application->save()) {
-                $this->provisionApplication($data);
+                Event::fire('application.provision', $data);
                 return true;
             } else {
                 return false;
