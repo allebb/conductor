@@ -18,7 +18,7 @@ class ApplicationHandler
     public function saveApplication($data)
     {
         $validator = new ApplicationCreationValidator;
-        if ($validator->passes()) {
+        if ($validator->validateNewApplication($data)->passes()) {
             $application = new Application();
             $application->name = $data['name'];
             $application->fqdn = $data['fqdn'];
