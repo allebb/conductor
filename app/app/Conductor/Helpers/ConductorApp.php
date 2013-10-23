@@ -18,12 +18,10 @@ class ConductorApp
      * Used to manually set properites for the object.
      * @param array $properties
      */
-    public function __construct(array $properties = null)
+    public function set(array $properties)
     {
-        if (isset($properties)) {
-            foreach ($properties as $key => $value) {
-                $this->$key = $value;
-            }
+        foreach ($properties as $key => $value) {
+            $this->$key = $value;
         }
     }
 

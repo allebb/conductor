@@ -20,10 +20,15 @@ class ApplicationHandler
     {
         $validator = new ApplicationCreationValidator;
         $result = $validator->validateNewApplication($data);
-        dd((array) $data);
         if ($result->passes()) {
             $application = new Application();
-            if ($application->save((array) $data)) {
+            $application->name = $data->name;
+            $application->fqdn = $data->fqdn;
+            $application->git_uri = $data->git_uri;
+            $application->mysql_user = $data->mysql_user;
+            $application->mysql_pass = $data->mysql_pass;
+            $application->mysql_name = $data->mysql_name;
+            if ($application->save()) {
                 return true;
             } else {
                 return false;

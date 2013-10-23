@@ -22,7 +22,7 @@ class AppList extends Command
      *
      * @var string
      */
-    protected $description = 'Lists all currently deployed applications';
+    protected $description = 'Lists all deployed applications';
 
     /**
      * Create a new command instance.
@@ -42,7 +42,14 @@ class AppList extends Command
     public function fire()
     {
         $apps = Application::all();
-        dd($apps);
+        $this->info("Live applications:");
+        if ($apps->count() > 0) {
+            foreach ($apps as $app) {
+                $this->info("  > " . $app->name . " - [ " . $app->fqdn . "]");
+            }
+        } else {
+            $this->error('No apps have been yet deployed!');
+        }
     }
 
     /**

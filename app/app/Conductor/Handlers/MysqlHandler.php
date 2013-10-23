@@ -16,22 +16,22 @@ class MysqlHandler
     {
         if (DB::connection('mysql')->statement("CREATE USER `" . $data->mysql_user . "`@`localhost` IDENTIFIED BY '" . $data->mysql_pass . "';")) {
             if (DB::connection('mysql')->statement("CREATE SCHEMA " . $data->mysql_name . ";")) {
-                echo "";
-                echo "Database successfully created!\n";
-                echo "";
-                echo " Database name:" . $data->mysql_name;
-                echo " Username: " . $data->mysql_user;
-                echo " Password: " . $data->mysql_pass;
-                echo "";
-                echo "Please ensure that your production database config matches these values!";
-                echo "";
+                echo "" . PHP_EOL;
+                echo "Database successfully created!\n" . PHP_EOL;
+                echo "" . PHP_EOL;
+                echo " Database name:" . $data->mysql_name . PHP_EOL;
+                echo " Username: " . $data->mysql_user . PHP_EOL;
+                echo " Password: " . $data->mysql_pass . PHP_EOL;
+                echo "" . PHP_EOL;
+                echo "Please ensure that your production database config matches these values!" . PHP_EOL;
+                echo "" . PHP_EOL;
             } else {
-                echo "Oh dang! We couldn't create the database!\n";
+                echo "Oh dang! We couldn't create the database!" . PHP_EOL;
             }
             DB::connection('mysql')->statement("GRANT ALL PRIVILEGES ON `" . $data->mysql_name . "`.* TO `" . $data->mysql_user . "`@`localhost`;");
             DB::connection('mysql')->statement("FLUSH PRIVILEGES;");
         } else {
-            echo "The user could not be created on the database server!";
+            echo "The user could not be created on the database server!" . PHP_EOL;
         }
     }
 

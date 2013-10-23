@@ -61,13 +61,17 @@ class AppDeploy extends Command
             $app_defaults = array_add($app_defaults, 'git_uri', $clone_uri);
         }
 
+        // We'll create a new container for our application config!
+        $apptainer = new ConductorApp();
+        $apptainer->set($app_defaults);
+
         if ($app_defaults['mysql_name']) {
-            // We need to create a DB!
-            Event::fire('mysql.provision', new ConductorApp($app_defaults));
+            $this->info('Creating MySQL user and database...');
+            Event::fire('mysql.provision', $apptainer);
         }
 
-        $this->info('Provisioning new application.');
-        Event::fire('application.create', new ConductorApp($app_defaults));
+        $this->info('Provisioning new application...');
+        Event::fire('application.create', $apptainer);
     }
 
     /**
