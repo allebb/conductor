@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+
+#############################################################
+# Conductor CLI                                             #
+# https://github.com/bobsta63/conductor                     #
+# Created by: Bobby Allen (ballen@bobbyallen.me) 23/10/2013 #
+#############################################################
+
+# Function to echo out the help and info text.
+function display_help {
+    echo ""
+    echo "Conductor CLI Utiltiy"
+    echo "Written by Bobby Allen, October 2013"
+    echo ""
+    echo "Available commands:-"
+    echo ""
+    echo "   $0 start          Starts all dependent Conductor daemons"
+    echo "   $0 stop           Stops all dependent Conductor daemons"
+    echo "   $0 status         Displays the current daemon statuses"
+    echo "   $0 restart        Restarts all dependent Conductor daemons"
+    echo "   $0 reload         Reloads all dependent Conductor daemons"
+    echo "   $0 list           List all currently hosted applications"
+    echo "   $0 cupgrade       Does a self-upgrade on Composer"
+    echo "   $0 app-deploy     Prepares and deploys a new application"
+    echo "   $0 app-destroy    Removes an application from the server"
+    echo "   $0 app-upgrade    Upgrades an application via. Git"
+    echo "   $0 app-rollback   Rolls back the most recent upgrade"
+    echo "   $0 app-depupgrade Updates all appliaction dependencies (composer update)"
+    echo "   $0 app-backup     Backs up an application and dependent DB's"
+    echo "   $0 app-restore    Restores an application and dependent DB's"
+    echo "   $0 --help         Displays this help screen"
+    echo ""
+}
+
+# Function to execute a custom command via. artisan.
+function execute_artisan_cmd() {
+    php /etc/conductor/app/artisan conductor:$1
+}
+
+# Lets work out what we need to do!
+case "$1" in
+        start)
+            /etc/init.d/php5-fpm start
+            /etc/init.d/nginx start
+            ;;
+
+        stop)
+            /etc/init.d/php5-fpm stop
+            /etc/init.d/nginx stop
+            ;;
+
+        status)
+            /etc/init.d/nginx status
+            /etc/init.d/php5-fpm status
+            ;;
+        restart)
+            /etc/init.d/php5-fpm restart
+            /etc/init.d/nginx restart
+            ;;
+        reload)
+            /etc/init.d/php5-fpm reload
+            /etc/init.d/nginx reload
+            ;;
+        list)
+            execute_artisan_cmd list
+            ;;
+        cupgrade)
+            sudo composer self-update
+            ;;
+
+        app-deploy)
+            execute_artisan_cmd $1
+            ;;
+        app-destroy)
+            execute_artisan_cmd $1 $2
+            ;;
+        app-upgrade)
+            execute_artisan_cmd $1 $2
+            ;;
+        app-rollback)
+            execute_artisan_cmd $1 $2
+            ;;
+        app-depupgrade)
+            execute_artisan_cmd $1 $2
+            ;;
+        app-backup)
+            execute_artisan_cmd $1 $2
+            ;;
+        app-restore)
+            execute_artisan_cmd $1 $2
+            ;;
+        *)
+            display_help $1
+            exit 1
+esac
