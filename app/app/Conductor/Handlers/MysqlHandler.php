@@ -41,12 +41,16 @@ class MysqlHandler
      */
     public function destroyDatabase(ConductorApp $data)
     {
-        if (DB::connection('mysql')->statement("DROP " . $data->mysql_name . ";")) {
-            DB::connection('mysql')->statement("DROP USER `" . $data->mysql_user . "`@`localhost`;");
-            DB::connection('mysql')->statement("FLUSH PRIVILEGES;");
-            return true;
+        if ($data->mysql_name != null) {
+            if (DB::connection('mysql')->statement("DROP " . $data->mysql_name . ";")) {
+                DB::connection('mysql')->statement("DROP USER `" . $data->mysql_user . "`@`localhost`;");
+                DB::connection('mysql')->statement("FLUSH PRIVILEGES;");
+                return true;
+            } else {
+                return false;
+            }
         } else {
-            return false;
+            return true;
         }
     }
 

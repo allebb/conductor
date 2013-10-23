@@ -15,7 +15,11 @@ class ApplicationHandler
         return true;
     }
 
-    // Save the application settings t othe database.
+    /**
+     * Creates a new application row in the database.
+     * @param \Conductor\Helpers\ConductorApp $data
+     * @return boolean
+     */
     public function saveApplication(ConductorApp $data)
     {
         $validator = new ApplicationCreationValidator;
@@ -36,6 +40,21 @@ class ApplicationHandler
         } else {
             dd($result->messages()->all());
         }
+    }
+
+    /**
+     * Deletes the application record from the database.
+     * @param \Conductor\Helpers\ConductorApp $data
+     * @return boolean
+     */
+    public function destroyApplication(ConductorApp $data)
+    {
+        $application = Application::where('name', $data->name)->first();
+        if ($application->count() > 0) {
+            $application->delete();
+            return true;
+        }
+        return false;
     }
 
 }

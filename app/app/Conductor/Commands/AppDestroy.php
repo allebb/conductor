@@ -5,7 +5,9 @@ namespace Conductor\Commands;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputArgument;
+use Illuminate\Support\Facades\Config;
 use Conductor\Helpers\ConductorApp;
+use Illuminate\Support\Facades\Event;
 
 class AppDestroy extends Command
 {
@@ -41,9 +43,22 @@ class AppDestroy extends Command
      */
     public function fire()
     {
+        $appname = strtolower($this->argument('appname'));
         $application = new ConductorApp();
-        $application->load($this->argument('appname'));
-        echo "Destoyed " . $application->mysql_name . "";
+        $application->load($appname);
+        // Lets go and delete the nginx configuration file for the virtual host!
+        if (@unlink(Config::get('conductor.vhconf_root_dir') . '/' . $appname . '.conf')) {
+            if (@rmdir(Config::get('conductor.app_root_dir') . '/' . $appname)) {
+                if (!Event::fire('mysql.destroy', $application))
+                    echo "MySQL database and user could not be removed!" . PHP_EOL;
+                // Now we remove the applicaiton from the DB
+                Event::fire('application.destroy', $application);
+            } else {
+                echo "Unable to delete the application hosting directory." . PHP_EOL;
+            }
+        } else {
+            echo "Unable to delete Nginx configuraiton!" . PHP_EOL;
+        }
     }
 
     /**
