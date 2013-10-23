@@ -1,7 +1,9 @@
-conductor
+Conductor
 =========
 
-Conductor (as is in a 'bus' or 'train' conductor) is utiliy (set of scripts) to automate the installation Laravel 4 specific application servers complete with some scripts and CLI commands to help deploy and manage multiple web applications on the server with ease.
+Conductor (as in a 'bus' or 'train' conductor) is utiliy (set of scripts) to automate the installation Laravel 4 specific application servers complete with some scripts and CLI commands to help deploy and manage multiple web applications on the server with ease.
+
+You may be thinking what the hell has a bus or train conductor have to do with anything? - Well I like to think of it as this set of tools assist you getting your apps on and off of the hosting server, it also 'services' your apps by keeping them backed up and handles composer updates too!
 
 Requirements
 ------------
