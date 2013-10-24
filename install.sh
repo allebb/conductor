@@ -35,6 +35,9 @@ sudo mkdir /var/conductor/certificates
 sudo mkdir /var/conductor/logs
 sudo mkdir /var/conductor/backups
 
+# Lets now set some permissions...
+chmod +x /etc/conductor/bin/*
+
 # We now need to make some changes to the default nginx.conf file...
 echo "Configuring Nginx..."
 #sed -i "s/include \/etc\/nginx\/sites-enabled\/\*/include \/etc\/conductor\/config\/conductor_nginx\.conf/g" /etc/nginx/nginx.conf
