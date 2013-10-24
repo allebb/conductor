@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-BINDIR=/etc/conductor/bin
+DIR=/etc/conductor/bin
 source $DIR/_headers
 
 #############################################################
