@@ -3,7 +3,37 @@
 # Load some configuration and 'common' code in...
 BINDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $BINDIR/conf/conductor.conf
-source $BINDIR/_headers
+source $BINDIR/_headers $1 $2
 
 # Application specific...
+echo "Deploying application named: $APPNAME"
+echo -e "Please enter the domain name: "
+read DOMAIN
+echo -e "Does this application require a MySQL DB? [Y/n] "
+read MYSQLREQ
 
+# Lets validate the Domain name to ensure it's valid!
+PATTERN="^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$";
+if [[ "$DOMAIN" =~ $PATTERN ]]; then
+	DOMAIN=`echo $DOMAIN | tr '[A-Z]' '[a-z]'`
+	echo "Creating application virtual host for:" $DOMAIN
+else
+	echo "Invalid domain name, pease try again!"
+	exit 1
+fi
+
+
+
+# Now we need to copy the virtual host template
+CONFIG=$NGINX_CONFIG/$APPNAME.conf
+cp $NGINX_TPLS/nginx_vhost_template.tpl $CONFIG
+sed -i "s/@@DOMAIN@@/$DOMAIN/g" $CONFIG
+sed -i "s/@@APPNAME@@/$APPNAME/g" $CONFIG
+
+# Lets set up the directory structure and lock down some directory permissions.
+mkdir $APPDIRECTORY
+chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP -R $APPDIRECTORY
+chmod 600 $CONFIG
+
+# Now we need to reload Nginx!
+$NGINX_INIT reload

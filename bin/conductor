@@ -14,7 +14,7 @@ function display_help {
     echo "Usage: conductor [OTPION]"
     echo ""
     echo "Options:"
-    echo "  list              List all currently hosted applications"
+    echo "  list all          List all currently hosted applications"
     echo "  deploy {name}     Prepares and deploys a new application"
     echo "  destroy {name}    Removes an application from the server"
     echo "  upgrade {name}    Upgrades an application via. Git"
@@ -34,7 +34,7 @@ function display_help {
 
 # Function to execute a custom command via. artisan.
 function execute_util() {
-    $DIR/constructor_$1
+    $DIR/constructor_$1 $2
 }
 
 # Lets work out what we need to do!
@@ -65,7 +65,7 @@ case "$1" in
             echo "Conductor v.$VERSION"
             ;;
         list)
-            execute_util $1
+            execute_util $1 $2
             ;;
         deploy)
             execute_util $1 $2

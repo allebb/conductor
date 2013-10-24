@@ -5,5 +5,9 @@ BINDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $BINDIR/conf/conductor.conf
 source $BINDIR/_headers
 
-# Application specific...
-ls /C/Users/alleb4
+# Application specific....
+echo ""
+echo "Applications currently deployed:-"
+echo "================================="
+ls $APP_ROOT
+
