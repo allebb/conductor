@@ -36,7 +36,7 @@ sudo mkdir /var/conductor/logs
 sudo mkdir /var/conductor/backups
 
 # Lets now set some permissions...
-chmod +x /etc/conductor/bin/*
+sudo chmod +x /etc/conductor/bin/*
 
 # Lets symlink the main conductor script...
 sudo ln -s /etc/conductor/bin/conductor /usr/bin/conductor
