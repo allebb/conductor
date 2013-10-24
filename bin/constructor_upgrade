@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+# Load some configuration and 'common' code in...
+BINDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $BINDIR/conf/conductor.conf
+source $BINDIR/_headers
+
+# Application specific...

@@ -1,0 +1,7 @@
+# Lets read in the application configuration parameters
+
+# The Conductor version number.
+VERSION="1.0.0 dev"
+
+# Assign a variable to the application name argument.
+APPNAME=$2

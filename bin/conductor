@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/_headers
+
 #############################################################
 # Conductor CLI                                             #
 # https://github.com/bobsta63/conductor                     #
@@ -8,86 +11,82 @@
 
 # Function to echo out the help and info text.
 function display_help {
+    echo "Usage: conductor [OTPION]"
     echo ""
-    echo "Conductor CLI Utiltiy"
-    echo "Written by Bobby Allen, October 2013"
+    echo "Options:"
+    echo "  list              List all currently hosted applications"
+    echo "  deploy {name}     Prepares and deploys a new application"
+    echo "  destroy {name}    Removes an application from the server"
+    echo "  upgrade {name}    Upgrades an application via. Git"
+    echo "  rollback {name}   Rolls back the most recent upgrade"
+    echo "  depupgrade {name} Updates all appliaction dependencies (composer update)"
+    echo "  backup {name}     Backs up an application and dependent DB's"
+    echo "  restore {name}    Restores an application and dependent DB's"
+    echo "  --start           Starts all dependent Conductor daemons"
+    echo "  --stop            Stops all dependent Conductor daemons"
+    echo "  --status          Displays the current daemon statuses"
+    echo "  --restart         Restarts all dependent Conductor daemons"
+    echo "  --reload          Reloads all dependent Conductor daemons"
+    echo "  --version         Displays the version number of Conductor"
     echo ""
-    echo "Available commands:-"
-    echo ""
-    echo "  start          Starts all dependent Conductor daemons"
-    echo "  stop           Stops all dependent Conductor daemons"
-    echo "  status         Displays the current daemon statuses"
-    echo "  restart        Restarts all dependent Conductor daemons"
-    echo "  reload         Reloads all dependent Conductor daemons"
-    echo "  list           List all currently hosted applications"
-    echo "  cupgrade       Does a self-upgrade on Composer"
-    echo "  app-deploy     Prepares and deploys a new application"
-    echo "  app-destroy    Removes an application from the server"
-    echo "  app-upgrade    Upgrades an application via. Git"
-    echo "  app-rollback   Rolls back the most recent upgrade"
-    echo "  app-depupgrade Updates all appliaction dependencies (composer update)"
-    echo "  app-backup     Backs up an application and dependent DB's"
-    echo "  app-restore    Restores an application and dependent DB's"
-    echo "  help         Displays this help screen"
-    echo ""
+    echo "Please report bug at: https://github.com/bobsta63/conductor"
 }
 
 # Function to execute a custom command via. artisan.
-function execute_artisan_cmd() {
-    php /etc/conductor/app/artisan conductor:$1
+function execute_util() {
+    $DIR/constructor_$1
 }
 
 # Lets work out what we need to do!
 case "$1" in
-        start)
+        --start)
             /etc/init.d/php5-fpm start
             /etc/init.d/nginx start
             ;;
 
-        stop)
+        --stop)
             /etc/init.d/php5-fpm stop
             /etc/init.d/nginx stop
             ;;
 
-        status)
+        --status)
             /etc/init.d/nginx status
             /etc/init.d/php5-fpm status
             ;;
-        restart)
+        --restart)
             /etc/init.d/php5-fpm restart
             /etc/init.d/nginx restart
             ;;
-        reload)
+        --reload)
             /etc/init.d/php5-fpm reload
             /etc/init.d/nginx reload
             ;;
+        --version)
+            echo "Conductor v.$VERSION"
+            ;;
         list)
-            execute_artisan_cmd list
+            execute_util $1
             ;;
-        cupgrade)
-            sudo composer self-update
+        deploy)
+            execute_util $1 $2
             ;;
-
-        app-deploy)
-            execute_artisan_cmd $1
+        destroy)
+            execute_util $1 $2
             ;;
-        app-destroy)
-            execute_artisan_cmd $1 $2
+        upgrade)
+            execute_util $1 $2
             ;;
-        app-upgrade)
-            execute_artisan_cmd $1 $2
+        rollback)
+            execute_util $1 $2
             ;;
-        app-rollback)
-            execute_artisan_cmd $1 $2
+        depupgrade)
+            execute_util $1 $2
             ;;
-        app-depupgrade)
-            execute_artisan_cmd $1 $2
+        backup)
+            execute_util $1 $2
             ;;
-        app-backup)
-            execute_artisan_cmd $1 $2
-            ;;
-        app-restore)
-            execute_artisan_cmd $1 $2
+        restore)
+            execute_util $1 $2
             ;;
         *)
             display_help $1

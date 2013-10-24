@@ -65,17 +65,3 @@ sudo /etc/init.d/beanstalkd start
 #Lets now start PHP5-FPM and Nginx!
 sudo /etc/init.d/php5-fpm restart
 sudo /etc/init.d/nginx restart
-
-# Now we register the CLI handlers...
-#   conductor list - Lists all hosted applications
-#   conductor restart - Restarts ALL dependent services.
-#   conductor reload - Reload Nginx config (for new applications to become 'live')
-#
-#   conductor composer:update - Upgrades the version of Composer running on the serve.
-#   conductor app:deploy {app_name} - Creates a new application and will attempt to pull a Git repo.
-#   conductor app:destory {app_name} - Deletes an application and stops all hosting, deletes the DB associated too!
-#   conductor app:upgrade {app_name} - Pulls the latest code from Git, runs migrations, clears application cache, dumps autoload etc.
-#   conductor app:rollback {app_name} - Rolls the application upgrade back (from the recent upgrade)
-#   conductor app:cupdate {app_name} - Runs 'composer update' on the named application.
-#   conductor app:backup {app_name} {file and path to backup too} - Back's up the application and the DB dump (from MySQL if one exists)
-#   conductor app:restore {app_name} {file and path to restore from} - A specific file to restore from, unzip and does import etc.
