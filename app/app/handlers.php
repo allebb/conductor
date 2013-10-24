@@ -4,6 +4,7 @@
 Event::listen('application.provision', 'Conductor\Handlers\ApplicationHandler@provisionApplication');
 Event::listen('application.create', 'Conductor\Handlers\ApplicationHandler@createApplication');
 Event::listen('application.destroy', 'Conductor\Handlers\ApplicationHandler@destroyApplication');
+Event::listen('application.upgrade', 'Conductor\Handlers\ApplicationHandler@upgradeApplication');
 
 // Deploys application from a Git repository.
 Event::listen('git.deploy', 'Conductor\Handlers\GitHandler@cloneRepository');

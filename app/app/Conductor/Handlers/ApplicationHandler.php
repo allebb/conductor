@@ -15,7 +15,6 @@ class ApplicationHandler
     public function provisionApplication(ConductorApp $data)
     {
         touch(Config::get('conductor.vhconf_root_dir') . '/' . $data->name . '.conf');
-        echo 'ias';
         mkdir(Config::get('conductor.app_root_dir') . '/' . $data->name . '/', 755);
         return true;
     }
@@ -46,6 +45,20 @@ class ApplicationHandler
         } else {
             dd($result->messages()->all());
         }
+    }
+
+    public function upgradeApplication(ConductorApp $data)
+    {
+        $application = Application::where('name', $data->name)->first();
+        if ($application->count() > 0) {
+            // We 'pull' the latest code from Git
+            Event::fire('git.update', $data);
+            // We'll now run any migrations, dump the autoloader and clear the app cache!
+            Event::fire('laravel.janitor', $data);
+            Event::fire('laravel.migration', $data);
+            return true;
+        }
+        return false;
     }
 
     /**

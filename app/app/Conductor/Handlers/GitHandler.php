@@ -25,7 +25,12 @@ class GitHandler
 
     public function pullRepository(ConductorApp $project)
     {
-
+        $clone = new Executer;
+        $clone->setApplication('/usr/bin/git pull')
+                ->addArgument('--git-url=' . Config::get('conductor.app_root_dir') . '/' . $project->name);
+        $clone->asExec()->execute();
+        echo $clone->resultAsText();
+        echo "Git 'pull' complete!" . PHP_EOL;
     }
 
 }
