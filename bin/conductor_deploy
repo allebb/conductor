@@ -13,18 +13,18 @@ echo -n "Does this application require a MySQL DB? [Y/n] "
 read MYSQLREQ
 
 # If a MySQL database is required we'll create one now!
-if [[ $MYSQLREQ == "y" || $MYSQLREQ == "Y" || $MYSQLREQ == "yes" || $MYSQLREQ == "Yes" ]]
-then
+#if [[ $MYSQLREQ == "y" || $MYSQLREQ == "Y" || $MYSQLREQ == "yes" || $MYSQLREQ == "Yes" ]]
+#then
 
     # We'll copy over the MySQL DB config template and then update with the application specific stuff!
-    sudo cp $NGINX_TPLS/conductor_db.json $APPDIRECTORY/conductor_db.json
-    sudo sed -i "s/@@APPNAME@@/$APPNAME/g" $APPDIRECTORY/conductor_db.json
-    sudo sed -i "s/@@MYSQLPASSWORD@@/$GENPASS/g" $APPDIRECTORY/conductor_db.json
+    #sudo cp $NGINX_TPLS/conductor_db.json $APPDIRECTORY/conductor_db.json
+    #sudo sed -i "s/@@APPNAME@@/$APPNAME/g" $APPDIRECTORY/conductor_db.json
+    #sudo sed -i "s/@@MYSQLPASSWORD@@/$GENPASS/g" $APPDIRECTORY/conductor_db.json
 
     #Now we create the database user, db and assign the required permissions
 
 
-fi
+#fi
 
 # Lets validate the Domain name to ensure it's valid!
 PATTERN="^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$";
@@ -35,20 +35,20 @@ else
 	exit 1
 fi
 
-# Now we need to copy the virtual host template
+# Now we need to copy the virtual ho#t templat#
 CONFIG=$NGINX_CONFIG/$APPNAME.conf
-HTTPLOGPATH=($NGINX_LOGS/$APPNAME)
+HLOGS=($NGINX_LOGS/$APPNAME)
 sudo cp $NGINX_TPLS/nginx_vhost_template.tpl $CONFIG
 sudo sed -i "s/@@DOMAIN@@/$DOMAIN/g" $CONFIG
 sudo sed -i "s/@@APPNAME@@/$APPNAME/g" $CONFIG
-sudo sed -i "s/@@HTTPLOGPATH@@/$HTTPLOGPATH/g" $CONFIG
+sudo sed -i "s#@@HLOGS@@#/$HLOGS/#" $CONFIG
 
 # Lets set up the directory structure and lock down some directory permissions.
 sudo mkdir $APPDIRECTORY
-sudo mkdir $LOGPATH
+sudo mkdir $HLOGS
 sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $APPDIRECTORY -R
-sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $HTTPLOGPATH -R
-sudo chmod 600 $CONFIG
+sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $HLOGS -R
+sudo chmod 755 $CONFIG
 
 # Now we need to reload Nginx!
 sudo $NGINX_INIT reload

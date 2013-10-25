@@ -7,8 +7,8 @@ server {
     listen          80;
     server_name     @@DOMAIN@@;
 
-    access_log      @@HTTPLOGPATH@@/access.log;
-    error_log       @@HTTPLOGPATH@@/error.log;
+    access_log      @@HLOGS@@/access.log;
+    error_log       @@HLOGS@@/error.log;
     rewrite_log     on;
 
     root            /var/conductor/applications/@@APPNAME@@/public;
