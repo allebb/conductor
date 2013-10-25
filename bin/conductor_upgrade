@@ -20,8 +20,9 @@ then
     #sudo php $APP_ROOT/$APPNAME/artisan dump-autoload
     #echo "Clearing the application cache..."
     #sudo php $APP_ROOT/$APPNAME/artisan cache:clear
-    echo Application is coming online...
+    echo "Application is coming online..."
     #sudo php $APP_ROOT/$APPNAME/artisan up
+    echo "Upgrade completed!"
 else
     #echo "Starting upgrade from Git..."
     #sudo /usr/bin/git pull
@@ -32,4 +33,5 @@ else
     #sudo php $APP_ROOT/$APPNAME/artisan dump-autoload
     #echo "Clearing the application cache..."
     #sudo php $APP_ROOT/$APPNAME/artisan cache:clear
+    echo "Upgrade completed!"
 fi

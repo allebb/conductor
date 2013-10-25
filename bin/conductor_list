@@ -11,6 +11,8 @@ echo "Applications currently deployed:-"
 echo "================================="
 if [[ -n $(ls -A $APP_ROOT) ]]; then
     ls $APP_ROOT
+    echo ""
 else
     echo "No applications have yet been deployed on this server!"
+    echo ""
 fi
