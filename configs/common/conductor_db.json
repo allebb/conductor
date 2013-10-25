@@ -1,0 +1,5 @@
+{
+    "appname": "@@APPNAME@@",
+    "pass": "@@MYSQLPASSWORD@@",
+    "type": "mysql"
+}

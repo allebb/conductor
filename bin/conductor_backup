@@ -7,5 +7,9 @@ source $BINDIR/_headers
 
 # Application specific...
 
+# mysqlbackup db_$APPNAME | gzip > (BACKUP TEMP DIRECTORY)/db_$APPNAME.sql.gz
+# Backup the application directory....
+# Now we compress the log together!
+
 echo "This is reserved for future functionality!"
 exit 1

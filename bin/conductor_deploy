@@ -15,16 +15,14 @@ read MYSQLREQ
 # If a MySQL database is required we'll create one now!
 if [[ $MYSQLREQ == "y" || $MYSQLREQ == "Y" || $MYSQLREQ == "yes" || $MYSQLREQ == "Yes" ]]
 then
-    sudo cat <<EOF > $APPDIRECTORY/conductor_db.json
-    {
-        "appname": "$APPNAME",
-        "password": "mypass",
-        "type": "mysql"
-    }
-    EOF
+
+    # We'll copy over the MySQL DB config template and then update with the application specific stuff!
+    sudo cp $NGINX_TPLS/conductor_db.json $APPDIRECTORY/conductor_db.json
+    sudo sed -i "s/@@APPNAME@@/$APPNAME/g" $APPDIRECTORY/conductor_db.json
+    sudo sed -i "s/@@MYSQLPASSWORD@@/$GENPASS/g" $APPDIRECTORY/conductor_db.json
 
     #Now we create the database user, db and assign the required permissions
-    
+
 
 fi
 
@@ -32,7 +30,6 @@ fi
 PATTERN="^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$";
 if [[ "$DOMAIN" =~ $PATTERN ]]; then
 	DOMAIN=`echo $DOMAIN | tr '[A-Z]' '[a-z]'`
-	echo "Creating application virtual host for:" $DOMAIN
 else
 	echo "Invalid domain name, pease try again!"
 	exit 1
