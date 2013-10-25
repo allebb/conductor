@@ -3,6 +3,33 @@
 # Load some configuration and 'common' code in...
 BINDIR=/etc/conductor/bin
 source $BINDIR/conf/conductor.conf
-source $BINDIR/_headers
+source $BINDIR/_headers $1 $2
 
 # Application specific...
+read -p "Do you wish to 'take down' the application before upgrading? [Y/n] " TAKEDOWN
+if [[ $TAKEDOWN == "y" || $TAKEDOWN == "Y" || $TAKEDOWN == "yes" || $TAKEDOWN == "Yes" ]]
+then
+    echo "Application is going offline..."
+    #sudo php $APP_ROOT/$APPNAME/artisan down
+    #echo "Starting upgrade from Git..."
+    #sudo /usr/bin/git pull
+    #sudo cwd $APP_ROOT/$APPNAME
+    #echo "Running any avaliable DB migrations..."
+    #sudo php $APP_ROOT/$APPNAME/artisan migrate
+    #echo "Dumping and optimising the classloader..."
+    #sudo php $APP_ROOT/$APPNAME/artisan dump-autoload
+    #echo "Clearing the application cache..."
+    #sudo php $APP_ROOT/$APPNAME/artisan cache:clear
+    echo Application is coming online...
+    #sudo php $APP_ROOT/$APPNAME/artisan up
+else
+    #echo "Starting upgrade from Git..."
+    #sudo /usr/bin/git pull
+    #sudo cwd $APP_ROOT/$APPNAME
+    #echo "Running any avaliable DB migrations..."
+    #sudo php $APP_ROOT/$APPNAME/artisan migrate
+    #echo "Dumping and optimising the classloader..."
+    #sudo php $APP_ROOT/$APPNAME/artisan dump-autoload
+    #echo "Clearing the application cache..."
+    #sudo php $APP_ROOT/$APPNAME/artisan cache:clear
+fi

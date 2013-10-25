@@ -9,5 +9,8 @@ source $BINDIR/_headers
 echo ""
 echo "Applications currently deployed:-"
 echo "================================="
-ls $APP_ROOT
-
+if [[ -n $(ls -A) ]]; then
+    ls $APP_ROOT
+else
+    echo "No applications have yet been deployed on this server!"
+fi
