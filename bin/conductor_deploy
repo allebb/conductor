@@ -7,9 +7,9 @@ source $BINDIR/_headers $1 $2
 
 # Application specific...
 echo "Deploying application named: $APPNAME"
-echo -e "Please enter the domain name: "
+echo -n "Please enter the domain name: "
 read DOMAIN
-echo -e "Does this application require a MySQL DB? [Y/n] "
+echo -n "Does this application require a MySQL DB? [Y/n] "
 read MYSQLREQ
 
 # Lets validate the Domain name to ensure it's valid!
@@ -26,7 +26,7 @@ fi
 
 # Now we need to copy the virtual host template
 CONFIG=$NGINX_CONFIG/$APPNAME.conf
-LOG_PATH=$NGINX_LOGS/$APPNAME
+LOG_PATH=($NGINX_LOGS/$APPNAME)
 sudo cp $NGINX_TPLS/nginx_vhost_template.tpl $CONFIG
 sudo sed -i "s/@@DOMAIN@@/$DOMAIN/g" $CONFIG
 sudo sed -i "s/@@APPNAME@@/$APPNAME/g" $CONFIG
