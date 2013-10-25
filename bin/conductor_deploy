@@ -26,14 +26,14 @@ fi
 
 # Now we need to copy the virtual host template
 CONFIG=$NGINX_CONFIG/$APPNAME.conf
-cp $NGINX_TPLS/nginx_vhost_template.tpl $CONFIG
-sed -i "s/@@DOMAIN@@/$DOMAIN/g" $CONFIG
-sed -i "s/@@APPNAME@@/$APPNAME/g" $CONFIG
+sudo cp $NGINX_TPLS/nginx_vhost_template.tpl $CONFIG
+sudo sed -i "s/@@DOMAIN@@/$DOMAIN/g" $CONFIG
+sudo sed -i "s/@@APPNAME@@/$APPNAME/g" $CONFIG
 
 # Lets set up the directory structure and lock down some directory permissions.
-mkdir $APPDIRECTORY
-chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP -R $APPDIRECTORY
-chmod 600 $CONFIG
+sudo mkdir $APPDIRECTORY
+sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP -R $APPDIRECTORY
+sudo chmod 600 $CONFIG
 
 # Now we need to reload Nginx!
-$NGINX_INIT reload
+sudo $NGINX_INIT reload

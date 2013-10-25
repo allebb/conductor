@@ -51,7 +51,7 @@ echo "Configuring PHP-FPM for Nginx..."
 sudo sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/tmp\/php5-fpm\.sock/g" /etc/php5/fpm/pool.d/www.conf
 
 # Now we link the Nginx config...
-sudo ln -s /etc/conductor/configs/conductor_nginx.conf /etc/nginx/sites-enabled/conductor
+sudo ln -s /etc/conductor/configs/common/conductor_nginx.conf /etc/nginx/sites-enabled/conductor
 
 # Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
 sudo apt-get -y install mysql-server-5.5
