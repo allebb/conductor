@@ -3,6 +3,26 @@
 # Load some configuration and 'common' code in...
 BINDIR=/etc/conductor/bin
 source $BINDIR/conf/conductor.conf
-source $BINDIR/_headers
+source $BINDIR/_headers $1 $2
 
 # Application specific...
+
+CONFIG=$NGINX_CONFIG/$APPNAME.conf
+HLOGS=($NGINX_LOGS/$APPNAME)
+
+if [ -d "$APPDIRECTORY" ]; then
+    echo "Destroying application..."
+    # We need to delete the Nginx configuration file...
+    sudo rm $CONFIG
+    # We'll now releoad the daemon in an attempt to free any file locks before we delete the application files.
+    sudo $NGINX_INIT reload
+    # We remove the application hosting director
+    sudo rm -Rf $APPDIRECTORY
+    sudo rm -Rf $HLOGS
+    # We need to delete any associated MySQL databases here!
+
+    echo "...finished!"
+else
+    echo "Application does not exists!"
+    exit 1
+fi
