@@ -26,7 +26,7 @@ fi
 
 # Now we need to copy the virtual host template
 CONFIG=$NGINX_CONFIG/$APPNAME.conf
-LOG_PATH=($NGINX_LOGS/$APPNAME)
+HTTPLOGPATH=($NGINX_LOGS/$APPNAME)
 sudo cp $NGINX_TPLS/nginx_vhost_template.tpl $CONFIG
 sudo sed -i "s/@@DOMAIN@@/$DOMAIN/g" $CONFIG
 sudo sed -i "s/@@APPNAME@@/$APPNAME/g" $CONFIG
