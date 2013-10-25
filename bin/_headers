@@ -1,10 +1,5 @@
-# Lets read in the application configuration parameters
-
 # The Conductor version number.
 VERSION="1.0.0 dev"
-
-# We'll build the application specific folder name.
-APPDIRECTORY=($APP_ROOT/$APPNAME)
 
 # We need to check that unless the first argument is 'list' that we require an application name to be specified!
 if [[ $UID != 0 ]]; then
@@ -23,3 +18,6 @@ fi
 
 # We'll ensure that the application name is set to lower case!
 APPNAME=$(echo $1 | sed 's/.*/\L&/')
+
+# We'll build the application specific folder name.
+APPDIRECTORY=($APP_ROOT/$APPNAME)
