@@ -21,3 +21,9 @@ APPNAME=$(echo $1 | sed 's/.*/\L&/')
 
 # We'll build the application specific folder name.
 APPDIRECTORY=($APP_ROOT/$APPNAME)
+
+# A temporary place for the MySQL 'root' username.
+MYSQLUSER='root'
+
+# A temporary place for the MySQL 'root' user password.
+MYSQLPASS='root'

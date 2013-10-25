@@ -7,10 +7,26 @@ source $BINDIR/_headers $1 $2
 
 # Application specific...
 echo "Deploying application named: $APPNAME"
-echo -n "Please enter the domain name: "
+echo -n "Please enter the FQDN(s) this application: "
 read DOMAIN
 echo -n "Does this application require a MySQL DB? [Y/n] "
 read MYSQLREQ
+
+# If a MySQL database is required we'll create one now!
+if [[ $MYSQLREQ == "y" || $MYSQLREQ == "Y" || $MYSQLREQ == "yes" || $MYSQLREQ == "Yes" ]]
+then
+    sudo cat <<EOF > $APPDIRECTORY/conductor_db.json
+    {
+        "appname": "$APPNAME",
+        "password": "mypass",
+        "type": "mysql"
+    }
+    EOF
+
+    #Now we create the database user, db and assign the required permissions
+    
+
+fi
 
 # Lets validate the Domain name to ensure it's valid!
 PATTERN="^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$";
@@ -21,8 +37,6 @@ else
 	echo "Invalid domain name, pease try again!"
 	exit 1
 fi
-
-
 
 # Now we need to copy the virtual host template
 CONFIG=$NGINX_CONFIG/$APPNAME.conf
