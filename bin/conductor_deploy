@@ -26,13 +26,17 @@ fi
 
 # Now we need to copy the virtual host template
 CONFIG=$NGINX_CONFIG/$APPNAME.conf
+LOGPATH=$NGINX_LOGS/$APPNAME
 sudo cp $NGINX_TPLS/nginx_vhost_template.tpl $CONFIG
 sudo sed -i "s/@@DOMAIN@@/$DOMAIN/g" $CONFIG
 sudo sed -i "s/@@APPNAME@@/$APPNAME/g" $CONFIG
+sudo sed -i "s/@@LOGPATH@@/$LOGPATH/g" $CONFIG
 
 # Lets set up the directory structure and lock down some directory permissions.
 sudo mkdir $APPDIRECTORY
+sudo mkdir $LOGPATH
 sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP -R $APPDIRECTORY
+sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP -R $LOGPATH
 sudo chmod 600 $CONFIG
 
 # Now we need to reload Nginx!
