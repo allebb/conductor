@@ -35,8 +35,8 @@ sudo sed -i "s/@@HTTPLOGPATH@@/$HTTPLOGPATH/g" $CONFIG
 # Lets set up the directory structure and lock down some directory permissions.
 sudo mkdir $APPDIRECTORY
 sudo mkdir $LOGPATH
-sudo chown -R $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $APPDIRECTORY
-sudo chown -R $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $HTTPLOGPATH
+sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $APPDIRECTORY -R
+sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $HTTPLOGPATH -R
 sudo chmod 600 $CONFIG
 
 # Now we need to reload Nginx!
