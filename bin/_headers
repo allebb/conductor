@@ -22,11 +22,10 @@ APPNAME=$(echo $1 | sed 's/.*/\L&/')
 # We'll build the application specific folder name.
 APPDIRECTORY=($APP_ROOT/$APPNAME)
 
-# A temporary place for the MySQL 'root' username.
-MYSQLUSER='root'
+function randopass(){
+	< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-16};echo;
+}
 
-# A temporary place for the MySQL 'root' user password.
-MYSQLPASS='root'
 
 function laravel_migrate() {
 	sudo php $APPDIRECTORY/artisan migrate
@@ -34,3 +33,26 @@ function laravel_migrate() {
 	sudo php $APPDIRECTORY/artisan dump-autoload
 }
 
+function create_mysql() {
+	BTICK='`'
+	MYSQL=`which mysql`
+ 	Q1="CREATE DATABASE IF NOT EXISTS ${BTICK}$1${BTICK};"
+	Q2="GRANT ALL ON ${BTICK}$1${BTICK}.* TO '$2'@'localhost' IDENTIFIED BY '$3';"
+	Q3="FLUSH PRIVILEGES;"
+	SQL="${Q1}${Q2}${Q3}"
+	$MYSQL -u${MYSQLUSER} -p${MYSQLPASS} -e "$SQL"
+
+    sudo cp $NGINX_TPLS/conductor_db.json $APPDIRECTORY/conductor.json
+    sudo sed -i "s/@@APPNAME@@/$APPNAME/g" $APPDIRECTORY/conductor.json
+    sudo sed -i "s/@@MYSQLPASSWORD@@/$3/g" $APPDIRECTORY/conductor.json
+
+	echo ""
+	echo "MySQL Server Details:"
+	echo "DB Name: $1"
+	echo "DB Host: localhost"
+	echo "Username: $2"
+	echo "Password: $3"
+	echo ""
+	echo "Remember that you will need to update your production DB settings to use the above details!"
+	echo ""
+}

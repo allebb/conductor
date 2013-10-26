@@ -34,20 +34,6 @@ else
 	echo ""
 fi
 
-# If a MySQL database is required we'll create one now!
-#if [[ $MYSQLREQ == "y" || $MYSQLREQ == "Y" || $MYSQLREQ == "yes" || $MYSQLREQ == "Yes" ]]
-#then
-
-    # We'll copy over the MySQL DB config template and then update with the application specific stuff!
-    #sudo cp $NGINX_TPLS/conductor_db.json $APPDIRECTORY/conductor_db.json
-    #sudo sed -i "s/@@APPNAME@@/$APPNAME/g" $APPDIRECTORY/conductor_db.json
-    #sudo sed -i "s/@@MYSQLPASSWORD@@/$GENPASS/g" $APPDIRECTORY/conductor_db.json
-
-    #Now we create the database user, db and assign the required permissions
-
-
-#fi
-
 # Lets validate the Domain name to ensure it's valid!
 PATTERN="^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$";
 if [[ "$DOMAIN" =~ $PATTERN ]]; then
@@ -87,6 +73,13 @@ else
 	echo "As you have not choosen to deploy your application using Git you must first"
 	echo "manually copy your application into: $APPDIRECTORY/"
 fi
+
+# If a MySQL database is required we'll create one now!
+if [[ "$MYSQLREQ" == "y" || "$MYSQLREQ" == "Y" || "$MYSQLREQ" == "yes" || "$MYSQLREQ" == "Yes" ]]
+then
+	create_mysql db_$APPNAME u_$APPNAME randopass
+fi
+
 # We'll set some last minute file ownership permissions...
 sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $APPDIRECTORY -R
 echo ""

@@ -7,5 +7,5 @@ source $BINDIR/_headers $1 $2
 
 # Application specific...
 echo "Starting Composer Update task..."
-sudo /usr/bin/composer update --working-dir=$APP_ROOT/$APPNAME
+sudo /usr/bin/composer update --working-dir=$APPDIRECTORY
 echo "Composer Update task is complete!"
