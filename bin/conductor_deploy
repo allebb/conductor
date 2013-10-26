@@ -77,7 +77,10 @@ fi
 # If a MySQL database is required we'll create one now!
 if [[ "$MYSQLREQ" == "y" || "$MYSQLREQ" == "Y" || "$MYSQLREQ" == "yes" || "$MYSQLREQ" == "Yes" ]]
 then
-	create_mysql db_$APPNAME u_$APPNAME randopass
+	echo ""
+	echo -n "Please enter a password for the MySQL database: "
+	read USERMYSQLPASS
+	create_mysql db_$APPNAME u_$APPNAME $USERMYSQLPASS
 fi
 
 # We'll set some last minute file ownership permissions...

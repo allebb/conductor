@@ -6,3 +6,15 @@ source $BINDIR/conf/conductor.conf
 source $BINDIR/_headers
 
 # Application specific...
+if [ -f $BACKUP_DIR/rollback_$APPNAME.tar.gz ];
+then
+	#Lets extract the rollback snaphot
+	tar -xzf /var/conductor/backups/bobbyallen_2013-10-26-2038.tar.gz -C /home/ballen
+
+	# Lets restore the database backup if one exists...
+
+	# Or if the user prefers can just run the DB migration back!
+
+	echo "Application rolled back successfully!"
+fi
+echo "...finished!"

@@ -3,35 +3,46 @@
 # Load some configuration and 'common' code in...
 BINDIR=/etc/conductor/bin
 source $BINDIR/conf/conductor.conf
-source $BINDIR/_headers $1 $2
+source $BINDIR/_headers
 
 # Application specific...
+function gitPullReset() {
+    echo "Starting upgrade from Git..."
+    sudo /usr/bin/git --git-dir=$APPDIRECTORY/.git --work-tree=$APPDIRECTORY reset --hard
+    sudo /usr/bin/git --git-dir=$APPDIRECTORY/.git --work-tree=$APPDIRECTORY pull
+}
+
+function resetApplicationCacheMigrate() {
+    echo "Resetting application ownership permissions..."
+    sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $APPDIRECTORY -R
+    sudo php $APP_ROOT/$APPNAME/artisan migrate
+    sudo php $APP_ROOT/$APPNAME/artisan dump-autoload
+    sudo php $APP_ROOT/$APPNAME/artisan cache:clear
+}
+
+
 read -p "Do you wish to 'take down' the application before upgrading? [Y/n] " TAKEDOWN
 if [[ $TAKEDOWN == "y" || $TAKEDOWN == "Y" || $TAKEDOWN == "yes" || $TAKEDOWN == "Yes" ]]
 then
-    echo "Application is going offline..."
-    #sudo php $APP_ROOT/$APPNAME/artisan down
-    #echo "Starting upgrade from Git..."
-    #sudo /usr/bin/git pull
-    #sudo cwd $APP_ROOT/$APPNAME
-    #echo "Running any avaliable DB migrations..."
-    #sudo php $APP_ROOT/$APPNAME/artisan migrate
-    #echo "Dumping and optimising the classloader..."
-    #sudo php $APP_ROOT/$APPNAME/artisan dump-autoload
-    #echo "Clearing the application cache..."
-    #sudo php $APP_ROOT/$APPNAME/artisan cache:clear
-    echo "Application is coming online..."
-    #sudo php $APP_ROOT/$APPNAME/artisan up
-    echo "Upgrade completed!"
+    echo "Creating application and snapshot..."
+
+    if [ -f $BACKUP_DIR/rollback_$APPNAME.tar.gz ];
+    then
+        sudo rm $BACKUP_DIR/rollback_$APPNAME.tar.gz
+    fi
+    backupApplication rollback_$APPNAME.tar.gz
+    echo "Starting application upgrade..."
+    sudo php $APP_ROOT/$APPNAME/artisan down
+    gitPullReset
+    resetApplicationCacheMigrate
+    sudo php $APP_ROOT/$APPNAME/artisan up
+    echo "...finished!"
 else
-    #echo "Starting upgrade from Git..."
-    #sudo /usr/bin/git pull
-    #sudo cwd $APP_ROOT/$APPNAME
-    #echo "Running any avaliable DB migrations..."
-    #sudo php $APP_ROOT/$APPNAME/artisan migrate
-    #echo "Dumping and optimising the classloader..."
-    #sudo php $APP_ROOT/$APPNAME/artisan dump-autoload
-    #echo "Clearing the application cache..."
-    #sudo php $APP_ROOT/$APPNAME/artisan cache:clear
-    echo "Upgrade completed!"
+    echo "Creating application and snapshot..."
+    sudo rm $BACKUP_DIR/rollback_$APPNAME.tar.gz
+    backupApplication rollback_$APPNAME.tar.gz
+    echo "Starting application upgrade..."
+    gitPullReset
+    resetApplicationCacheMigrate
+    echo "...finished!"
 fi

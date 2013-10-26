@@ -10,6 +10,10 @@ source $BINDIR/_headers
 # mysqlbackup db_$APPNAME | gzip > (BACKUP TEMP DIRECTORY)/db_$APPNAME.sql.gz
 # Backup the application directory....
 # Now we compress the log together!
-
-echo "This is reserved for future functionality!"
-exit 1
+echo "Starting application backup..."
+NOW=$(date +"%Y-%m-%d-%H%M")
+ARCHIVE_FILE="${APPNAME}_$NOW.tar.gz"
+backupApplication $ARCHIVE_FILE
+echo ""
+echo "Backup succesful and located: $BACKUP_DIR/$ARCHIVE_FILE"
+exit 0

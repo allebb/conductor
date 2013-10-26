@@ -14,7 +14,7 @@ function display_help {
     echo "Usage: conductor [OTPION]"
     echo ""
     echo "Options:"
-    echo "  list all          List all currently hosted applications"
+    echo "  list              List all currently hosted applications"
     echo "  deploy {name}     Prepares and deploys a new application"
     echo "  destroy {name}    Removes an application from the server"
     echo "  upgrade {name}    Upgrades an application via. Git"
@@ -65,7 +65,7 @@ case "$1" in
             echo "Conductor v.$VERSION"
             ;;
         list)
-            execute_util $1 $2
+            execute_util $1 all
             ;;
         deploy)
             execute_util $1 $2
