@@ -14,7 +14,7 @@ sudo apt-get update
 #php5 -v
 
 # We specifically specify 'php5-common' as we don't want Apache etc installed too!
-sudo apt-get -y install php5-common php5-cli php5-fpm php-apc php5-curl php5-gd php5-mcrypt php5-sqlite
+sudo apt-get -y install php5-common php5-cli php5-fpm php-apc php5-curl php5-gd php5-mcrypt php5-sqlite php5-mysql
 
 # We install the Git Client to enable auto deployments etc.
 sudo apt-get -y install git
@@ -22,8 +22,9 @@ sudo apt-get -y install git
 # We now install Nginx
 sudo apt-get -y install nginx
 
-# Now we'll install a few other bits, namely MySQL, Beanstalkd
-
+# Now we'll install Composer
+curl -sS https://getcomposer.org/installer | sudo php -- --install-dir=/etc/conductor/bin/composer
+sudo ln -s /etc/conductor/bin/composer/composer.phar /usr/bin/composer
 
 # Lets now create a default folder structure to hold all of our applications.
 # Now we need to pull 'conductor' from GitHub and we'll now deploy the application ready for it to be used.

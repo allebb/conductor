@@ -27,3 +27,10 @@ MYSQLUSER='root'
 
 # A temporary place for the MySQL 'root' user password.
 MYSQLPASS='root'
+
+function laravel_migrate() {
+	sudo php $APPDIRECTORY/artisan migrate
+	sudo php $APPDIRECTORY/artisan cache:clear
+	sudo php $APPDIRECTORY/artisan dump-autoload
+}
+
