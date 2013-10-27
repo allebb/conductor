@@ -45,8 +45,7 @@ A simple command that displays the names of the currently deployed applications 
 
 When you first want to deploy a new instance of a Laravel 4 application on to your server, you are required to SSH in (or you could right a web-based application to speak to the executable behind if you wanted too) to your server and then execute the following command:-
 
-```shell
-sudo conductor new {app name}```
+```sudo conductor new {app name}```
 
 This command will prompt you for the 'FQDN' (or you can add multiples address of which the Virtualhost will server requests for, these should be seperated by spaces!). After entering the FQDN(s) for the new application you'll then be asked if your application requires a MySQL database and as you would expect if you decide you do need a MySQL database Conductor will automatically create a database and MySQL user with permissions to only that database (to keep things secure!). The last part of the deployment you are asked how you would like to deploy your application, you have three options of which are as follows:-
 
