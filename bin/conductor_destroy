@@ -6,30 +6,28 @@ source $BINDIR/conf/conductor.conf
 source $BINDIR/_headers
 
 # Application specific...
-
-CONFIG=$NGINX_CONFIG/$APPNAME.conf
-HLOGS=($NGINX_LOGS/$APPNAME)
-
 if [ -d "$APPDIRECTORY" ]; then
+	echo "Running a quick snapshot as you can never be too careful..."
+	backupApplication priordestroy_$APPNAME.tar.gz
 	echo "Destroying application..."
 	# We need to delete the Nginx configuration file...
-	sudo rm $CONFIG
+	sudo rm $NGINX_CONFIG/$APPNAME.conf
 	# We'll now releoad the daemon in an attempt to free any file locks before we delete the application files.
 	sudo $NGINX_INIT reload
-	# We remove the application hosting director
-	sudo rm -Rf $APPDIRECTORY
-	sudo rm -Rf $HLOGS
 	# We need to delete any associated MySQL databases here!
 	if [ -f "$APPDIRECTORY/conductor.json" ]; then
-		BTICK='`'
 		MYSQL=`which mysql`
 	 	Q1="DROP DATABASE IF EXISTS db_$APPNAME; "
-		Q2="DROP USER IF EXISTS 'u_$APPNAME'@'localhost'; "
+		Q2="DROP USER'u_$APPNAME'@'localhost'; "
 		Q3="FLUSH PRIVILEGES;"
 		SQL="${Q1}${Q2}${Q3}"
 		$MYSQL -u${MYSQLUSER} -p${MYSQLPASS} -e "$SQL"
 	fi
+	# We remove the application hosting director
+	sudo rm -Rf $APPDIRECTORY
+	sudo rm -Rf $NGINX_LOGS/$APPNAME
 	echo "...finished!"
+	exit 0
 else
 	echo "Application does not exists!"
 	exit 1

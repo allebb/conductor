@@ -6,22 +6,17 @@ source $BINDIR/conf/conductor.conf
 source $BINDIR/_headers
 
 # Application specific...
-
-# mysqlbackup db_$APPNAME | gzip > (BACKUP TEMP DIRECTORY)/db_$APPNAME.sql.gz
-# Backup the application directory....
-# Now we compress the log together!
-echo "Starting application backup..."
 NOW=$(date +"%Y-%m-%d-%H%M")
 ARCHIVE_FILE="${APPNAME}_$NOW.tar.gz"
 if [ -d "$APPDIRECTORY" ]; then
+	echo "Starting application backup..."
 	backupApplication $ARCHIVE_FILE
-	echo ""
-	echo "Backup succesful and located: $BACKUP_DIR/$ARCHIVE_FILE"
+	echo "...finished!"
+	echo
+	echo "Backup succesfully created: $BACKUP_DIR/$ARCHIVE_FILE"
 	echo ""
 	exit 0
 else
-	echo ""
-	echo "The application does not appear to exist on this server!"
-	echo
+	echo "Application does not exist!"
 	exit 1
 fi

@@ -6,6 +6,11 @@ source $BINDIR/conf/conductor.conf
 source $BINDIR/_headers $1 $2
 
 # Application specific...
-echo "Starting Composer Update task..."
-sudo /usr/bin/composer update --working-dir=$APPDIRECTORY
-echo "Composer Update task is complete!"
+if [ -f "$APPDIRECTORY/composer.json" ]; then
+	echo "Starting Composer Update task..."
+	sudo /usr/bin/composer update --working-dir=$APPDIRECTORY
+	echo "Composer Update task is complete!"
+else
+	echo "No composer.json file found!"
+	exit 1
+fi

@@ -6,41 +6,44 @@ source $BINDIR/conf/conductor.conf
 source $BINDIR/_headers
 
 # Application specific...
-
-# Extrat the files to the correct place...
-# Lets see if the file exists first and if so we'll then extract it to a temp directory...
+if [ -d $APPDIRECTORY ]; then
 echo ""
-echo "We need to know the full path and filename to the backup archive you'd like to import eg. (/var/conductor/backups/myapp_2013-10-26-0900.tar.gz)"
+echo "Please tell us where the backup archive is located eg. (/var/conductor/backups/myapp_2013-10-26-0900.tar.gz)"
 echo ""
 echo -n "Backup archive location: "
 read BACKUPARCHIVE
-if [ -f "$BACKUPARCHIVE" ]; then
-	# Lets create a temporary directory and extract the backup archive
-	sudo mkdir $TEMP_DIR/restore_$APPNAME
-	# Now we'll extract the backup archive
-	sudo tar -zxf $BACKUPARCHIVE -C $TEMP_DIR/restore_$APPNAME
+echo ""
+	if [ -f "$BACKUPARCHIVE" ]; then
+		# Lets create a temporary directory and extract the backup archive
+		sudo mkdir $TEMP_DIR/restore_$APPNAME
+		# Now we'll extract the backup archive
+		sudo tar -zxf $BACKUPARCHIVE -C $TEMP_DIR/restore_$APPNAME
 
-	# Restore DB if found...
-	if [ -f "$TEMP_DIR/restore_$APPNAME/appdb.sql.gz" ]; then
-		echo "Importing application MySQL database..."	
-		# Re-import the database into MySQL
-		sudo gunzip < $TEMP_DIR/restore_$APPNAME/appdb.sql.gz | mysql -u $MYSQLUSER -p$MYSQLPASS db_$APPNAME
-		echo "Finished importing MySQL database!"
-		sudo rm $TEMP_DIR/restore_$APPNAME/appdb.sql.gz
+		# Restore DB if found...
+		if [ -f "$TEMP_DIR/restore_$APPNAME/appdb.sql.gz" ]; then
+			echo "Importing application MySQL database..."
+			sudo gunzip < $TEMP_DIR/restore_$APPNAME/appdb.sql.gz | mysql -u $MYSQLUSER -p$MYSQLPASS db_$APPNAME
+			echo "Finished importing MySQL database!"
+			sudo rm $TEMP_DIR/restore_$APPNAME/appdb.sql.gz
+		else
+			echo "No Conductor database archive was found, skipping DB import!"
+		fi
+
+		# Now we delete and move the application files to the application root...
+		sudo rm -Rf $APPDIRECTORY
+		sudo cp -Rf $TEMP_DIR/restore_$APPNAME/ $APPDIRECTORY/
+		# We now need to re-apply directory permissions..
+		sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $APPDIRECTORY -R
+
+		# Lets clean up the temp directory...
+		sudo rm -Rf $TEMP_DIR/restore_$APPNAME
+		echo "...finished!"
+		exit 0
 	else
-		echo "No Conductor database archive was found, skipping DB import!"
+		echo "The backup archive could not be found, please check the path and filename and try again!"
+		exit 1
 	fi
-
-	# Now we delete and move the application files to the application root...
-	sudo rm -Rf $APPDIRECTORY
-	sudo cp -Rf $TEMP_DIR/restore_$APPNAME/ $APPDIRECTORY/
-	# We now need to re-apply directory permissions..
-	sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $APPDIRECTORY -R
-
-	# Lets clean up the temp directory...
-	sudo rm -Rf $TEMP_DIR/restore_$APPNAME
-	echo "...finished!"
 else
-	echo "The backup archive could not be found, please check the path and filename and try again!"
+	echo "Application does not exists!"
 	exit 1
 fi

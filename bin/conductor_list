@@ -12,7 +12,9 @@ echo "================================="
 if [[ -n $(ls -A $APP_ROOT) ]]; then
     ls $APP_ROOT
     echo ""
+    exit 0
 else
     echo "No applications have yet been deployed on this server!"
     echo ""
+    exit 1
 fi

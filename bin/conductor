@@ -15,7 +15,7 @@ function display_help {
     echo ""
     echo "Options:"
     echo "  list              List all currently hosted applications"
-    echo "  deploy {name}     Prepares and deploys a new application"
+    echo "  new {name}        Prepares and deploys a new application"
     echo "  destroy {name}    Removes an application from the server"
     echo "  upgrade {name}    Upgrades an application via. Git"
     echo "  rollback {name}   Rolls back the most recent upgrade"
@@ -72,7 +72,7 @@ case "$1" in
         list)
             execute_util $1 true
             ;;
-        deploy)
+        new)
             execute_util $1 $2
             ;;
         destroy)

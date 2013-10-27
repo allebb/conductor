@@ -16,13 +16,17 @@ APPNAME=$(echo $1 | sed 's/.*/\L&/')
 # We'll build the application specific folder name.
 APPDIRECTORY=($APP_ROOT/$APPNAME)
 
-function laravel_migrate() {
-	sudo php $APPDIRECTORY/artisan migrate
-	sudo php $APPDIRECTORY/artisan cache:clear
-	sudo php $APPDIRECTORY/artisan dump-autoload
+function laravelMigrate() {
+	if [ -f "$APPDIRECTORY/artisan" ]; then
+		sudo php $APPDIRECTORY/artisan migrate
+		sudo php $APPDIRECTORY/artisan cache:clear
+		sudo php $APPDIRECTORY/artisan dump-autoload
+	else
+		echo "Skipping migration, cache-clear etc. as no 'Artisan' was found!"
+	fi
 }
 
-function create_mysql() {
+function createMysql() {
 	BTICK='`'
 	MYSQL=`which mysql`
  	Q1="CREATE DATABASE IF NOT EXISTS ${BTICK}$1${BTICK};"
@@ -40,14 +44,14 @@ function create_mysql() {
 	echo "Username: $2"
 	echo "Password: $3"
 	echo ""
-	echo "Remember that you will need to update your production DB settings to use the above details!"
+	echo "Remember that you may need to update your production DB settings to use the above details!"
 	echo ""
 }
 
 function backupApplication() {
 	sudo cp -R $APPDIRECTORY $TEMP_DIR/$APPNAME
-	echo "Backuping up MySQL database (if exists)..."
-	mysqldump -u$MYSQLUSER -p$MYSQLPASS --no-create-db  db_$APPNAME | gzip -c | cat > $TEMP_DIR/$APPNAME/appdb.sql.gz
+	echo "Backing up MySQL database (if exists)..."
+	/usr/bin/mysqldump -u$MYSQLUSER -p$MYSQLPASS --no-create-db  db_$APPNAME | gzip -c | cat > $TEMP_DIR/$APPNAME/appdb.sql.gz
 	echo "Compressing backup archive..."
 	sudo tar -zcf $TEMP_DIR/$1 -C $TEMP_DIR/$APPNAME/ .
 	echo "Cleaning up..."
@@ -55,6 +59,8 @@ function backupApplication() {
 	sudo mv $TEMP_DIR/$1 $BACKUP_DIR/$1
 }
 
-function restoreApplication() {
-	echo "Restoring application..."
+function gitPullReset() {
+    echo "Starting upgrade from Git..."
+    sudo /usr/bin/git --git-dir=$APPDIRECTORY/.git --work-tree=$APPDIRECTORY reset --hard
+    sudo /usr/bin/git --git-dir=$APPDIRECTORY/.git --work-tree=$APPDIRECTORY pull
 }

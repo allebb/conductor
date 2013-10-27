@@ -15,7 +15,8 @@ fi
 
 # Now we'll prompt for some required information...
 echo "Deploying application named: $APPNAME"
-echo -n "Please enter the FQDN(s) this application: "
+echo ""
+echo -n "Please enter the FQDN(s) for this application: "
 read DOMAIN
 echo -n "Does this application require a MySQL DB? [Y/n] "
 read MYSQLREQ
@@ -68,12 +69,28 @@ then
 	rm -Rf $APPDIRECTORY
 	sudo git clone $GITURI $APPDIRECTORY
 	# We'll now migrate and clear cache etc.
-	#sudo /usr/bin/composer upgrade
-	laravel_migrate
+	if [ -d "$APPDIRECTORY/vendor" ]; then
+		# We'll assume the application has its own vendor dependencies and we won't screw around!
+		echo "Skipping dependencies as 'vendor' directory exists."
+	else
+		# Now vendor folder exists so we'll have to download using composer!
+		echo "Downloading dependencies..."
+		sudo /usr/bin/composer update --working-dir=$APPDIRECTORY
+	fi
+	if [ -f "$PPDIRECTORY/artisan" ]; then
+		# Running Laravel Application specific stuff...
+		laravelMigrate
+	fi
 else
-	echo "As you have not choosen to deploy your application using Git you must first"
-	echo "manually copy your application into: $APPDIRECTORY/"
+	echo "As you have choosen not to deploy your application using Git you must first"
+	echo "manually copy your application file into: $APPDIRECTORY/ or if you are migrating"
+	echo "from another server you can use use 'conductor restore $APPNAME' to restore"
+	echo "this application from a backup archive."
 fi
+
+# We'll set some last minute file ownership permissions...
+echo "Setting ownership permissions on application files..."
+sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $APPDIRECTORY -R
 
 # If a MySQL database is required we'll create one now!
 if [[ "$MYSQLREQ" == "y" || "$MYSQLREQ" == "Y" || "$MYSQLREQ" == "yes" || "$MYSQLREQ" == "Yes" ]]
@@ -81,10 +98,7 @@ then
 	echo ""
 	echo -n "Please enter a password for the MySQL database: "
 	read USERMYSQLPASS
-	create_mysql db_$APPNAME u_$APPNAME $USERMYSQLPASS
+	createMysql db_$APPNAME u_$APPNAME $USERMYSQLPASS
 fi
-
-# We'll set some last minute file ownership permissions...
-sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $APPDIRECTORY -R
-echo ""
 echo "...finished!"
+exit 0
