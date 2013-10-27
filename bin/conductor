@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 DIR=/etc/conductor/bin
-source $DIR/_headers
+source $DIR/_version
 
 #############################################################
 # Conductor CLI                                             #
@@ -28,6 +28,7 @@ function display_help {
     echo "  --restart         Restarts all dependent Conductor daemons"
     echo "  --reload          Reloads all dependent Conductor daemons"
     echo "  --version         Displays the version number of Conductor"
+    echo "  --help            Displays this help screen."
     echo ""
     echo "Please report bug at: https://github.com/bobsta63/conductor"
 }
@@ -64,8 +65,12 @@ case "$1" in
         --version)
             echo "Conductor v.$VERSION"
             ;;
+        --help)
+            display_help $1
+            exit 1
+            ;;
         list)
-            execute_util $1 all
+            execute_util $1 true
             ;;
         deploy)
             execute_util $1 $2
