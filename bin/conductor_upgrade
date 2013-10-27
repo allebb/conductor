@@ -20,31 +20,38 @@ function resetApplicationCacheMigrate() {
     sudo php $APP_ROOT/$APPNAME/artisan cache:clear
 }
 
-
-read -p "Do you wish to 'take down' the application before upgrading? [Y/n] " TAKEDOWN
-if [[ $TAKEDOWN == "y" || $TAKEDOWN == "Y" || $TAKEDOWN == "yes" || $TAKEDOWN == "Yes" ]]
-then
-    echo "Creating application and snapshot..."
-
-    if [ -f $BACKUP_DIR/rollback_$APPNAME.tar.gz ];
+if [ -d "$APPDIRECTORY" ]; then
+    read -p "Do you wish to 'take down' the application before upgrading? [Y/n] " TAKEDOWN
+    if [[ $TAKEDOWN == "y" || $TAKEDOWN == "Y" || $TAKEDOWN == "yes" || $TAKEDOWN == "Yes" ]]
     then
+        echo "Creating application and snapshot..."
+
+        if [ -f $BACKUP_DIR/rollback_$APPNAME.tar.gz ];
+        then
+            sudo rm $BACKUP_DIR/rollback_$APPNAME.tar.gz
+        fi
+        backupApplication rollback_$APPNAME.tar.gz
+        echo "Starting application upgrade..."
+        sudo php $APP_ROOT/$APPNAME/artisan down
+        gitPullReset
+        #sudo /usr/bin/composer update --no-dev -o --working-dir=$APPDIRECTORY
+        resetApplicationCacheMigrate
+        sudo php $APP_ROOT/$APPNAME/artisan up
+        echo "...finished!"
+    else
+        echo "Creating application and snapshot..."
         sudo rm $BACKUP_DIR/rollback_$APPNAME.tar.gz
+        backupApplication rollback_$APPNAME.tar.gz
+        echo "Starting application upgrade..."
+        gitPullReset
+        #sudo /usr/bin/composer update --no-dev -o --working-dir=$APPDIRECTORY
+        resetApplicationCacheMigrate
+        echo "...finished!"
+        exit 0
     fi
-    backupApplication rollback_$APPNAME.tar.gz
-    echo "Starting application upgrade..."
-    sudo php $APP_ROOT/$APPNAME/artisan down
-    gitPullReset
-    #sudo /usr/bin/composer update --no-dev -o --working-dir=$APPDIRECTORY
-    resetApplicationCacheMigrate
-    sudo php $APP_ROOT/$APPNAME/artisan up
-    echo "...finished!"
 else
-    echo "Creating application and snapshot..."
-    sudo rm $BACKUP_DIR/rollback_$APPNAME.tar.gz
-    backupApplication rollback_$APPNAME.tar.gz
-    echo "Starting application upgrade..."
-    gitPullReset
-    #sudo /usr/bin/composer update --no-dev -o --working-dir=$APPDIRECTORY
-    resetApplicationCacheMigrate
-    echo "...finished!"
+    echo ""
+    echo "The application does not appear to exist on this server!"
+    echo
+    exit 1
 fi
