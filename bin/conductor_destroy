@@ -20,7 +20,7 @@ if [ -d "$APPDIRECTORY" ]; then
 	sudo rm -Rf $APPDIRECTORY
 	sudo rm -Rf $HLOGS
 	# We need to delete any associated MySQL databases here!
-	if [ -d "$APPDIRECTORY/conductor.json" ]; then
+	if [ -f "$APPDIRECTORY/conductor.json" ]; then
 		BTICK='`'
 		MYSQL=`which mysql`
 	 	Q1="DROP DATABASE IF EXISTS db_$APPNAME; "
