@@ -7,7 +7,7 @@ if (!-d $request_filename) {
 }
 
 location ~* \.php$ {
-    fastcgi_pass                    unix:/tmp/php5-fpm.sock;
+    fastcgi_pass                    unix:/var/run/php5-fpm.sock;
     fastcgi_index                   index.php;
     fastcgi_split_path_info         ^(.+\.php)(.*)$;
     include                         /etc/nginx/fastcgi_params;
