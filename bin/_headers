@@ -47,7 +47,7 @@ function create_mysql() {
 function backupApplication() {
 	sudo cp -R $APPDIRECTORY $TEMP_DIR/$APPNAME
 	echo "Backuping up MySQL database (if exists)..."
-	mysqldump -u$MYSQLUSER -p$MYSQLPASS db_$APPNAME | gzip -c | cat > $TEMP_DIR/$APPNAME/appdb.sql.gz
+	mysqldump -u$MYSQLUSER -p$MYSQLPASS --no-create-db  db_$APPNAME | gzip -c | cat > $TEMP_DIR/$APPNAME/appdb.sql.gz
 	echo "Compressing backup archive..."
 	sudo tar -zcf $TEMP_DIR/$1 -C $TEMP_DIR/$APPNAME/ .
 	echo "Cleaning up..."

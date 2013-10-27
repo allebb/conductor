@@ -68,6 +68,7 @@ then
 	rm -Rf $APPDIRECTORY
 	sudo git clone $GITURI $APPDIRECTORY
 	# We'll now migrate and clear cache etc.
+	#sudo /usr/bin/composer upgrade
 	laravel_migrate
 else
 	echo "As you have not choosen to deploy your application using Git you must first"

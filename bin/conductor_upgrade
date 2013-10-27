@@ -34,6 +34,7 @@ then
     echo "Starting application upgrade..."
     sudo php $APP_ROOT/$APPNAME/artisan down
     gitPullReset
+    #sudo /usr/bin/composer update --no-dev -o --working-dir=$APPDIRECTORY
     resetApplicationCacheMigrate
     sudo php $APP_ROOT/$APPNAME/artisan up
     echo "...finished!"
@@ -43,6 +44,7 @@ else
     backupApplication rollback_$APPNAME.tar.gz
     echo "Starting application upgrade..."
     gitPullReset
+    #sudo /usr/bin/composer update --no-dev -o --working-dir=$APPDIRECTORY
     resetApplicationCacheMigrate
     echo "...finished!"
 fi

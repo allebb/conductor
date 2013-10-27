@@ -16,4 +16,5 @@ ARCHIVE_FILE="${APPNAME}_$NOW.tar.gz"
 backupApplication $ARCHIVE_FILE
 echo ""
 echo "Backup succesful and located: $BACKUP_DIR/$ARCHIVE_FILE"
+echo ""
 exit 0

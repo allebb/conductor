@@ -20,14 +20,15 @@ if [ -d "$APPDIRECTORY" ]; then
 	sudo rm -Rf $APPDIRECTORY
 	sudo rm -Rf $HLOGS
 	# We need to delete any associated MySQL databases here!
-	BTICK='`'
-	MYSQL=`which mysql`
- 	Q1="DROP DATABASE IF EXISTS db_$APPNAME; "
-	Q2="DROP USER 'u_$APPNAME'@'localhost'; "
-	Q3="FLUSH PRIVILEGES;"
-	SQL="${Q1}${Q2}${Q3}"
-	$MYSQL -u${MYSQLUSER} -p${MYSQLPASS} -e "$SQL"
-
+	if [ -d "$APPDIRECTORY/conductor.json" ]; then
+		BTICK='`'
+		MYSQL=`which mysql`
+	 	Q1="DROP DATABASE IF EXISTS db_$APPNAME; "
+		Q2="DROP USER IF EXISTS 'u_$APPNAME'@'localhost'; "
+		Q3="FLUSH PRIVILEGES;"
+		SQL="${Q1}${Q2}${Q3}"
+		$MYSQL -u${MYSQLUSER} -p${MYSQLPASS} -e "$SQL"
+	fi
 	echo "...finished!"
 else
 	echo "Application does not exists!"
