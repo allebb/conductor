@@ -8,13 +8,33 @@ source $BINDIR/_headers
 # Application specific...
 if [ -f $BACKUP_DIR/rollback_$APPNAME.tar.gz ];
 then
-	#Lets extract the rollback snaphot
-	tar -xzf /var/conductor/backups/bobbyallen_2013-10-26-2038.tar.gz -C /home/ballen
+	sudo mkdir $TEMP_DIR/restore_$APPNAME
+	# Now we'll extract the backup archive
+	sudo tar -zxf $BACKUP_DIR/rollback_$APPNAME.tar.gz -C $TEMP_DIR/restore_$APPNAME
 
-	# Lets restore the database backup if one exists...
+	# Restore DB if found...
+	if [ -f "$TEMP_DIR/restore_$APPNAME/appdb.sql.gz" ];
+	then
+		echo "Importing application MySQL database..."	
+		# Re-import the database into MySQL
+		sudo gunzip < $TEMP_DIR/restore_$APPNAME/appdb.sql.gz | mysql -u $MYSQLUSER -p$MYSQLPASS db_$APPNAME
+		echo "Finished importing MySQL database!"
+		sudo rm $TEMP_DIR/restore_$APPNAME/appdb.sql.gz
+	else
+		echo "No Conductor database archive was found, skipping DB import!"
+	fi
 
-	# Or if the user prefers can just run the DB migration back!
-
-	echo "Application rolled back successfully!"
+	# Now we delete and move the application files to the application root...
+	sudo rm -Rf $APPDIRECTORY
+	sudo cp -Rf $TEMP_DIR/restore_$APPNAME/ $APPDIRECTORY/
+	# We now need to re-apply directory permissions..
+	sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $APPDIRECTORY -R
+	# Lets clean up the temp directory...
+	sudo rm -Rf $TEMP_DIR/restore_$APPNAME
+	echo "...finished!"
+	exit 0
+else
+	echo "The rollback snapshot could not be found, maybe this was manually deleted or an upgrade has not yet been completed!"
+	exit 1
 fi
 echo "...finished!"
