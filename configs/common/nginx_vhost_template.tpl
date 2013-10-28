@@ -10,6 +10,7 @@ server {
     access_log      @@HLOGS@@/access.log;
     error_log       @@HLOGS@@/error.log;
     rewrite_log     on;
+    server_tokens   off;
 
     root            /var/conductor/applications/@@APPNAME@@/public;
     index           index.php;
