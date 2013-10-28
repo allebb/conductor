@@ -77,7 +77,7 @@ then
 		echo "Downloading dependencies..."
 		sudo /usr/bin/composer update --working-dir=$APPDIRECTORY
 	fi
-	if [ -f "$PPDIRECTORY/artisan" ]; then
+	if [ -f "$APPDIRECTORY/artisan" ]; then
 		# Running Laravel Application specific stuff...
 		laravelMigrate
 	fi
