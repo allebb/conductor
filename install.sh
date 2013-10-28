@@ -35,6 +35,7 @@ sudo mkdir /var/conductor/applications
 sudo mkdir /var/conductor/certificates
 sudo mkdir /var/conductor/logs
 sudo mkdir /var/conductor/backups
+sudi mkdir /var/conductor/tmp
 
 # Lets now set some permissions...
 sudo chmod +x /etc/conductor/bin/*
