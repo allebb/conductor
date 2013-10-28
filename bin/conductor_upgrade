@@ -19,7 +19,9 @@ if [ -d "$APPDIRECTORY" ]; then
         if [ -f "$APPDIRECTORY/artisan" ]; then
             sudo php $APP_ROOT/$APPNAME/artisan down
         fi
-        gitPullReset
+        if [ -d "$APPDIRECTORY/.git" ]; then
+            gitPullReset
+        fi
         sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $APPDIRECTORY -R
         laravelMigrate
         if [ -f "$APPDIRECTORY/artisan" ]; then
@@ -35,7 +37,9 @@ if [ -d "$APPDIRECTORY" ]; then
         fi
         backupApplication rollback_$APPNAME.tar.gz
         echo "Starting application upgrade..."
-        gitPullReset
+        if [ -d "$APPDIRECTORY/.git" ]; then
+            gitPullReset
+        fi
         sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $APPDIRECTORY -R
         laravelMigrate
         echo "...finished!"

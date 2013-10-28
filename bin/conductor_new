@@ -23,7 +23,7 @@ read MYSQLREQ
 echo -n "Deploy and manage application with Git? [Y/n] "
 read USEGIT
 
-# If the user wants to use Git We'll ask them some respository information
+# If the user wants to use Git We'll ask them some repository information
 if [[ "$USEGIT" == "n" || "$USEGIT" == "N" || "$USEGIT" == "no" || "$USEGIT" == "No" || "$USEGIT" == "NO" ]]
 then
 	GIT="false"
@@ -44,7 +44,7 @@ else
 	exit 1
 fi
 
-# Now we need to copy the virtual ho#t templat#
+# Now we need to copy the virtual host template
 CONFIG=$NGINX_CONFIG/$APPNAME.conf
 HLOGS=($NGINX_LOGS/$APPNAME)
 sudo cp $NGINX_TPLS/nginx_vhost_template.tpl $CONFIG
