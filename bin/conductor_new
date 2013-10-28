@@ -36,13 +36,13 @@ else
 fi
 
 # Lets validate the Domain name to ensure it's valid!
-PATTERN="^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$";
-if [[ "$DOMAIN" =~ $PATTERN ]]; then
-	DOMAIN=`echo $DOMAIN | tr '[A-Z]' '[a-z]'`
-else
-	echo "Invalid domain name, pease try again!"
-	exit 1
-fi
+#PATTERN="^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$";
+#if [[ "$DOMAIN" =~ $PATTERN ]]; then
+#	DOMAIN=`echo $DOMAIN | tr '[A-Z]' '[a-z]'`
+#else
+#	echo "Invalid domain name, pease try again!"
+#	exit 1
+#fi
 
 # Now we need to copy the virtual host template
 CONFIG=$NGINX_CONFIG/$APPNAME.conf
@@ -82,10 +82,11 @@ then
 		laravelMigrate
 	fi
 else
-	echo "As you have choosen not to deploy your application using Git you must first"
-	echo "manually copy your application file into: $APPDIRECTORY/ or if you are migrating"
-	echo "from another server you can use use 'conductor restore $APPNAME' to restore"
-	echo "this application from a backup archive."
+	echo "As you have choosen not to deploy your application using Git you must first manually copy your application file into: "
+        echo ""
+        echo "$APPDIRECTORY/"
+        echo ""
+        echo "or if you are migrating from another server you can use use 'conductor restore $APPNAME' to restore this application from a backup archive."
 fi
 
 # We'll set some last minute file ownership permissions...
