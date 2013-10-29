@@ -29,19 +29,21 @@ function laravelMigrate() {
 function createMysql() {
 	BTICK='`'
 	MYSQL=`which mysql`
+	# Due to MySQL username length limitation we'll have to shorten the username if it exceeds 14 characters ('u_' + username)
+	MYSQLUSERCLEAN="`echo "u_${2//[^a-zA-Z0-9 ]/}" | cut -c -16`"
  	Q1="CREATE DATABASE IF NOT EXISTS ${BTICK}$1${BTICK};"
-	Q2="GRANT ALL ON ${BTICK}$1${BTICK}.* TO '$2'@'localhost' IDENTIFIED BY '$3';"
+	Q2="GRANT ALL ON ${BTICK}$1${BTICK}.* TO '$MYSQLUSERCLEAN'@'localhost' IDENTIFIED BY '$3';"
 	Q3="FLUSH PRIVILEGES;"
 	SQL="${Q1}${Q2}${Q3}"
 	$MYSQL -u${MYSQLUSER} -p${MYSQLPASS} -e "$SQL"
-    sudo cp $NGINX_TPLS/conductor_db.json $APPDIRECTORY/conductor.json
-    sudo sed -i "s/@@APPNAME@@/$APPNAME/g" $APPDIRECTORY/conductor.json
-    sudo sed -i "s/@@MYSQLPASSWORD@@/$3/g" $APPDIRECTORY/conductor.json
+                  sudo cp $NGINX_TPLS/conductor_db.json $APPDIRECTORY/conductor.json
+                  sudo sed -i "s/@@APPNAME@@/$APPNAME/g" $APPDIRECTORY/conductor.json
+                  sudo sed -i "s/@@MYSQLPASSWORD@@/$3/g" $APPDIRECTORY/conductor.json
 	echo ""
 	echo "MySQL Server Details:"
 	echo "DB Name: $1"
 	echo "DB Host: localhost"
-	echo "Username: $2"
+	echo "Username: $MYSQLUSERCLEAN"
 	echo "Password: $3"
 	echo ""
 	echo "Remember that you may need to update your production DB settings to use the above details!"
