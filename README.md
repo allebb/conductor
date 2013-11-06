@@ -18,6 +18,27 @@ Installation can be done effortlessly by simply running this command from the co
 curl -sS https://raw.github.com/bobsta63/conductor/master/install.sh | sh
 ```
 
+Following installation you will need to edit the conductor.conf file and set the MySQL root password which you entered during the installation process.
+
+```shell
+nano /etc/conductor/bin/conf/conductor.conf
+```
+
+Now change the section (lines 31-32) to use your MySQL root password:-
+
+```shell
+# The MySQL user password
+MYSQLPASS='your_password_here'
+```
+
+Save the file and now your ready to use conductor!
+
+Check that it's installed and working by entering the following command at the terminal!
+
+```shell
+conductor --help
+```
+
 What does this install
 ----------------------
 
