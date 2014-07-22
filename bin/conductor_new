@@ -75,14 +75,10 @@ then
 	else
 		# Now vendor folder exists so we'll have to download using composer!
 		echo "Downloading dependencies..."
-		sudo /usr/bin/composer update --working-dir=$APPDIRECTORY
-	fi
-	if [ -f "$APPDIRECTORY/artisan" ]; then
-		# Running Laravel Application specific stuff...
-		laravelMigrate
+		sudo /usr/bin/composer install --working-dir=$APPDIRECTORY
 	fi
 else
-	echo "As you have choosen not to deploy your application using Git you must first manually copy your application file into: "
+	echo "As you have chosen not to deploy your application using Git you must first manually copy your application file into: "
         echo ""
         echo "$APPDIRECTORY/"
         echo ""
@@ -101,5 +97,11 @@ then
 	read USERMYSQLPASS
 	createMysql db_$APPNAME u_$APPNAME $USERMYSQLPASS
 fi
+
+if [ -f "$APPDIRECTORY/artisan" ]; then
+    # Running Laravel Application specific stuff...
+    laravelMigrate
+fi
+
 echo "...finished!"
 exit 0

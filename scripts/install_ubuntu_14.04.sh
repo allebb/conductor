@@ -22,6 +22,8 @@ sudo apt-get -y install php5-common php5-cli php5-fpm php-apc php5-curl php5-gd 
 
 # We now need to enable the Mcrypt extension (as this isn't done by default)
 php5enmod mcrypt
+service nginx restart
+service php5-fpm restart
 
 # We install the Git Client to enable auto deployments etc.
 sudo apt-get -y install git
