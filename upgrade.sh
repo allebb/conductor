@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Change into the main 'conductor' directory.
-sudo cd /etc/conductor
+cd /etc/conductor
 
 # Pull the latest code changes from GitHub.
 sudo git fetch --all
