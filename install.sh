@@ -11,5 +11,5 @@ sudo chmod +x scripts/*.sh
 # We detect what version of OS they are using and then send them off to the
 # correct install script!
 VER=$(lsb_release -sr)
-sudo wget install_ubuntu_$VER.sh
-sudo install_ubuntu_$VER.sh
+sudo wget install_ubuntu_$VER.sh && chmod +x install_ubuntu_$VER.sh
+sudo ./install_ubuntu_$VER.sh
