@@ -7,7 +7,7 @@ You may be thinking what the hell has a bus or train conductor have to do with a
 
 Requirements
 ------------
-The script is developed and tested on Ubuntu Server 12.04 LTS in future I may support other distributions too and I always welcome 'merge' requests from other members of the community too if they wish to contribute configuration changes/updates to the existing project source code!
+Conductor is developed and tested on the Ubuntu Server LTS releases (12.04 and 14.04) in future I may support other distributions too and I always welcome 'merge' requests from other members of the community too if they wish to contribute configuration changes/updates to the existing project source code!
 
 Installation
 ------------

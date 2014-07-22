@@ -52,17 +52,14 @@ sudo chmod +x /etc/conductor/upgrade.sh
 
 # We now need to make some changes to the default nginx.conf file...
 echo "Configuring Nginx..."
-sudo sed -i "s/include \/etc\/nginx\/sites-enabled\/\*/include \/etc\/conductor\/configs\/common\/conductor_nginx\.conf/g" /etc/nginx/nginx.conf
+#sudo sed -i "s/include \/etc\/nginx\/sites-enabled\/\*/include \/etc\/conductor\/configs\/common\/conductor_nginx\.conf/g" /etc/nginx/nginx.conf
 sudo sed -i "s/# server_tokens off\;/server_tokens off\;/g" /etc/nginx/nginx.conf
-
-echo "Configuring PHP-FPM for Nginx..."
-# Lets now configure PHP-FPM...
-
-# On Ubuntu 14.04 the following is already listening on a socket so this can be ignored!
-#sudo sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/tmp\/php5-fpm\.sock/g" /etc/php5/fpm/pool.d/www.conf
-
 # Now we link the Nginx config...
 sudo ln -s /etc/conductor/configs/common/conductor_nginx.conf /etc/nginx/sites-enabled/conductor
+
+echo "Configuring PHP-FPM for Nginx..."
+# On Ubuntu 14.04 the following is already listening on a socket so this can be ignored!
+#sudo sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/tmp\/php5-fpm\.sock/g" /etc/php5/fpm/pool.d/www.conf
 
 # Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
 sudo apt-get -y install mysql-server-5.5
