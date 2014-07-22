@@ -52,10 +52,10 @@ sudo chmod +x /etc/conductor/upgrade.sh
 
 # We now need to make some changes to the default nginx.conf file...
 echo "Configuring Nginx..."
-#sudo sed -i "s/include \/etc\/nginx\/sites-enabled\/\*/include \/etc\/conductor\/configs\/common\/conductor_nginx\.conf/g" /etc/nginx/nginx.conf
+sudo sed -i "s/include \/etc\/nginx\/sites-enabled\/\*/include \/etc\/conductor\/configs\/common\/conductor_nginx\.conf/g" /etc/nginx/nginx.conf
 sudo sed -i "s/# server_tokens off\;/server_tokens off\;/g" /etc/nginx/nginx.conf
-# Now we link the Nginx config...
-sudo ln -s /etc/conductor/configs/common/conductor_nginx.conf /etc/nginx/sites-enabled/conductor
+# Now we link the Nginx config... (decided against this in the end, a proper switch of the sites-available is probably best practice!)
+#sudo ln -s /etc/conductor/configs/common/conductor_nginx.conf /etc/nginx/sites-enabled/conductor
 
 echo "Configuring PHP-FPM for Nginx..."
 # On Ubuntu 14.04 the following is already listening on a socket so this can be ignored!

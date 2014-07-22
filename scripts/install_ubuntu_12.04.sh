@@ -56,14 +56,14 @@ sudo chmod +x /etc/conductor/upgrade.sh
 
 # We now need to make some changes to the default nginx.conf file...
 echo "Configuring Nginx..."
+sudo sed -i "s/include \/etc\/nginx\/sites-enabled\/\*/include \/etc\/conductor\/configs\/common\/conductor_nginx\.conf/g" /etc/nginx/nginx.conf
 sudo sed -i "s/# server_tokens off\;/server_tokens off\;/g" /etc/nginx/nginx.conf
+# Now we link the Nginx config... (decided against this in the end, a proper switch of the sites-available is probably best practice!)
+#sudo ln -s /etc/conductor/configs/common/conductor_nginx.conf /etc/nginx/sites-enabled/conductor
 
 echo "Configuring PHP-FPM for Nginx..."
 # Lets now configure PHP-FPM...
 sudo sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/tmp\/php5-fpm\.sock/g" /etc/php5/fpm/pool.d/www.conf
-
-# Now we link the Nginx config...
-sudo ln -s /etc/conductor/configs/common/conductor_nginx.conf /etc/nginx/sites-enabled/conductor
 
 # Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
 sudo apt-get -y install mysql-server-5.5
