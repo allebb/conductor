@@ -25,6 +25,8 @@ sudo apt-get -y install nginx
 # Now we'll install Composer
 curl -sS https://getcomposer.org/installer | sudo php -- --install-dir=/etc/conductor/bin/composer
 sudo ln -s /etc/conductor/bin/composer/composer.phar /usr/bin/composer
+# Lets set the new symlink as executable
+sudo chmod +x /usr/bin/composer
 
 # Lets now create a default folder structure to hold all of our applications.
 # Now we need to pull 'conductor' from GitHub and we'll now deploy the application ready for it to be used.
@@ -42,6 +44,8 @@ sudo chmod +x /etc/conductor/bin/*
 
 # Lets symlink the main conductor script...
 sudo ln -s /etc/conductor/bin/conductor /usr/bin/conductor
+# Lets set the new symlink as executable
+sudo chmod +x /usr/bin/conductor
 
 # We now need to make some changes to the default nginx.conf file...
 echo "Configuring Nginx..."
@@ -68,7 +72,6 @@ sudo sed -i "s/\#START=yes/START=yes/g" /etc/default/beanstalkd
 sudo /etc/init.d/beanstalkd start
 
 # A good idea that we get Supervisord installed here too!
-
 
 #Lets now start PHP5-FPM and Nginx!
 sudo /etc/init.d/php5-fpm restart

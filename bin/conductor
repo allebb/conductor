@@ -22,8 +22,8 @@ function display_help {
     echo "  depupdate {name}  Updates all application dependencies (composer update)"
     echo "  backup {name}     Backs up an application and dependent DB's"
     echo "  restore {name}    Restores an application and dependent DB's"
-    echo "  start {name}      Starts a specific application (Laravel only)"
-    echo "  stop {name}       Stops a specific application (Laravel only)"
+    echo "  start {name}      Starts a specific application (Laravel Apps only!)"
+    echo "  stop {name}       Stops a specific application (Laravel Apps only!)"
     echo "  --start           Starts all dependent Conductor daemons"
     echo "  --stop            Stops all dependent Conductor daemons"
     echo "  --status          Displays the current daemon statuses"
@@ -93,6 +93,12 @@ case "$1" in
             execute_util $1 $2
             ;;
         restore)
+            execute_util $1 $2
+            ;;
+        start)
+            execute_util $1 $2
+            ;;
+        stop)
             execute_util $1 $2
             ;;
         *)

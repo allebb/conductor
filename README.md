@@ -53,7 +53,7 @@ git reset --hard origin/master
 Now we just re-set the permissions on the required files like so:-
 
 ```
-chmod +x /user/bin/conductor
+chmod +x /usr/bin/conductor
 chmod +x /etc/conductor/bin/*
 ```
 
@@ -121,6 +121,14 @@ This command provides an extremely easy way to backup both your application file
 ####```conductor restore {app name}```
 
 Yep, you got it... it's the reverse of ```conductor backup {app name}``` but just to be clear, this command will prompt for a backup file to be used before then deleting the contents of your application's hosting and logs directory and then restoring the application files and logs from the archive and will lastly drop and restore your MySQL database too (again, if your application uses one!)
+
+####```conductor start {app name}```
+
+This command enables you to start serving your Laravel 4.x application, this invokes the 'php artistan start' command. You only need to run this if you've recently 'stopped' your application as all newly provisioned applications will be in the 'started' state by default.
+
+####```conductor stop {app name}```
+
+This command enables you to stop serving your Laravel 4.x application, this invokes the 'php artistan stop' command.
 
 ####```conductor --start```
 
