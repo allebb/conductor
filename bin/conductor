@@ -65,7 +65,7 @@ case "$1" in
             /etc/init.d/nginx reload
             ;;
         --version)
-            echo "Conductor v.$VERSION"
+            echo "Conductor v$VERSION"
             ;;
         --help)
             display_help $1
