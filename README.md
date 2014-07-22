@@ -80,7 +80,7 @@ That it, once you've passed through all the prompts your application will then b
 
 Will remove the application from the server, removes the Nginx configuration for this application and will also drop the MySQL database and MySQL user (if present), this command basically removes the named application and immediately stops serving the content.
 
-####```conductor upgrade {app name}```
+####```conductor update {app name}```
 The upgrade command does three things, firstly it gives you the option of putting your application into 'offline mode' of which is up to you (you're prompted for your decision here), before it upgrades anything an automatic 'snapshot' is taken and stored separately to enable you to 'roll-back' later if required.. So next if Conductor finds that the application was previously deployed by Git or has a ```.git``` directory it will attempt to do a ```git reset --hard``` and then ```git pull``` the latest changes. If no git directory is found, Conductor assumes you're doing a 'manual upgrade' and prompts you at this point to upload the new files into your application's root directory... once this is complete you should confirm that the files have all been uploaded... Next Conductor will now execute any database migrations and then clear the application cache as well as dump the autoloader and finally (if you choose to 'take the application offline' during the upgrade process) it will now be automatically put back on-line!
 
 ####```conductor rollback {app name}```
@@ -88,7 +88,7 @@ This is basically the opposite of ```conductor upgrade {app name}```, this uses 
 
 You'll be prompted to confirm that you wish to revert to the last database snapshot, it is recommended in most situations that you do this, if however you choose 'no' you will be given the option to run Laravel's migrate:rollback function instead!
 
-####```conductor depupgrade {app name}```
+####```conductor depupdate {app name}```
 
 ```depupgrade``` basically is shortened version of 'Dependency Upgrade', this command will basically snapshot your application (including the database) to enable you to 'rollback' if you need too before running ```composer update``` on your application.
 

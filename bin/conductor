@@ -17,9 +17,9 @@ function display_help {
     echo "  list              List all currently hosted applications"
     echo "  new {name}        Prepares and deploys a new application"
     echo "  destroy {name}    Removes an application from the server"
-    echo "  upgrade {name}    Upgrades an application via. Git"
+    echo "  update {name}     Upgrades an application via. Git"
     echo "  rollback {name}   Rolls back the most recent upgrade"
-    echo "  depupgrade {name} Updates all appliaction dependencies (composer update)"
+    echo "  depupdate {name}  Updates all application dependencies (composer update)"
     echo "  backup {name}     Backs up an application and dependent DB's"
     echo "  restore {name}    Restores an application and dependent DB's"
     echo "  --start           Starts all dependent Conductor daemons"
@@ -78,13 +78,13 @@ case "$1" in
         destroy)
             execute_util $1 $2
             ;;
-        upgrade)
+        update)
             execute_util $1 $2
             ;;
         rollback)
             execute_util $1 $2
             ;;
-        depupgrade)
+        depupdate)
             execute_util $1 $2
             ;;
         backup)
