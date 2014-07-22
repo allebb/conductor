@@ -65,5 +65,4 @@ function gitPullReset() {
     echo "Starting upgrade from Git..."
     sudo /usr/bin/git --git-dir=$APPDIRECTORY/.git --work-tree=$APPDIRECTORY fetch --all
     sudo /usr/bin/git --git-dir=$APPDIRECTORY/.git --work-tree=$APPDIRECTORY reset --hard origin/master
-    sudo /usr/bin/git --git-dir=$APPDIRECTORY/.git --work-tree=$APPDIRECTORY pull
 }
