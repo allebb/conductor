@@ -47,6 +47,9 @@ sudo ln -s /etc/conductor/bin/conductor /usr/bin/conductor
 # Lets set the new symlink as executable
 sudo chmod +x /usr/bin/conductor
 
+# We'll set the 'upgrade.sh' file as executable too (will save time for when the user next chooses to run it)
+sudo chmod +x /etc/conductor/upgrade.sh
+
 # We now need to make some changes to the default nginx.conf file...
 echo "Configuring Nginx..."
 #sed -i "s/include \/etc\/nginx\/sites-enabled\/\*/include \/etc\/conductor\/config\/conductor_nginx\.conf/g" /etc/nginx/nginx.conf

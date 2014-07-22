@@ -46,18 +46,9 @@ If you wish to upgrade the Conductor tool-set, you should execute the following 
 
 ```
 cd /etc/conductor
-git fetch --all
-git reset --hard origin/master
+./upgrade.sh
 ```
-
-Now we just re-set the permissions on the required files like so:-
-
-```
-chmod +x /usr/bin/conductor
-chmod +x /etc/conductor/bin/*
-```
-
-Conductor is now fully up to date, remember that the web server components are updated using 'apt-get upgrade' and is not covered in the above instructions.
+Conductor should now be fully up to date, remember that the web server components are updated using 'apt-get upgrade' and is not covered in the above instructions.
 
 What does this install
 ----------------------
