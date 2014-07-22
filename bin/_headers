@@ -18,7 +18,7 @@ APPDIRECTORY=($APP_ROOT/$APPNAME)
 
 function laravelMigrate() {
 	if [ -f "$APPDIRECTORY/artisan" ]; then
-		sudo php $APPDIRECTORY/artisan migrate
+		sudo php $APPDIRECTORY/artisan migrate --quiet
 		sudo php $APPDIRECTORY/artisan cache:clear
 		sudo php $APPDIRECTORY/artisan dump-autoload
 	else
