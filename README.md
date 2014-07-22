@@ -39,6 +39,26 @@ Check that it's installed and working by entering the following command at the t
 conductor --help
 ```
 
+Upgrading Conductor
+-------------------
+
+If you wish to upgrade the Conductor tool-set, you should execute the following commands in order to upgrade the Conductor utility:
+
+```
+cd /etc/conductor
+git fetch --all
+git reset --hard origin/master
+```
+
+Now we just re-set the permissions on the required files like so:-
+
+```
+chmod +x /user/bin/conductor
+chmod +x /etc/conductor/bin/*
+```
+
+Conductor is now fully up to date, remember that the web server components are updated using 'apt-get upgrade' and is not covered in the above instructions.
+
 What does this install
 ----------------------
 
