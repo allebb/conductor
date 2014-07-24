@@ -6,7 +6,15 @@ source $BINDIR/conf/conductor.conf
 source $BINDIR/_headers
 
 if [ -d "$APPDIRECTORY" ]; then
-    read -p "Do you wish to 'take down' the application before upgrading? [Y/n] " TAKEDOWN
+    
+    if [[ $2 == "--force" ]]
+    then
+        echo "Forcing application upgrade..."
+        TAKEDOWN=no
+    else
+        read -p "Do you wish to 'take down' the application before upgrading? [Y/n] " TAKEDOWN
+    fi
+
     if [[ $TAKEDOWN == "y" || $TAKEDOWN == "Y" || $TAKEDOWN == "yes" || $TAKEDOWN == "Yes" ]]
     then
         echo "Creating application and snapshot..."

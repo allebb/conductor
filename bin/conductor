@@ -37,7 +37,7 @@ function display_help {
 
 # Function to execute a custom command via. artisan.
 function execute_util() {
-    sudo $DIR/conductor_$1 $2
+    sudo $DIR/conductor_$1 $2 $3
 }
 
 # Lets work out what we need to do!
@@ -81,7 +81,7 @@ case "$1" in
             execute_util $1 $2
             ;;
         update)
-            execute_util $1 $2
+            execute_util $1 $2 $3
             ;;
         rollback)
             execute_util $1 $2
