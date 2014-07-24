@@ -7,6 +7,7 @@ if (!-d $request_filename) {
 }
 
 location ~* \.php$ {
+    try_files $uri /index.php =404;
     fastcgi_pass                    unix:/var/run/php5-fpm.sock;
     fastcgi_index                   index.php;
     fastcgi_split_path_info         ^(.+\.php)(.*)$;

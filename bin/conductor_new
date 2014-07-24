@@ -47,7 +47,7 @@ fi
 # Now we need to copy the virtual host template
 CONFIG=$NGINX_CONFIG/$APPNAME.conf
 HLOGS=($NGINX_LOGS/$APPNAME)
-sudo cp $NGINX_TPLS/nginx_vhost_template.tpl $CONFIG
+sudo cp $NGINX_TPLS/laravel_template.tpl $CONFIG
 sudo sed -i "s/@@DOMAIN@@/$DOMAIN/g" $CONFIG
 sudo sed -i "s/@@APPNAME@@/$APPNAME/g" $CONFIG
 sudo sed -i "s#@@HLOGS@@#/$HLOGS/#" $CONFIG
