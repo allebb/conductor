@@ -50,7 +50,7 @@ HLOGS=($NGINX_LOGS/$APPNAME)
 sudo cp $NGINX_TPLS/laravel_template.tpl $CONFIG
 sudo sed -i "s/@@DOMAIN@@/$DOMAIN/g" $CONFIG
 sudo sed -i "s/@@APPNAME@@/$APPNAME/g" $CONFIG
-sudo sed -i "s#@@HLOGS@@#/$HLOGS/#" $CONFIG
+sudo sed -i "s/@@HLOGS@@#/$HLOGS/g" $CONFIG
 
 # Lets set up the directory structure and lock down some directory permissions.
 sudo mkdir $APPDIRECTORY
