@@ -29,8 +29,8 @@ function display_help {
     echo "  --status          Displays the current daemon statuses"
     echo "  --restart         Restarts all dependent Conductor daemons"
     echo "  --reload          Reloads all dependent Conductor daemons"
-    echo "  --version         Displays the version number of Conductor"
-    echo "  --help            Displays this help screen."
+    echo "  -v | --version    Displays the version number of Conductor"
+    echo "  -h | --help       Displays this help screen."
     echo ""
     echo "Please report bug at: https://github.com/bobsta63/conductor"
 }
@@ -67,7 +67,14 @@ case "$1" in
         --version)
             echo "Conductor v$VERSION"
             ;;
+        -v
+            echo "Conductor v$VERSION"
+            ;;
         --help)
+            display_help $1
+            exit 1
+            ;;
+        -h)
             display_help $1
             exit 1
             ;;
