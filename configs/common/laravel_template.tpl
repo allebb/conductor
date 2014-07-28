@@ -46,6 +46,7 @@ server {
 
     location / {
         try_files $uri $uri/ /index.php?$query_string;
+        fastcgi_param   APP_ENV     @@ENVIROMENT@@;
     }
 
     # Laravel framework specific configuration

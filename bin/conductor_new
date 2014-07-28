@@ -16,8 +16,10 @@ fi
 # Now we'll prompt for some required information...
 echo "Deploying application named: $APPNAME"
 echo ""
-echo -n "Please enter the FQDN(s) for this application: "
+echo -n "The FQDN(s) for this application: "
 read DOMAIN
+echo -n "Hosting environment type [production]: "
+read ENVIRONMENT
 echo -n "Does this application require a MySQL DB? [Y/n] "
 read MYSQLREQ
 echo -n "Deploy and manage application with Git? [Y/n] "
@@ -51,6 +53,13 @@ HLOGS=($NGINX_LOGS/$APPNAME)
  sed -i "s/@@DOMAIN@@/$DOMAIN/g" $CONFIG
  sed -i "s/@@APPNAME@@/$APPNAME/g" $CONFIG
  sed -i "s#@@HLOGS@@#/$HLOGS/#" $CONFIG
+
+
+# Lets set the enviroment type in the configuration file
+if [[ "$ENVIRONMENT" == '' ]]; then
+    ENVIRONMENT=production
+fi
+sed -i "s/@@ENVIROMENT@@/$ENVIRONMENT/g" $CONFIG
 
 # Lets set up the directory structure and lock down some directory permissions.
  mkdir $APPDIRECTORY
