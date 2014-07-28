@@ -6,7 +6,7 @@
 server {
 
     listen          80;
-    
+
     #listen          443;
     #ssl on;
     #ssl_certificate /var/conductor/certificates/@@APPNAME@@/www.playdeadtournaments.com.bundle.crt;
@@ -15,19 +15,28 @@ server {
     ##ssl_protocols  SSLv3 TLSv1 TLSv1.2;
     ##ssl_ciphers AES:HIGH:!ADH:!MD5;
     ##ssl_prefer_server_ciphers   on;
-    
-    server_name     @@DOMAIN@@;
 
+    server_name     @@DOMAIN@@;
+    server_tokens   off;
+
+    # Application path and index file settings.
+    root            /var/conductor/applications/@@APPNAME@@/public;
+    index           index.php;
+
+    # Logging settings
     access_log      @@HLOGS@@access.log;
     error_log       @@HLOGS@@error.log;
     rewrite_log     on;
-    server_tokens   off;
 
-    root            /var/conductor/applications/@@APPNAME@@/public;
-    index           index.php;
-    
-    # Protect against application configuration files
-    include /etc/conductor/configs/common/protect.tpl;
+    # Additional per-application optimisations
+    charset utf-8;
+    client_max_body_size 32m;
+
+    # Enable GZip by default for common files.
+    include /etc/conductor/configs/common/gzip.conf
+
+    # Protect against Conductor Application configuration file(s).
+    include /etc/conductor/configs/common/protect.conf
 
     # Set some sensible defaults for image files etc.
     location ~* \.(png|jpg|jpeg|gif|js|css|ico)$ {
@@ -38,7 +47,8 @@ server {
     location / {
         try_files $uri $uri/ /index.php?$query_string;
     }
-    
+
     # Laravel framework specific configuration
     include /etc/conductor/configs/common/laravel4.tpl;
+    
 }
