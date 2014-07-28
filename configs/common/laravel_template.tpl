@@ -33,10 +33,10 @@ server {
     client_max_body_size 32m;
 
     # Enable GZip by default for common files.
-    include /etc/conductor/configs/common/gzip.conf
+    include /etc/conductor/configs/common/gzip.conf;
 
     # Protect against Conductor Application configuration file(s).
-    include /etc/conductor/configs/common/protect.conf
+    include /etc/conductor/configs/common/protect.conf;
 
     # Set some sensible defaults for image files etc.
     location ~* \.(png|jpg|jpeg|gif|js|css|ico)$ {
@@ -45,8 +45,8 @@ server {
     }
 
     location / {
-        try_files $uri $uri/ /index.php?$query_string;
         fastcgi_param   APP_ENV     @@ENVIROMENT@@;
+        try_files $uri $uri/ /index.php?$query_string;
     }
 
     # Laravel framework specific configuration
