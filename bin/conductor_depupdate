@@ -8,7 +8,7 @@ source $BINDIR/_headers $1 $2
 # Application specific...
 if [ -f "$APPDIRECTORY/composer.json" ]; then
 	echo "Starting Composer Update task..."
-	sudo /usr/bin/composer update --working-dir=$APPDIRECTORY
+	 /usr/bin/composer update --working-dir=$APPDIRECTORY
 	echo "Composer Update task is complete!"
 else
 	echo "No composer.json file found!"

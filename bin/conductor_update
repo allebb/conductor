@@ -20,20 +20,20 @@ if [ -d "$APPDIRECTORY" ]; then
         echo "Creating application and snapshot..."
         if [ -f "$BACKUP_DIR/rollback_$APPNAME.tar.gz" ];
         then
-            sudo rm $BACKUP_DIR/rollback_$APPNAME.tar.gz
+             rm $BACKUP_DIR/rollback_$APPNAME.tar.gz
         fi
         backupApplication rollback_$APPNAME.tar.gz
         echo "Starting application upgrade..."
         if [ -f "$APPDIRECTORY/artisan" ]; then
-            sudo php $APP_ROOT/$APPNAME/artisan down
+             php $APP_ROOT/$APPNAME/artisan down
         fi
         if [ -d "$APPDIRECTORY/.git" ]; then
             gitPullReset
         fi
-        sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $APPDIRECTORY -R
+         chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $APPDIRECTORY -R
         laravelMigrate
         if [ -f "$APPDIRECTORY/artisan" ]; then
-            sudo php $APP_ROOT/$APPNAME/artisan up
+             php $APP_ROOT/$APPNAME/artisan up
         fi
         echo "...finished!"
         exit 0
@@ -41,14 +41,14 @@ if [ -d "$APPDIRECTORY" ]; then
         echo "Creating application and snapshot..."
         if [ -f "$BACKUP_DIR/rollback_$APPNAME.tar.gz" ];
         then
-            sudo rm $BACKUP_DIR/rollback_$APPNAME.tar.gz
+             rm $BACKUP_DIR/rollback_$APPNAME.tar.gz
         fi
         backupApplication rollback_$APPNAME.tar.gz
         echo "Starting application upgrade..."
         if [ -d "$APPDIRECTORY/.git" ]; then
             gitPullReset
         fi
-        sudo chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $APPDIRECTORY -R
+         chown $WEB_SERVER_GROUP:$WEB_SERVER_GROUP $APPDIRECTORY -R
         laravelMigrate
         echo "...finished!"
         exit 0

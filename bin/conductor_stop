@@ -8,7 +8,7 @@ source $BINDIR/_headers
 if [ -d "$APPDIRECTORY" ]; then
     
         if [ -f "$APPDIRECTORY/artisan" ]; then
-		sudo php $APPDIRECTORY/artisan down
+		 php $APPDIRECTORY/artisan down
 	else
 		echo "Cannot stop the application as no 'Artisan' was found!"
                 exit 1

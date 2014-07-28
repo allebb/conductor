@@ -37,7 +37,7 @@ function display_help {
 
 # Function to execute a custom command via. artisan.
 function execute_util() {
-    sudo $DIR/conductor_$1 $2 $3
+     $DIR/conductor_$1 $2 $3
 }
 
 # Lets work out what we need to do!

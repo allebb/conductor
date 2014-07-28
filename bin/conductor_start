@@ -8,7 +8,7 @@ source $BINDIR/_headers
 if [ -d "$APPDIRECTORY" ]; then
     
         if [ -f "$APPDIRECTORY/artisan" ]; then
-		sudo php $APPDIRECTORY/artisan up
+		 php $APPDIRECTORY/artisan up
 	else
 		echo "Cannot start the application as no 'Artisan' was found!"
                 exit 1

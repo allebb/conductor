@@ -11,9 +11,9 @@ if [ -d "$APPDIRECTORY" ]; then
 	backupApplication priordestroy_$APPNAME.tar.gz
 	echo "Destroying application..."
 	# We need to delete the Nginx configuration file...
-	sudo rm $NGINX_CONFIG/$APPNAME.conf
+	 rm $NGINX_CONFIG/$APPNAME.conf
 	# We'll now releoad the daemon in an attempt to free any file locks before we delete the application files.
-	sudo $NGINX_INIT reload
+	 $NGINX_INIT reload
 	# We need to delete any associated MySQL databases here!
 	if [ -f "$APPDIRECTORY/conductor.json" ]; then
 		MYSQL=`which mysql`
@@ -24,8 +24,8 @@ if [ -d "$APPDIRECTORY" ]; then
 		$MYSQL -u${MYSQLUSER} -p${MYSQLPASS} -e "$SQL"
 	fi
 	# We remove the application hosting director
-	sudo rm -Rf $APPDIRECTORY
-	sudo rm -Rf $NGINX_LOGS/$APPNAME
+	 rm -Rf $APPDIRECTORY
+	 rm -Rf $NGINX_LOGS/$APPNAME
 	echo "...finished!"
 	exit 0
 else
