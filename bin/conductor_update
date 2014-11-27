@@ -12,7 +12,7 @@ if [ -d "$APPDIRECTORY" ]; then
         echo "Forcing application upgrade..."
         TAKEDOWN=no
     else
-        read -p "Do you wish to 'take down' the application before upgrading? [Y/n] " TAKEDOWN
+        read -p "Do you wish to 'take down' the application before upgrading? [Y/N] " TAKEDOWN
     fi
 
     if [[ $TAKEDOWN == "y" || $TAKEDOWN == "Y" || $TAKEDOWN == "yes" || $TAKEDOWN == "Yes" ]]
