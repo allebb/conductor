@@ -12,7 +12,7 @@ if [ -d "$APPDIRECTORY" ]; then
 	echo "Destroying application..."
 	# We need to delete the Nginx configuration file...
 	 rm $NGINX_CONFIG/$APPNAME.conf
-	# We'll now releoad the daemon in an attempt to free any file locks before we delete the application files.
+	# We'll now reload the daemon in an attempt to free any file locks before we delete the application files.
 	 $NGINX_INIT reload
 	# We need to delete any associated MySQL databases here!
 	if [ -f "$APPDIRECTORY/conductor.json" ]; then
