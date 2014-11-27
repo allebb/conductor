@@ -13,7 +13,7 @@ if [ -d "$APPDIRECTORY" ]; then
 	backupApplication $ARCHIVE_FILE
 	echo "...finished!"
 	echo
-	echo "Backup succesfully created: $BACKUP_DIR/$ARCHIVE_FILE"
+	echo "Backup successfully created: $BACKUP_DIR/$ARCHIVE_FILE"
 	echo ""
 	exit 0
 else
