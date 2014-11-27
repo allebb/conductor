@@ -102,8 +102,10 @@ echo "Setting ownership permissions on application files..."
 if [[ "$MYSQLREQ" == "y" || "$MYSQLREQ" == "Y" || "$MYSQLREQ" == "yes" || "$MYSQLREQ" == "Yes" ]]
 then
 	echo ""
-	echo -n "Please enter a password for the MySQL database: "
-	read USERMYSQLPASS
+	#echo -n "Please enter a password for the MySQL database: "
+	#read USERMYSQLPASS
+	USERMYSQLPASS="$(sudo cat /dev/urandom | tr -dc 'a-zA-Z0-9-_!@#$%^&*()_+{}|:<>?=' | fold -w 18 | head -n 1)"
+	echo "Password for the MySQL database:" ${USERMYSQLPASS}
 	createMysql db_$APPNAME u_$APPNAME $USERMYSQLPASS
 fi
 
