@@ -36,7 +36,7 @@ if [ -d "$APPDIRECTORY" ]; then
 		echo "...finished!"
 		exit 0
 	else
-		echo "The rollback snapshot could not be found, maybe this was manually deleted or an upgrade has not yet been completed!"
+		echo "The roll-back snapshot could not be found, maybe this was manually deleted or an upgrade has not yet been completed!"
 		exit 1
 	fi
 else
