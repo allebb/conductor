@@ -42,7 +42,7 @@ fi
 #if [[ "$DOMAIN" =~ $PATTERN ]]; then
 #	DOMAIN=`echo $DOMAIN | tr '[A-Z]' '[a-z]'`
 #else
-#	echo "Invalid domain name, pease try again!"
+#	echo "Invalid domain name, please try again!"
 #	exit 1
 #fi
 
@@ -55,7 +55,7 @@ HLOGS=($NGINX_LOGS/$APPNAME)
  sed -i "s#@@HLOGS@@#/$HLOGS/#" $CONFIG
 
 
-# Lets set the enviroment type in the configuration file
+# Lets set the environment type in the configuration file
 if [[ "$ENVIRONMENT" == '' ]]; then
     ENVIRONMENT=production
 fi
