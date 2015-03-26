@@ -16,8 +16,7 @@ Installation can be done effortlessly by simply running this command from the co
 
 ```shell
 wget https://raw.github.com/bobsta63/conductor/master/install.sh
-chmod +x install.sh
-./install.sh
+bash install.sh
 ```
 
 Following installation you will need to edit the ``conductor.conf`` file and set the MySQL root password which you entered during the installation process.

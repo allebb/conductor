@@ -28,15 +28,15 @@ sudo apt-get -y install nginx
 randpassword=$(passwordgen);
 echo ""
 echo ""
-echo "*************************************************************************"
-echo * YOU WILL NOW BE ASKED TO ENTER A MYSQL PASSWORD, TYPE 'random' IN THE  *"
-echo * FIELD TO AUTOMATICALLY SET YOUR PASSWORD TO A RANDOM STRONG PASSWORD;  *"
-echo * IF YOU DECIDE TO ENTER YOUR OWN BE SURE TO UPDATE THE PASSWORD IN      *"
-echo * THE CONDUCTOR CONFIG FILE UNDER /etc/conductor.conf AFTER INSTALLATION *"
-echo **************************************************************************"
+echo "**************************************************************************"
+echo "* YOU WILL NOW BE ASKED TO ENTER A MYSQL PASSWORD, TYPE 'random' IN THE  *"
+echo "* FIELD TO AUTOMATICALLY SET YOUR PASSWORD TO A RANDOM STRONG PASSWORD;  *"
+echo "* IF YOU DECIDE TO ENTER YOUR OWN BE SURE TO UPDATE THE PASSWORD IN      *"
+echo "* THE CONDUCTOR CONFIG FILE UNDER /etc/conductor.conf AFTER INSTALLATION *"
+echo "**************************************************************************"
 echo ""
 echo "Press ENTER to continue..."
-read
+read NEXT
 echo ""
 echo ""
 sudo apt-get -y install mysql-server-5.6
