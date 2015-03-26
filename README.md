@@ -156,12 +156,20 @@ An automation script specifically designed to be used with CRON jobs etc. can be
 To configure this task, place the ```utils/scheduled_backups.sh``` script in a directory of your choice on the server (or used directly from the default installation path!) and then set-up a CRON task as follows:-
 
 ```shell
-0 0 * * * /path/to/the/scheduled_backups.sh
+0 0 * * * /etc/conductor/utils/scheduled_backups.sh
 ```
 
 The above example will execute the task daily at midnight, the default configuration will ensure that backups older than 7 days are also deleted (to ensure that your disks don't fill up!) this setting is configurable by editing the ```DAYS``` constant inside the script.
 
 You may wish to then have a remote server 'pull' and 'archive' these backups of which will be located in ``/var/conductor/backups/``.
+
+Automating composer updates
+---------------------------
+As conductor is designed to be a 'set and forget' system, we've now implemented an script that you can add as a CRON job (to get rid of those nasty '30 days out of date' errors), by adding this script to the CRONtab you can be sure that Composer is automatically updated every month.
+
+```shell
+0 3 0 * * /etc/conductor/utils/update_composer.sh
+```
 
 Help and support
 ----------------

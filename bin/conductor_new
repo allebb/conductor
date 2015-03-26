@@ -84,7 +84,7 @@ then
 	else
 		# Now vendor folder exists so we'll have to download using composer!
 		echo "Downloading dependencies..."
-		 /usr/bin/composer install --working-dir=$APPDIRECTORY
+		/usr/bin/composer install --no-dev --optimize-autoloader --working-dir=$APPDIRECTORY
 	fi
 else
 	echo "As you have chosen not to deploy your application using Git you must first manually copy your application file into: "
