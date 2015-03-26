@@ -24,6 +24,24 @@ sudo apt-get -y remove apache2
 # We now install Nginx
 sudo apt-get -y install nginx
 
+# Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
+randpassword=$(passwordgen);
+
+# Set default password for MySQL for the installation screen of which we reset to the random one shortly...
+echo "mysql-server-5.6 mysql-server/root_password password root" | debconf-set-selections
+echo "mysql-server-5.6 mysql-server/root_password_again password root" | debconf-set-selections
+echo "mysql-server-5.6 mysql-server/root_password seen true" | debconf-set-selections
+echo "mysql-server-5.6 mysql-server/root_password_again seen true" | debconf-set-selections
+
+sudo apt-get -y install mysql-server-5.6
+
+# Set a random MySQL root password...
+mysqladmin -u root -proot password "$randpassword"
+mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";
+mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
+mysql -u root -p"$randpassword" -e "FLUSH PRIVILEGES";
+mysql -u root -p"$randpassword" -e "DROP DATABASE IF EXISTS test";
+
 # We specifically specify 'php5-common' as we don't want Apache etc installed too!
 sudo apt-get -y install php5-common php5-cli php5-fpm php-apc php5-curl php5-gd php5-mcrypt php5-sqlite php5-mysql php5-json
 
@@ -73,24 +91,6 @@ echo "Configuring PHP-FPM for Nginx..."
 # On Ubuntu 14.04 the following is already listening on a socket so this can be ignored!
 #sudo sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/tmp\/php5-fpm\.sock/g" /etc/php5/fpm/pool.d/www.conf
 # Change cgi.fix_pathinfo=1 to cgi.fix_pathinfo=0
-
-# Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
-randpassword=$(passwordgen);
-
-# Set default password for MySQL for the installation screen of which we reset to the random one shortly...
-echo "mysql-server-5.6 mysql-server/root_password password root" | debconf-set-selections
-echo "mysql-server-5.6 mysql-server/root_password_again password root" | debconf-set-selections
-echo "mysql-server-5.6 mysql-server/root_password seen true" | debconf-set-selections
-echo "mysql-server-5.6 mysql-server/root_password_again seen true" | debconf-set-selections
-
-sudo apt-get -y install mysql-server-5.6
-
-# Set a random MySQL root password...
-mysqladmin -u root -proot password "$randpassword"
-mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";
-mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
-mysql -u root -p"$randpassword" -e "FLUSH PRIVILEGES";
-mysql -u root -p"$randpassword" -e "DROP DATABASE IF EXISTS test";
 
 # We'll now install Redis Server
 sudo apt-get -y install redis-server
