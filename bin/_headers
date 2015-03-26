@@ -20,7 +20,7 @@ function laravelMigrate() {
 	if [ -f "$APPDIRECTORY/artisan" ]; then
 		 php $APPDIRECTORY/artisan migrate --force
 		 php $APPDIRECTORY/artisan cache:clear
-                 composer dump-autoload --o --working-dir=$APPDIRECTORY
+                 composer dump-autoload -o --working-dir=$APPDIRECTORY
 	else
 		echo "Skipping migration, cache-clear etc. as no 'Artisan' was found!"
 	fi
