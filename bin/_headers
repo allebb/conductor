@@ -29,9 +29,8 @@ function laravelMigrate() {
 function createMysql() {
 	BTICK='`'
 	MYSQL=`which mysql`
-	MYSQLUSERCLEAN=$2
- 	Q1="CREATE DATABASE IF NOT EXISTS ${BTICK}$username${BTICK};"
-	Q2="GRANT ALL ON ${BTICK}$1${BTICK}.* TO '$MYSQLUSERCLEAN'@'localhost' IDENTIFIED BY '$3';"
+ 	Q1="CREATE DATABASE IF NOT EXISTS ${BTICK}$1${BTICK};"
+	Q2="GRANT ALL ON ${BTICK}$1${BTICK}.* TO '$2'@'localhost' IDENTIFIED BY '$3';"
 	Q3="FLUSH PRIVILEGES;"
 	SQL="${Q1}${Q2}${Q3}"
 	$MYSQL -u${MYSQLUSER} -p${MYSQLPASS} -e "$SQL"
@@ -42,7 +41,7 @@ function createMysql() {
 	echo "MySQL Server Details:"
 	echo "DB Name: $1"
 	echo "DB Host: localhost"
-	echo "Username: $MYSQLUSERCLEAN"
+	echo "Username: $2"
 	echo "Password: $3"
 	echo ""
 	echo "Remember that you may need to update your production DB settings to use the above details!"
