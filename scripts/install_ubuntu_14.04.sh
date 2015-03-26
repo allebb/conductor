@@ -18,6 +18,10 @@ sudo apt-get -y remove apache2
 sudo apt-get -y install nginx
 
 # Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
+echo "mysql-server-5.5 mysql-server/root_password password root" | debconf-set-selections
+echo "mysql-server-5.5 mysql-server/root_password_again password root" | debconf-set-selections
+echo "mysql-server-5.5 mysql-server/root_password seen true" | debconf-set-selections
+echo "mysql-server-5.5 mysql-server/root_password_again seen true" | debconf-set-selections
 sudo apt-get -y install mysql-server-5.5
 
 # We specifically specify 'php5-common' as we don't want Apache etc installed too!
