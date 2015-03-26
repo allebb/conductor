@@ -5,16 +5,16 @@
 # Written by Bobby Allen <ballen@bobbyallen.me>, 22/07/2014                    # 
 ################################################################################
 
-# We'll just run these for best practice!
-sudo apt-get update
-sudo apt-get -y install python-software-properties
-
 # A random password generation function to generate MySQL passwords.
 passwordgen() {
     l=$1
     [ "$l" == "" ] && l=16
     tr -dc A-Za-z0-9 < /dev/urandom | head -c ${l} | xargs
 }
+
+# We'll just run these for best practice!
+sudo apt-get update
+sudo apt-get -y install python-software-properties
 
 # Apache is installed by default on Ubuntu Server 14.04 LTS, we'll remove it...
 sudo service apache2 stop
