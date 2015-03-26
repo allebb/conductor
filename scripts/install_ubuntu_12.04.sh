@@ -5,13 +5,6 @@
 # Written by Bobby Allen <ballen@bobbyallen.me>, 22/07/2014                    # 
 ################################################################################
 
-# A random password generation function to generate MySQL passwords.
-passwordgen() {
-    l=$1
-    [ "$l" == "" ] && l=16
-    tr -dc A-Za-z0-9 < /dev/urandom | head -c ${l} | xargs
-}
-
 # We'll just run these for best practice!
 sudo apt-get update
 sudo apt-get -y install python-software-properties debconf-utils
@@ -24,6 +17,9 @@ sudo apt-get update
 
 # Now we can quickly can confirm that we are running the latest version of PHP 5
 #php5 -v
+
+# Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
+sudo apt-get -y install mysql-server-5.5
 
 # We specifically specify 'php5-common' as we don't want Apache etc installed too!
 sudo apt-get -y install php5-common php5-cli php5-fpm php-apc php5-curl php5-gd php5-mcrypt php5-sqlite php5-mysql
@@ -72,18 +68,6 @@ echo "Configuring PHP-FPM for Nginx..."
 # Lets now configure PHP-FPM...
 sudo sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/tmp\/php5-fpm\.sock/g" /etc/php5/fpm/pool.d/www.conf
 
-# Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
-randpassword=$(passwordgen);
-export DEBIAN_FRONTEND=noninteractive
-sudo apt-get -y install mysql-server-5.5
-export DEBIAN_FRONTEND=newt
-# Set a random MySQL root password...
-mysqladmin -u root password "$randpassword"
-mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";
-mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
-mysql -u root -p"$randpassword" -e "FLUSH PRIVILEGES";
-mysql -u root -p"$randpassword" -e "DROP DATABASE IF EXISTS test";
-
 # We'll now install Redis Server
 sudo apt-get -y install redis-server
 sudo /etc/init.d/redis-server restart
@@ -102,8 +86,18 @@ sudo /etc/init.d/nginx restart
 # Lets copy the configuration file template to /etc/conductor.conf for simplified administration.
 sudo cp /etc/conductor/bin/conf/conductor.template.conf /etc/conductor.conf
 
-# Set the root password on our configuration script.
-sudo sed -i "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;
-
 echo "Congratulations! Conductor is now successfully installed you are running: "
 sudo conductor --version
+
+echo ""
+echo "**************************************************************************"
+echo "* INSTALLATION IS NOW COMPLETE BUT YOU NOW NEED TO GO AND SET THE MYSQL  *"
+echo "* ROOT ACCOUNT PASSWORD THAT YOU SPECIFIED DURING INSTALLATION, THIS     *"
+echo "* PASSWORD MUST BE SET IN THE CONDUCTOR CONFIG FILE FOUND IN:            *"
+echo "*                                                                        *"
+echo "*     /etc/conductor.conf                                                *"
+echo "*                                                                        *"
+echo "* IF THIS IS NOT SET BEFORE YOU DEPLOY YOUR FIRST APPLICATION THE MYSQL  *"
+echo "* USER AND DATABASE CREATION WILL FAIL!                                  *"
+echo "**************************************************************************"
+echo ""
