@@ -25,28 +25,7 @@ sudo apt-get -y remove apache2
 sudo apt-get -y install nginx
 
 # Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
-randpassword=$(passwordgen);
-echo ""
-echo ""
-echo "**************************************************************************"
-echo "* YOU WILL NOW BE ASKED TO ENTER A MYSQL PASSWORD, TYPE 'random' IN THE  *"
-echo "* FIELD TO AUTOMATICALLY SET YOUR PASSWORD TO A RANDOM STRONG PASSWORD;  *"
-echo "* IF YOU DECIDE TO ENTER YOUR OWN BE SURE TO UPDATE THE PASSWORD IN      *"
-echo "* THE CONDUCTOR CONFIG FILE UNDER /etc/conductor.conf AFTER INSTALLATION *"
-echo "**************************************************************************"
-echo ""
-echo "Press ENTER to continue..."
-read NEXT
-echo ""
-echo ""
-sudo apt-get -y install mysql-server-5.6
-
-# Set a random MySQL root password...
-mysqladmin -u root -prandom password "$randpassword"
-mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";
-mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
-mysql -u root -p"$randpassword" -e "FLUSH PRIVILEGES";
-mysql -u root -p"$randpassword" -e "DROP DATABASE IF EXISTS test";
+sudo apt-get -y install mysql-server-5.5
 
 # We specifically specify 'php5-common' as we don't want Apache etc installed too!
 sudo apt-get -y install php5-common php5-cli php5-fpm php-apc php5-curl php5-gd php5-mcrypt php5-sqlite php5-mysql php5-json
@@ -121,3 +100,16 @@ sudo sed -i "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;
 
 echo "Congratulations! Conductor is now successfully installed you are running: "
 sudo conductor --version
+
+echo ""
+echo "**************************************************************************"
+echo "* INSTALLATION IS NOW COMPLETE BUT YOU NOW NEED TO GO AND SET THE MYSQL  *"
+echo "* ROOT ACCOUNT PASSWORD THAT YOU SPECIFIED DURING INSTALLATION, THIS     *"
+echo "* PASSWORD MUST BE SET IN THE CONDUCTOR CONFIG FILE FOUND IN:            *"
+echo "*                                                                        *"
+echo "*     /etc/conductor.conf                                                *"
+echo "*                                                                        *"
+echo "* IF THIS IS NOT SET BEFORE YOU DEPLOY YOUR FIRST APPLICATION THE MYSQL  *"
+echo "* USER AND DATABASE CREATION WILL FAIL!                                  *"
+echo "**************************************************************************"
+echo ""
