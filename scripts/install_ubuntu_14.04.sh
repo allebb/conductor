@@ -79,15 +79,15 @@ randpassword=$(passwordgen);
 
 # Set blank for MySQL for the installation screen.
 cat << EOF | debconf-set-selections
-mysql-server-5.6 mysql-server/root_password 
-mysql-server-5.6 mysql-server/root_password_again 
+mysql-server-5.6 mysql-server/root_password root
+mysql-server-5.6 mysql-server/root_password_again root
 mysql-server-5.6 mysql-server/root_password seen true
 mysql-server-5.6 mysql-server/root_password_again seen true
 EOF
 sudo apt-get -y install mysql-server-5.6
 
 # Set a random MySQL root password...
-mysqladmin -u root password "$randpassword"
+mysqladmin -u root -proot password "$randpassword"
 mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";
 mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
 mysql -u root -p"$randpassword" -e "FLUSH PRIVILEGES";
