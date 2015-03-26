@@ -14,7 +14,7 @@ passwordgen() {
 
 # We'll just run these for best practice!
 sudo apt-get update
-sudo apt-get -y install python-software-properties
+sudo apt-get -y install python-software-properties debconf-utils
 
 # Apache is installed by default on Ubuntu Server 14.04 LTS, we'll remove it...
 sudo service apache2 stop
@@ -76,9 +76,16 @@ echo "Configuring PHP-FPM for Nginx..."
 
 # Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
 randpassword=$(passwordgen);
-export DEBIAN_FRONTEND=noninteractive
+
+# Set blank for MySQL for the installation screen.
+cat << EOF | debconf-set-selections
+mysql-server-5.6 mysql-server/root_password 
+mysql-server-5.6 mysql-server/root_password_again 
+mysql-server-5.6 mysql-server/root_password seen true
+mysql-server-5.6 mysql-server/root_password_again seen true
+EOF
 sudo apt-get -y install mysql-server-5.6
-export DEBIAN_FRONTEND=newt
+
 # Set a random MySQL root password...
 mysqladmin -u root password "$randpassword"
 mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";

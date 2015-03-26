@@ -14,7 +14,7 @@ passwordgen() {
 
 # We'll just run these for best practice!
 sudo apt-get update
-sudo apt-get -y install python-software-properties
+sudo apt-get -y install python-software-properties debconf-utils
 
 # We now add the PHP5 (latest, at time of writing PHP 5.5.5) PPA like so
 sudo add-apt-repository -y ppa:ondrej/php5
