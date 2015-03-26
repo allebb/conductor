@@ -16,6 +16,12 @@ fi
 # Now we'll prompt for some required information...
 echo "Deploying application named: $APPNAME"
 echo ""
+
+# Lets check that the application name is 14 characters or less
+if [ ${#APPNAME} -ge 14 ]; then
+    echo "Invalid application name length, a maximum of 14 characters are allowed!" ; exit 1
+fi
+
 echo -n "The FQDN(s) for this application: "
 read DOMAIN
 echo -n "Hosting environment type [production]: "
@@ -45,11 +51,6 @@ fi
 #	echo "Invalid domain name, please try again!"
 #	exit 1
 #fi
-
-# Lets check that the application name is 14 characters or less
-if [ ${#APPNAME} -ge 14 ]; then
-    echo "Invalid application name length, a maximum of 14 characters are allowed, please try again!" ; exit 1
-fi
 
 # Now we need to copy the virtual host template
 CONFIG=$NGINX_CONFIG/$APPNAME.conf

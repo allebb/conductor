@@ -76,7 +76,9 @@ echo "Configuring PHP-FPM for Nginx..."
 
 # Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
 randpassword=$(passwordgen);
-sudo DEBIAN_FRONTEND=noninteractive && apt-get -y install mysql-server-5.6
+export DEBIAN_FRONTEND=noninteractive
+sudo apt-get -y install mysql-server-5.6
+export DEBIAN_FRONTEND=newt
 # Set a random MySQL root password...
 mysqladmin -u root password "$randpassword"
 mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";

@@ -9,8 +9,8 @@ server {
 
     #listen          443;
     #ssl on;
-    #ssl_certificate /var/conductor/certificates/@@APPNAME@@/www.playdeadtournaments.com.bundle.crt;
-    #ssl_certificate_key /var/conductor/certificates/@@APPNAME@@/www.playdeadtournaments.com.key;
+    #ssl_certificate /var/conductor/certificates/@@APPNAME@@/www.yourdomain.com.bundle.crt;
+    #ssl_certificate_key /var/conductor/certificates/@@APPNAME@@/www.yourdomain.com.key;
     ##ssl_client_certificate /var/conductor/certificates/AlphaSSL_Root.pem;
     ##ssl_protocols  SSLv3 TLSv1 TLSv1.2;
     ##ssl_ciphers AES:HIGH:!ADH:!MD5;
