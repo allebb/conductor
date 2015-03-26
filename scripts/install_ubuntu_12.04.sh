@@ -2,8 +2,15 @@
 
 ################################################################################
 # Conductor Installation Script for Ubuntu Server 12.04 LTS                    #
-# Writteb by Bobby Allen <ballen@bobbyallen.me>, 22/07/2014                    # 
+# Written by Bobby Allen <ballen@bobbyallen.me>, 22/07/2014                    # 
 ################################################################################
+
+# A random password generation function to generate MySQL passwords.
+passwordgen() {
+    l=$1
+    [ "$l" == "" ] && l=16
+    tr -dc A-Za-z0-9 < /dev/urandom | head -c ${l} | xargs
+}
 
 # We'll just run these for best practice!
 sudo apt-get update
@@ -66,7 +73,14 @@ echo "Configuring PHP-FPM for Nginx..."
 sudo sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/tmp\/php5-fpm\.sock/g" /etc/php5/fpm/pool.d/www.conf
 
 # Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
-sudo apt-get -y install mysql-server-5.5
+randpassword=$(passwordgen);
+sudo DEBIAN_FRONTEND=noninteractive && apt-get -y install mysql-server-5.5
+# Set a random MySQL root password...
+mysqladmin -u root password "$randpassword"
+mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";
+mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
+mysql -u root -p"$randpassword" -e "FLUSH PRIVILEGES";
+mysql -u root -p"$randpassword" -e "DROP DATABASE IF EXISTS test";
 
 # We'll now install Redis Server
 sudo apt-get -y install redis-server
@@ -82,6 +96,12 @@ sudo /etc/init.d/beanstalkd start
 #Lets now start PHP5-FPM and Nginx!
 sudo /etc/init.d/php5-fpm restart
 sudo /etc/init.d/nginx restart
+
+# Lets copy the configuration file template to /etc/conductor.conf for simplified administration.
+sudo cp /etc/conductor/bin/conf/conductor.template.conf /etc/conductor.conf
+
+# Set the root password on our configuration script.
+sudo sed -i "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;
 
 echo "Congratulations! Conductor is now successfully installed you are running: "
 sudo conductor --version
