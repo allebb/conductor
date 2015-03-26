@@ -27,16 +27,19 @@ sudo apt-get -y install nginx
 # Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
 randpassword=$(passwordgen);
 
-# Set default password for MySQL for the installation screen of which we reset to the random one shortly...
-echo "mysql-server-5.6 mysql-server/root_password password root" | debconf-set-selections
-echo "mysql-server-5.6 mysql-server/root_password_again password root" | debconf-set-selections
-echo "mysql-server-5.6 mysql-server/root_password seen true" | debconf-set-selections
-echo "mysql-server-5.6 mysql-server/root_password_again seen true" | debconf-set-selections
-
+echo "*************************************************************************"
+echo * YOU WILL NOW BE ASKED TO ENTER A MYSQL PASSWORD, TYPE 'random' and this*"
+echo * WILL AUTOMATICALLY SET YOUR PASSWORD TO A RANDOM STRONG PASSWORD       *"
+echo * IF YOU DECIDE TO ENTER YOUR OWN BE SURE TO UPDATE THE PASSWORD IN      *"
+echo * THE CONDUCTOR CONFIG FILE UNDER /etc/conductor.conf                    *"
+echo **************************************************************************"
+echo ""
+echo "Press ENTER to continue..."
+read
 sudo apt-get -y install mysql-server-5.6
 
 # Set a random MySQL root password...
-mysqladmin -u root -proot password "$randpassword"
+mysqladmin -u root -prandom password "$randpassword"
 mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";
 mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
 mysql -u root -p"$randpassword" -e "FLUSH PRIVILEGES";
