@@ -95,9 +95,6 @@ sudo /etc/init.d/nginx restart
 # Lets copy the configuration file template to /etc/conductor.conf for simplified administration.
 sudo cp /etc/conductor/bin/conf/conductor.template.conf /etc/conductor.conf
 
-# Set the root password on our configuration script.
-sudo sed -i "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;
-
 echo "Congratulations! Conductor is now successfully installed you are running: "
 sudo conductor --version
 
