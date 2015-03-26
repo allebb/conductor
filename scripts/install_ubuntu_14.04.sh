@@ -77,13 +77,12 @@ echo "Configuring PHP-FPM for Nginx..."
 # Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
 randpassword=$(passwordgen);
 
-# Set blank for MySQL for the installation screen.
-cat << EOF | debconf-set-selections
-mysql-server-5.6 mysql-server/root_password root
-mysql-server-5.6 mysql-server/root_password_again root
-mysql-server-5.6 mysql-server/root_password seen true
-mysql-server-5.6 mysql-server/root_password_again seen true
-EOF
+# Set default password for MySQL for the installation screen of which we reset to the random one shortly...
+echo "mysql-server-5.6 mysql-server/root_password password root" | debconf-set-selections
+echo "mysql-server-5.6 mysql-server/root_password_again password root" | debconf-set-selections
+echo "mysql-server-5.6 mysql-server/root_password seen true" | debconf-set-selections
+echo "mysql-server-5.6 mysql-server/root_password_again seen true" | debconf-set-selections
+
 sudo apt-get -y install mysql-server-5.6
 
 # Set a random MySQL root password...
