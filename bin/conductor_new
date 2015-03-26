@@ -46,6 +46,11 @@ fi
 #	exit 1
 #fi
 
+# Lets check that the application name is 14 characters or less
+if [ ${#APPNAME} -ge 14 ]; then
+    echo "Invalid application name length, a maximum of 14 characters are allowed, please try again!" ; exit 1
+fi
+
 # Now we need to copy the virtual host template
 CONFIG=$NGINX_CONFIG/$APPNAME.conf
 HLOGS=($NGINX_LOGS/$APPNAME)
