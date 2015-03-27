@@ -1,9 +1,9 @@
 Conductor
 =========
 
-Conductor (as in a 'bus' or 'train' conductor) is utility (set of scripts) to automate the installation of Laravel 4.x specific application servers complete with some scripts and CLI commands to help deploy and manage multiple web applications on the server with ease.
+Conductor (as in a 'bus' or 'train' conductor) is utility (set of scripts) to automate the installation of Laravel 4.x and 5.x specific application servers complete with some scripts and CLI commands to help deploy and manage multiple web applications on the server with ease.
 
-You may be thinking what the hell has a bus or train conductor have to do with anything? - Well I like to think of it as this set of tools assist you getting your apps on and off of the hosting server, it also 'services' your apps by keeping them backed up and handles composer updates too!
+You may be thinking what the hell has a bus or train conductor have to do with anything? - Well I like to think of it as this set of tools assist you getting your applications on and off of the hosting server, it also 'services' your applications by keeping them backed up and handles composer updates too!
 
 Requirements
 ------------
@@ -19,20 +19,7 @@ wget https://raw.github.com/bobsta63/conductor/master/install.sh
 bash install.sh
 ```
 
-Following installation you will need to edit the ``conductor.conf`` file and set the MySQL root password which you entered during the installation process.
-
-```shell
-nano /etc/conductor/bin/conf/conductor.conf
-```
-
-Now change the section (lines 31-32) to use your MySQL root password:-
-
-```shell
-# The MySQL user password
-MYSQLPASS='your_password_here'
-```
-
-Save the file and now your ready to use conductor!
+During the installation MySQL server will be installed and the ``root`` account will have a random password generated, to view this password, edit ``/etc/conductor.conf``, the password can be found in the bottom of the file. Conductor requires the root password in order to perform creation of user accounts and databases during it's operation.
 
 Check that it's installed and working by entering the following command at the terminal!
 
@@ -76,17 +63,17 @@ A simple command that displays the names of the currently deployed applications 
 
 ####```conductor new {app name}```
 
-When you first want to deploy a new instance of a Laravel 4.x application on to your server, you are required to SSH in (or you could right a web-based application to speak to the executable behind if you wanted too) to your server and then execute the following command:-
+When you first want to deploy a new instance of a Laravel 4.x/5.x application on to your server, you are required to SSH in (or you could right a web-based application to speak to the executable behind if you wanted too) to your server and then execute the following command:-
 
 ```sudo conductor new {app name}```
 
-This command will prompt you for the 'FQDN' (or you can add multiples address of which the Virtualhost will server requests for, these should be separated by spaces!). After entering the FQDN(s) for the new application you'll then be asked for your application's environment type (this basically sets the ``APP_ENV`` environment variable for Nginx of which can then be used by your PHP application like so ``$_SERVER['APP_ENV']``), if your application requires a MySQL database and as you would expect if you decide you do need a MySQL database Conductor will automatically create a database and MySQL user with permissions to only that database (to keep things secure!). The last part of the deployment you are asked how you would like to deploy your application, you have three options of which are as follows:-
+This command will prompt you for the 'FQDN' (or you can add multiples address of which the Virtualhost will server requests for, these should be separated by spaces!). After entering the FQDN(s) for the new application you will then be asked for your application's environment type (this basically sets the ``APP_ENV`` environment variable for Nginx of which can then be used by your PHP application like so ``$_SERVER['APP_ENV']``), if your application requires a MySQL database and as you would expect if you decide you do need a MySQL database Conductor will automatically create a database and MySQL user with permissions to only that database (to keep things secure!). The last part of the deployment you are asked how you would like to deploy your application, you have three options of which are as follows:-
 
 * Git - Keep things automated and use Git to clone and keep your application up to date, this is highly recommended as it's so simple to do... This is what Conductor does best ;-)
 * Restore from a backup - You can restore from an application back-up taken from either on your current server of if you're migrating from another server; when restoring from a backup Conductor will automatically extract the contents of the specified backup archive and will also automatically import any MySQL databases if found in the backup archive.
 * Manual - You are responsible to SSH/FTP to the server and manually upload the files to the ```/var/conductor/applications/{app name}/``` directory.
 
-That it, once you've passed through all the prompts your application will then be live and accessible!
+That it, once you have passed through all the prompts your application will then be live and accessible!
 
 ####```conductor destroy {app name}```
 
@@ -100,7 +87,7 @@ Since version 1.0.7 you can now use the ``--force`` argument on the end of the c
 ####```conductor rollback {app name}```
 This is basically the opposite of ```conductor upgrade {app name}```, this uses that last snapshot that was automatically taken the last time that you preformed an ```conductor upgrade {app name}``` on your application.
 
-You'll be prompted to confirm that you wish to revert to the last database snapshot, it is recommended in most situations that you do this, if however you choose 'no' you will be given the option to run Laravel's migrate:rollback function instead!
+You will be prompted to confirm that you wish to revert to the last database snapshot, it is recommended in most situations that you do this, if however you choose 'no' you will be given the option to run Laravel's ``migrate:rollback`` function instead!
 
 ####```conductor depupdate {app name}```
 
@@ -164,7 +151,7 @@ You may wish to then have a remote server 'pull' and 'archive' these backups of 
 
 Automating composer updates
 ---------------------------
-As conductor is designed to be a 'set and forget' system, we've now implemented an script that you can add as a CRON job (to get rid of those nasty '30 days out of date' errors), by adding this script to the CRONtab you can be sure that Composer is automatically updated every month.
+As conductor is designed to be a 'set and forget' system, we've now implemented an script that you can add as a CRON job (to get rid of those nasty '30 days out of date' errors), by adding this script to the CRONtab you can be sure that Composer is automatically updated on the first day of every month at 03:00.
 
 ```shell
 0 3 0 * * /etc/conductor/utils/update_composer.sh
