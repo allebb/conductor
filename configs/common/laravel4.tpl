@@ -6,6 +6,9 @@ if (!-d $request_filename) {
     rewrite ^/(.+)/$ /$1 permanent;
 }
 
+location = /favicon.ico { access_log off; log_not_found off; }
+location = /robots.txt  { access_log off; log_not_found off; }
+
 location ~* \.php$ {
     try_files $uri /index.php =404;
     fastcgi_pass                    unix:/var/run/php5-fpm.sock;
