@@ -23,10 +23,10 @@ pkg install --yes nginx
 pkg install --yes php56 php56-gd php56-hash php56-phar php56-ctype php56-filter php56-iconv php56-json php56-mcrypt php56-curl php56-mysql php56-mysqli php56-pdo_mysql php56-sqlite3 php56-pdo_sqlite php56-tokenizer php56-readline php56-session php56-simplexml php56-xml php56-zip php56-zlib php56-openssl openssl
 
 # We now install MySQL and set a random root password...
-pkg install --yes mysql
+pkg install --yes mysql56-server mysql56-client
 sh -c 'echo mysql_enable=\"YES\" >> /etc/rc.conf'
 service mysql-server start
-mysqladmin -u root -proot password "$randpassword"
+mysqladmin -u root password "$randpassword"
 mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";
 mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
 mysql -u root -p"$randpassword" -e "FLUSH PRIVILEGES";
@@ -71,12 +71,12 @@ echo "Configuring PHP-FPM for Nginx..."
 sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/var/run/php-fpm\.sock/g" /usr/local/etc/php-fpm.conf
 
 # We'll now install Redis Server
-pkg install redis
+pkg install --yes redis
 sh -c 'echo redis_enable=\"YES\" >> /etc/rc.conf'
 service redis start
 
 # Now we'll install Beanstalkd
-pkg install beanstalkd
+pkg install --yes beanstalkd
 sh -c 'echo beanstalkd_enable=\"YES\" >> /etc/rc.conf'
 service beanstalkd start
 
