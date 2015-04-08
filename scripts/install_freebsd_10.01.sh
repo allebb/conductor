@@ -65,10 +65,10 @@ chmod +x /etc/conductor/upgrade.sh
 
 # We now need to make some changes to the default nginx.conf file...
 echo "Configuring Nginx..."
-sed -i "s/include \/etc\/nginx\/sites-enabled\/\*/include \/etc\/conductor\/configs\/common\/conductor_nginx\.conf/g" /etc/nginx/nginx.conf
+sed -i -f "s/include \/etc\/nginx\/sites-enabled\/\*/include \/etc\/conductor\/configs\/common\/conductor_nginx\.conf/g" /etc/nginx/nginx.conf
 
 echo "Configuring PHP-FPM for Nginx..."
-sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/var/run/php-fpm\.sock/g" /usr/local/etc/php-fpm.conf
+sed -i -f "s/\listen = 127\.0\.0\.1\:9000/listen = \/var\/run\/php-fpm\.sock/g" /usr/local/etc/php-fpm.conf
 
 # We'll now install Redis Server
 pkg install --yes redis
@@ -84,7 +84,7 @@ service beanstalkd start
 cp /etc/conductor/bin/conf/conductor.template.conf /etc/conductor.conf
 
 # Set the root password on our configuration script.
-sed -i "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;
+sed -i -f "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;
 
 # Restarting services...
 service php-fpm restart
