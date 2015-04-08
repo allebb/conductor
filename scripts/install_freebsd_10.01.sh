@@ -26,6 +26,9 @@ pkg install --yes php56 php56-gd php56-hash php56-phar php56-ctype php56-filter 
 pkg install --yes mysql56-server mysql56-client
 sh -c 'echo mysql_enable=\"YES\" >> /etc/rc.conf'
 service mysql-server start
+# Generate a random password that we'll set...
+randpassword=$(passwordgen);
+# Configure MySQL with the new password and do a quick clean-up of the default MySQL installation stuff!
 mysqladmin -u root password "$randpassword"
 mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";
 mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
