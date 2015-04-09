@@ -22,6 +22,10 @@ pkg install --yes nginx
 # Lets now install PHP and the required PHP extenions
 pkg install --yes php56 php56-gd php56-hash php56-phar php56-ctype php56-filter php56-iconv php56-json php56-mcrypt php56-curl php56-mysql php56-mysqli php56-pdo_mysql php56-sqlite3 php56-pdo_sqlite php56-tokenizer php56-readline php56-session php56-simplexml php56-xml php56-zip php56-zlib php56-openssl openssl
 
+# Lets now install APC
+pkg install --yes pecl-APCu
+sh -c 'echo extension=apc.so >> /usr/local/etc/php/extensions.ini'
+
 # We now install MySQL and set a random root password...
 pkg install --yes mysql56-server mysql56-client
 sh -c 'echo mysql_enable=\"YES\" >> /etc/rc.conf'
