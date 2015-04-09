@@ -6,5 +6,7 @@
 # Created by: Bobby Allen (ballen@bobbyallen.me) 26/03/2015 #
 #############################################################
 
+COMPOSERBIN=$(which composer)
+
 # Excecute the composer update process.
-composer self-update
+$COMPOSERBIN self-update
