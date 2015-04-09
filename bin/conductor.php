@@ -21,6 +21,11 @@ if (in_array($shownics, ['Y', 'y'])) {
     $cli->call('ifconfig en1');
 }
 
+$reboot = $cli->input('Reboot the server?', 'n', ['n', 'N', 'y', 'Y']);
+if(in_array($reboot, ['y', 'Y'])){
+    $cli->call('shutdown -r now');
+}
+
 //$cli->call('cp -Rf /Applications/Notes.app /Users/ballen/Desktop/');
 
 $cli->endWithSuccess();
