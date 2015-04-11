@@ -42,7 +42,7 @@ switch ($conductor->commands()[1]) {
         $conductor->writeln('Attempting to stop a Laravel application.');
         break;
     case "services":
-        $conductor->writeln('Now attempting to run a service operation for ' . $conductor->commands()[2]);
+        $conductor->serviceControl($conductor->commands()[2]);
         break;
 
     default:

@@ -4,8 +4,7 @@ class Conductor extends CliApplication
 {
 
     const CONDUCTOR_VERSION = "3.0 dev";
-    
-    const CONDUCTOR_CONF = "/etc/conductor.conf";
+    const CONDUCTOR_CONF = "/Users/ballen/Desktop/conductor.json";
 
     /**
      * The current application number.
@@ -44,18 +43,20 @@ class Conductor extends CliApplication
      */
     private function conductorConfiguration()
     {
-        if (file_exists(CONDUCTOR_CONF)) {
-            return json_decode(file_get_contents(CONDUCTOR_CONF));
+        if (file_exists(self::CONDUCTOR_CONF)) {
+            return json_decode(file_get_contents(self::CONDUCTOR_CONF));
         } else {
-            
+            $this->writeln('The conductor configuration file could not be found!');
+            $this->endWithError();
         }
     }
-    
+
     /**
      * Returns the current version of Conductor.
      * @return string
      */
-    public function version(){
+    public function version()
+    {
         return self::CONDUCTOR_VERSION;
     }
 
@@ -84,6 +85,22 @@ class Conductor extends CliApplication
     {
         if (empty($this->appname)) {
             $this->writeln('No application name was specified!');
+            $this->endWithError();
+        }
+    }
+
+    /**
+     * Action a Conductor service action.
+     * @param string $action
+     */
+    public function serviceControl($action)
+    {
+        //var_dump($action);
+        if (in_array($action, ['start', 'stop', 'restart', 'reload'])) {
+            $this->call($this->conf->services->nginx->$action);
+            $this->call($this->conf->services->php_fpm->$action);
+        } else {
+            $this->writeln('The requested action could be found!');
             $this->endWithError();
         }
     }
@@ -142,8 +159,6 @@ class Conductor extends CliApplication
             $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan --force');
             $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan cache:clear');
             $this->call($this->conf->binaries->composer . ' dump-autoload -o --working-dir=' . $this->appdir);
-        } else {
-            $this->writeln("Skipping migration, cache-clear etc. as no 'Artisan' was found!");
         }
     }
 
