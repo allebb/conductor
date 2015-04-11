@@ -116,7 +116,7 @@ class CliApplication
      * Write out a line to the CLI.
      * @param string $line
      */
-    public function writeln($line)
+    public function writeln($line = '')
     {
         fwrite(STDOUT, $line . PHP_EOL);
     }

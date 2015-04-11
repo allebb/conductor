@@ -1,31 +1,27 @@
 #!/usr/bin/env php
 <?php
-
 $bindir = dirname(__FILE__);
 
 require_once $bindir . '/inc/CliApplication.php';
-$cli = new CliApplication($argv);
+require_once $bindir . '/inc/Conductor.php';
 
-$cli->enforceCli();
+$conductor = new Conductor($argv);
 
-if ($cli->isFlagSet('help')) {
-    $cli->writeln('This is where we\'d post the help info...');
-} else {
-    $cli->writeln('No help was required!');
+$conductor->enforceCli();
+$conductor->checkDependencies();
+
+switch ($conductor->commands()[1]) {
+    case "new":
+        $conductor->writeln('New application added!');
+        break;
+    case "backup":
+        $conductor->writeln('Backing up the application!');
+        break;
+    case "destroy":
+        $conductor->writeln('Destroying the application!');
+        break;
+    default:
+        $conductor->writeln();
+        $conductor->writeln('Conductor help file...');
+        $conductor->writeln();
 }
-$cli->writeln($cli->getOption('git', 'no'));
-
-$shownics = $cli->input('Would you like to see the NIC configuration? [Y/n]', 'y', ['y', 'Y', 'n', 'N']);
-
-if (in_array($shownics, ['Y', 'y'])) {
-    $cli->call('ifconfig en1');
-}
-
-$reboot = $cli->input('Reboot the server?', 'n', ['n', 'N', 'y', 'Y']);
-if(in_array($reboot, ['y', 'Y'])){
-    $cli->call('shutdown -r now');
-}
-
-//$cli->call('cp -Rf /Applications/Notes.app /Users/ballen/Desktop/');
-
-$cli->endWithSuccess();
