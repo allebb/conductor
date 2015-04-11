@@ -3,6 +3,8 @@
 class Conductor extends CliApplication
 {
 
+    const CONDUCTOR_VERSION = "3.0 dev";
+    
     const CONDUCTOR_CONF = "/etc/conductor.conf";
 
     /**
@@ -47,6 +49,14 @@ class Conductor extends CliApplication
         } else {
             
         }
+    }
+    
+    /**
+     * Returns the current version of Conductor.
+     * @return string
+     */
+    public function version(){
+        return self::CONDUCTOR_VERSION;
     }
 
     /**
