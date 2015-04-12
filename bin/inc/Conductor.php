@@ -24,7 +24,7 @@ class Conductor extends CliApplication
      */
     private $conf;
 
-    public function __construct($argv, $appname = '')
+    public function __construct($argv)
     {
         parent::__construct($argv);
 
@@ -36,8 +36,6 @@ class Conductor extends CliApplication
         }
 
         $this->conf = $this->conductorConfiguration();
-        $this->appname = $appname;
-        $this->appdir = $this->conf->paths->apps . '/' . $appname;
     }
 
     /**
@@ -86,10 +84,21 @@ class Conductor extends CliApplication
      */
     private function appNameRequired()
     {
-        if (empty($this->appname)) {
+        $this->setAppName();
+    }
+
+    /**
+     * Sets the application name to the second param
+     * @return void
+     */
+    private function setAppName()
+    {
+        if (!isset($this->getCommand()[2])) {
             $this->writeln('No application name was specified!');
             $this->endWithError();
         }
+        $this->appname = $this->getCommand()[2];
+        $this->appdir = $this->conf->paths->apps . '/' . $this->appname;
     }
 
     /**
@@ -186,6 +195,29 @@ class Conductor extends CliApplication
     {
         $this->call($this->conf->binaries->git . ' --git-dir = ' . $this->appdir . '/.git --work-tree = ' . $this->appdir . ' fetch --all');
         $this->call($this->conf->binaries->git . ' --git-dir = ' . $this->appdir . '/.git --work-tree = ' . $this->appdir . ' reset --hard origin/master');
+    }
+
+    public function newApplication()
+    {
+        if (file_exists($this->appdir)) {
+            $this->writeln('Cannot create new application as it already exists on this server!');
+            $this->endWithError();
+        }
+
+        if (strlen($this->appname) > 14) {
+            $this->writeln('Application name cannot exceed 14 characters!');
+            $this->endWithError();
+        }
+
+        $domain = $this->input('Domains (FQDN\'s) to map this application to:');
+        $environment = $this->input('Environment type:', 'production');
+        $mysql_req = $this->input('Requires MySQL?', 'y', ['y', 'n']);
+        $deploy_git = $this->input('Deploy application with Git now?', 'y', ['y', 'n']);
+    }
+
+    public function updateApplication()
+    {
+        
     }
 
     /**

@@ -16,13 +16,14 @@ switch ($conductor->commands()[1]) {
         $conductor->listApplications();
         break;
     case "new":
-        $conductor->writeln('New application added!');
+        $conductor->newApplication();
         break;
     case "destroy":
         $conductor->writeln('Destroying the application!');
         $conductor->destroy();
         break;
     case "update":
+        $conductor->update();
         $conductor->writeln('Application has been updated!');
         break;
     case "rollback":

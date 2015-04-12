@@ -137,31 +137,45 @@ class CliApplication
      * Request user input
      * @param string $question The input question/text
      * @param string $default A default value if one is not selected.
-     * @param array $options Valid options that are acceptable.
+     * @param array $options Valid options that are acceptable, these are case insensitive!
      * @return string
      */
     public function input($question, $default = '', $options = [])
     {
-        fwrite(STDOUT, $question . ' ');
+        if (empty($default)) {
+            fwrite(STDOUT, $question . ' ');
+        } elseif (empty($options)) {
+            fwrite(STDOUT, $question . ' [' . $default . '] ');
+        } else {
+            // Prepare the option formats, default option should be upper and rest lower.
+            foreach ($options as $option) {
+                if ($option == $default) {
+                    $option = strtoupper($option);
+                } else {
+                    $option = strtolower($option);
+                }
+                $available_options[] = $option;
+            }
+
+            $available_opts = rtrim(implode($available_options, '/'), '/');
+            fwrite(STDOUT, $question . ' [' . $available_opts . '] ');
+        }
 
         $answer = rtrim(fgets(STDIN), PHP_EOL);
-
         $valid = rtrim(implode(',', $options), ',');
 
-        // Should we validate the input?
+        if (empty($answer)) {
+            $answer = $default;
+        }
+
         if (count($options) > 0) {
-            if (!in_array($answer, $options)) {
-                $this->writeln('Invalid selection, valid options are: ' . $valid);
+            if (!in_array(strtolower($answer), array_map('strtolower', $options))) {
                 return $this->input($question, $default, $options);
             }
             return $answer;
         }
 
-        if (empty($answer)) {
-            return $default;
-        } else {
-            return $answer;
-        }
+        return $answer;
     }
 
     /**
@@ -210,10 +224,10 @@ class CliApplication
                 continue;
             }
 
-            // Is it a command? (prefixed with --)
+// Is it a command? (prefixed with --)
             if (substr($arg, 0, 2) === '--') {
 
-                // Is it a long flag type? eg . --help?
+// Is it a long flag type? eg . --help?
                 if (!strpos($arg, '=')) {
                     $ret['flags'][] = ltrim($arg, '--');
                     continue;
@@ -222,10 +236,10 @@ class CliApplication
                 $value = "";
                 $com = substr($arg, 2);
 
-                // Is it the syntax '--option=argument'?
+// Is it the syntax '--option=argument'?
                 if (strpos($com, '=')) {
                     list($com, $value) = split("=", $com, 2);
-                    // Is the option not followed by another option but by arguments
+// Is the option not followed by another option but by arguments
                 } elseif (strpos($args[0], '-') !== 0) {
                     while (strpos($args[0], '-') !== 0)
                         $value .= array_shift($args) . ' ';
@@ -236,7 +250,7 @@ class CliApplication
                 continue;
             }
 
-            // Is it a flag or a serial of flags? (prefixed with -)
+// Is it a flag or a serial of flags? (prefixed with -)
             if (substr($arg, 0, 1) === '-') {
                 for ($i = 1; isset($arg[$i]); $i++)
                     $ret['flags'][] = $arg[$i];
@@ -247,7 +261,7 @@ class CliApplication
             continue;
         }
 
-        // Set the object property values.
+// Set the object property values.
         $this->arguments = $ret['arguments'];
         $this->commands = $ret['commands'];
         $this->flags = $ret['flags'];
