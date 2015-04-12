@@ -228,7 +228,7 @@ class Conductor extends CliApplication
         $placeholders = [
             '@@DOMAIN@@' => $domain,
             '@@APPNAME@@' => $this->appname,
-            '@@HLOGS@@' => $this->paths->applogs . '/' . $this->appname . '/',
+            '@@HLOGS@@' => $this->conf->paths->applogs . '/' . $this->appname . '/',
             '@@ENVIROMENT@@' => $environment,
         ];
         $config = file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf');
@@ -239,8 +239,8 @@ class Conductor extends CliApplication
 
 
         mkdir($this->appdir, 0755);
-        mkdir($this->paths->applogs . '/' . $this->appname);
-        $this->call('chown ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->paths->applogs . '/' . $this->appname . ' -R');
+        mkdir($this->conf->paths->applogs . '/' . $this->appname);
+        $this->call('chown ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->conf->paths->applogs . '/' . $this->appname . ' -R');
         chmod($this->conf->paths->appconfs . '/' . $this->appname . '.conf', 755);
 
         $this->call($this->conf->service->nginx->reload);
