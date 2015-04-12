@@ -128,9 +128,9 @@ class Conductor extends CliApplication
         $this->writeln('Backing up MySQL database (if exists)...');
         $this->call($this->conf->binaries->mysqldump . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' --no-create-db db_' . $this->appname . ' | ' . $this->conf->binaries->gzip . ' -c | cat > ' . $this->conf->paths->temp . '/' . $this->appname . '/appdb.sql.gz');
         $this->writeln('Compressing backup archive...');
-        $this->call('tar -zcf ' . $this->conf->paths->temp . '/' . $this->appname . ' -C ' . $this->conf->paths->temp . '/' . $this->appname . '/ .');
+        $this->call('tar -zcf ' . $this->conf->paths->temp . '/' . $filename . ' -C ' . $this->conf->paths->temp . '/' . $this->appname . '/ .');
         $this->writeln('Cleaning up...');
-        $this->call('rm -Rf ' . $this->conf->paths->temp . '/' . $this->appname . '.tar.gz');
+        $this->call('rm -Rf ' . $this->conf->paths->temp . '/' . $this->appname);
         $this->call('mv ' . $this->conf->paths->temp . '/' . $this->appname . '.tar.gz ' . $this->conf->paths->backups . '/' . $filename);
     }
 
@@ -333,7 +333,7 @@ class Conductor extends CliApplication
             $this->backupApplication($archive_filename);
             $this->writeln('...finished!');
             $this->writeln();
-            $this->writeln('Backup successfully created: ' . $this->conf->paths->backups . '/rollback' . $this->appname . '.tar.gz');
+            $this->writeln('Backup successfully created: ' . $this->conf->paths->backups . '/' . $archive_filename);
             $this->writeln();
             $this->endWithSuccess();
         } else {
@@ -424,7 +424,7 @@ class Conductor extends CliApplication
                 $this->destroyMySQL();
             }
             $this->call('rm -Rf ' . $this->appdir);
-            $this->call('rm -Rf ' . $this->conf->paths->applogs .'/'. $this->appname);
+            $this->call('rm -Rf ' . $this->conf->paths->applogs . '/' . $this->appname);
             $this->writeln('...finished!');
             $this->endWithSuccess();
         } else {
