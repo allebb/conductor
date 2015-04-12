@@ -12,6 +12,11 @@ $conductor->checkDependencies();
 
 $commands = $conductor->commands();
 
+if ($conductor->isFlagSet('v') or $conductor->isFlagSet('version')) {
+    $conductor->writeln('Conductor v' . $conductor->version());
+    $conductor->endWithSuccess();
+}
+
 if (isset($commands[1])) {
     switch ($commands[1]) {
         case "list":
@@ -47,11 +52,6 @@ if (isset($commands[1])) {
             break;
 
         default:
-
-            if ($conductor->isFlagSet('v') or $conductor->isFlagSet('version')) {
-                $conductor->writeln('Conductor v' . $conductor->version());
-                $conductor->endWithSuccess();
-            }
             displayHelp();
     }
 } else {
