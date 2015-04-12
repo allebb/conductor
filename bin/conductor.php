@@ -52,7 +52,7 @@ if (isset($commands[1])) {
             break;
 
         default:
-            displayHelp();
+            displayHelp($conductor);
     }
 } else {
     displayHelp($conductor);
