@@ -424,7 +424,7 @@ class Conductor extends CliApplication
                 $this->destroyMySQL();
             }
             $this->call('rm -Rf ' . $this->appdir);
-            $this->call('rm -Rf ' . $this->applogs . $this->appname);
+            $this->call('rm -Rf ' . $this->conf->paths->applogs . $this->appname);
             $this->writeln('...finished!');
             $this->endWithSuccess();
         } else {
