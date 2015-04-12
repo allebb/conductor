@@ -193,8 +193,8 @@ class Conductor extends CliApplication
      */
     private function gitPull()
     {
-        $this->call($this->conf->binaries->git . ' --git-dir = ' . $this->appdir . '/.git --work-tree = ' . $this->appdir . ' fetch --all');
-        $this->call($this->conf->binaries->git . ' --git-dir = ' . $this->appdir . '/.git --work-tree = ' . $this->appdir . ' reset --hard origin/master');
+        $this->call($this->conf->binaries->git . ' --git-dir=' . $this->appdir . '/.git --work-tree=' . $this->appdir . ' fetch --all');
+        $this->call($this->conf->binaries->git . ' --git-dir=' . $this->appdir . '/.git --work-tree=' . $this->appdir . ' reset --hard origin/master');
     }
 
     public function newApplication()
@@ -310,7 +310,7 @@ class Conductor extends CliApplication
      */
     public function listApplications()
     {
-        $applications = new DirectoryIterator($this->appdir);
+        $applications = new DirectoryIterator($this->conf->paths->apps);
         $this->writeln();
         foreach ($applications as $application) {
             if ($application->isDir() and ( $application->getBasename()[0] != '.')) {
@@ -441,8 +441,8 @@ class Conductor extends CliApplication
     {
         $this->appNameRequired();
         $this->writeln('Attempting to start the Laravel Application');
-        if (file_exists($this->appdir . '/artisan')) {
-            $this->call($this->appdir . '/artisan start');
+        if (file_exists($this->conf->binaries->php . ' ' . $this->appdir . '/artisan')) {
+            $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan start');
         }
         $this->writeln('Could not find the \'artisan\' tool!');
     }
@@ -455,8 +455,8 @@ class Conductor extends CliApplication
     {
         $this->appNameRequired();
         $this->writeln('Attempting to stop the Laravel Application');
-        if (file_exists($this->appdir . '/artisan')) {
-            $this->call($this->appdir . '/artisan stop');
+        if (file_exists($this->conf->binaries->php . ' ' . $this->appdir . '/artisan')) {
+            $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan stop');
         }
         $this->writeln('Could not find the \'artisan\' tool!');
     }
