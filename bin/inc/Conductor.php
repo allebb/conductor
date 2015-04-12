@@ -156,8 +156,8 @@ class Conductor extends CliApplication
         $this->writeln();
         $this->writeln('  DB Name: db_' . $this->appname);
         $this->writeln('  DB Host: ' . $this->conf->mysql->host);
-        $this->writeln('  DB Username: ' . $this->conf->mysql->username);
-        $this->writeln('  DB Password: ' . $this->conf->mysql->password);
+        $this->writeln('  DB Username: ' . $this->appname);
+        $this->writeln('  DB Password: ' . $db_pass);
         $this->writeln();
     }
 
@@ -225,15 +225,18 @@ class Conductor extends CliApplication
 
         copy($this->conf->paths->templates . '/laravel_template.tpl', $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
 
-        $conflines = explode(PHP_EOL, file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf'));
-        $confbuffer = [];
-        foreach ($conflines as $line) {
-            $confbuffer[] = str_replace('@@DOMAIN@@', $domain, $line);
-            $confbuffer[] = str_replace('@@APPNAME@@', $this->appname, $line);
-            $confbuffer[] = str_replace('@@HLOGS@@', $this->paths->applogs . '/' . $this->appname, $line);
-            $confbuffer[] = str_replace('@@ENVIROMENT@@', $environment, $line);
+        $placeholders = [
+            '@@DOMAIN@@' => $domain,
+            '@@APPNAME@@' => $this->appname,
+            '@@HLOGS@@' => $this->paths->applogs . '/' . $this->appname,
+            '@@ENVIROMENT@@' => $environment,
+        ];
+        $config = file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf');    
+        foreach($placeholders as $placeholder=>$value){
+            $config = str_replace($placeholder, $value, $config);
         }
-        file_put_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf', implode(PHP_EOL, $confbuffer));
+        file_put_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf', $config);
+        
 
         mkdir($this->appdir, 0755);
         mkdir($this->paths->applogs . '/' . $this->appname);
