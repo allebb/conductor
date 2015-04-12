@@ -13,7 +13,7 @@
     },
     "binaries": {
         "php": "/usr/bin/php",
-        "composer": "/usr/local/bin/composer",
+        "composer": "/usr/bin/composer",
         "git": "/usr/bin/git",
         "mysql": "/usr/bin/mysql",
         "mysqldump": "/usr/bin/mysqldump",
