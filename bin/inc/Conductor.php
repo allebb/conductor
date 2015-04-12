@@ -189,6 +189,21 @@ class Conductor extends CliApplication
     }
 
     /**
+     * List the applications on the server
+     */
+    public function listApplications()
+    {
+        $applications = new DirectoryIterator($this->appdir);
+        $this->writeln();
+        foreach ($applications as $application) {
+            if ($application->isDir() and ( $application->getBasename()[0] != '.')) {
+                $this->writeln(' - ' . $application->getBasename());
+            }
+        }
+        $this->writeln();
+    }
+
+    /**
      * Initiates an application backup.
      * @return void
      */

@@ -12,13 +12,15 @@ $conductor->checkDependencies();
 
 switch ($conductor->commands()[1]) {
     case "list":
-        $conductor->writeln('Current applications on this server...');
+        $conductor->writeln('Applications hosted on this server:');
+        $conductor->listApplications();
         break;
     case "new":
         $conductor->writeln('New application added!');
         break;
     case "destroy":
         $conductor->writeln('Destroying the application!');
+        $conductor->destroy();
         break;
     case "update":
         $conductor->writeln('Application has been updated!');
