@@ -248,12 +248,12 @@ class Conductor extends CliApplication
         if (strtolower($deploy_git) == 'y') {
             $this->writeln('We\'ll now deploy your application using Git...');
             $this->call('rm -Rf ' . $this->appname);
-            $this->call('git clone ' . $gitrepo . ' ' . $this->appdir);
+            $this->call($this->conf->binaries->git . ' clone ' . $gitrepo . ' ' . $this->appdir);
             if (file_exists($this->appdir . '/vendor')) {
                 $this->writeln('Skipping dependencies are the \'vendor\' directory exists!');
             } else {
                 $this->writeln('Downloading dependencies...');
-                $this->call($this->conf->binaries->composer . ' clone --no-dev --optimize-autoloader --working-dir=' . $this->appdir . '');
+                $this->call($this->conf->binaries->composer . ' install --no-dev --optimize-autoloader --working-dir=' . $this->appdir . '');
             }
         } else {
             $this->writeln('To deploy your application, manually copy the files to:');
