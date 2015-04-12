@@ -420,7 +420,7 @@ class Conductor extends CliApplication
             $this->call('rm ' . $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
             $this->call($this->conf->services->nginx->reload);
 
-            if (file_exists($$this->appdir . '/conductor.json')) {
+            if (file_exists($this->appdir . '/conductor.json')) {
                 $this->destroyMySQL();
             }
             $this->call('rm -Rf ' . $this->appdir);
