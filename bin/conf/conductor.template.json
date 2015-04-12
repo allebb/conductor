@@ -1,0 +1,42 @@
+{
+    "paths": {
+        "apps": "/var/conductor/applications",
+        "temp": "/var/conductor/tmp",
+        "backups": "/var/conductor/backups",
+        "appconfs": "/etc/conductor/configs",
+        "applogs": "/var/conductor/logs",
+        "templates": "/etc/conductor/configs/common"
+    },
+    "permissions": {
+        "webuser": "www-data",
+        "webgroup": "www-data"
+    },
+    "binaries": {
+        "php": "/usr/bin/php",
+        "composer": "/usr/local/bin/composer",
+        "git": "/usr/bin/git",
+        "mysql": "/usr/bin/mysql",
+        "mysqldump": "/usr/bin/mysqldump",
+        "gzip": "/bin/gzip"
+    },
+    "mysql": {
+        "host": "localhost",
+        "username": "root",
+        "password": "ROOT_PASSWORD_HERE",
+        "confrom": "localhost"
+    },
+    "services": {
+        "nginx": {
+            "start": "service nginx start",
+            "stop": "service nginx stop",
+            "restart": "service nginx restart",
+            "reload": "service nginx reload"
+        },
+        "php_fpm": {
+            "start": "/etc/init.d/php5-fpm start",
+            "stop": "/etc/init.d/php5-fpm stop",
+            "restart": "/etc/init.d/php5-fpm restart",
+            "reload": "/etc/init.d/php5-fpm reload"
+        }
+    }
+}
