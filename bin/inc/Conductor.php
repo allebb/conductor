@@ -374,6 +374,35 @@ class Conductor extends CliApplication
         $this->endWithSuccess();
     }
 
+    public function rollback()
+    {
+        $this->appNameRequired();
+        if (!file_exist($this->conf->paths->backups . '/rollback_' . $this->appname . '.tar.gz')) {
+            $this->writeln('There is no available rollback snapshot to restore to.');
+            $this->endWithError();
+        }
+
+        mkdir($this->conf->paths->temp . '/rollback_' . $this->appname, 755);
+        $this->call('tar -zxf ' . $this->conf->paths->backups . '/rollback_' . $this->appname . '.tar.gz -C ' . $this->conf->paths->temp . 'rollback_' . $this->appname);
+
+        if (file_exists($this->conf->paths->temp . 'rollback_' . $this->appname . '/appdb.sql.gz')) {
+            $this->writeln('Importing application MySQL database...');
+            $this->call('gunzip < ' . $this->conf->paths->temp . '/rollback_' . $this->appname . '/appdb.sql.gz\' | mysql -h' . $this->conf->mysql->host . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' db_' . $this->appname . '');
+            $this->writeln('Finished importing the MySQL database!');
+            unlink($this->conf->paths->temp . '/rollback_' . $this->appname . '/appdb.sql.gz');
+        } else {
+            $this->writeln('No Conductor database archive was found, skipping DB import!');
+        }
+
+        $this->call('rm -Rf ' . $this->appdir);
+        $this->call('cp -Rf ' . $this->conf->paths->temp . '/rollback_' . $this->appname . '/ ' . $this->appdir . '/');
+        $this->call('chown ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir . ' -R');
+        $this->call('rm -Rf ' . $this->conf->paths->temp . '/rollback_' . $this->appname);
+
+        $this->writeln('...finished!');
+        $this->endWithSuccess();
+    }
+
     /**
      * Destroy an application
      * @return void
