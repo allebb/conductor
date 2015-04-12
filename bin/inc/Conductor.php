@@ -181,7 +181,7 @@ class Conductor extends CliApplication
     private function migrateLaravel()
     {
         if (file_exists($this->appdir . '/artisan')) {
-            $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan --force');
+            $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan migrate --force');
             $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan cache:clear');
             $this->call($this->conf->binaries->composer . ' dump-autoload -o --working-dir=' . $this->appdir);
         }
@@ -424,7 +424,7 @@ class Conductor extends CliApplication
                 $this->destroyMySQL();
             }
             $this->call('rm -Rf ' . $this->appdir);
-            $this->call('rm -Rf ' . $this->conf->paths->applogs . $this->appname);
+            $this->call('rm -Rf ' . $this->conf->paths->applogs .'/'. $this->appname);
             $this->writeln('...finished!');
             $this->endWithSuccess();
         } else {
@@ -441,7 +441,7 @@ class Conductor extends CliApplication
     {
         $this->appNameRequired();
         $this->writeln('Attempting to start the Laravel Application');
-        if (file_exists($this->conf->binaries->php . ' ' . $this->appdir . '/artisan')) {
+        if (file_exists($this->appdir . '/artisan')) {
             $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan start');
         }
         $this->writeln('Could not find the \'artisan\' tool!');
@@ -455,7 +455,7 @@ class Conductor extends CliApplication
     {
         $this->appNameRequired();
         $this->writeln('Attempting to stop the Laravel Application');
-        if (file_exists($this->conf->binaries->php . ' ' . $this->appdir . '/artisan')) {
+        if (file_exists($this->appdir . '/artisan')) {
             $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan stop');
         }
         $this->writeln('Could not find the \'artisan\' tool!');
