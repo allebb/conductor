@@ -31,6 +31,7 @@ switch ($conductor->commands()[1]) {
         break;
     case "backup":
         $conductor->writeln('Backing up the application!');
+        $conductor->backup();
         break;
     case "restore":
         $conductor->writeln('Restoring an applicaiton!');

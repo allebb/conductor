@@ -115,9 +115,10 @@ class Conductor extends CliApplication
 
     /**
      * Backs up the entire web application including it's database.
+     * @param string $filename The filename to use when creating the backup.
      * @return void
      */
-    private function backupApplication()
+    private function backupApplication($filename)
     {
         $this->appNameRequired();
         $this->call('cp -R ' . $this->appdir . ' ' . $this->conf->paths->temp . '/' . $this->appname);
@@ -126,8 +127,8 @@ class Conductor extends CliApplication
         $this->writeln('Compressing backup archive...');
         $this->call('tar -zcf ' . $this->conf->paths->temp . '/' . $this->appname . ' -C ' . $this->conf->paths->temp . '/' . $this->appname . '/ .');
         $this->writeln('Cleaning up...');
-        $this->call('rm -Rf ' . $this->conf->paths->temp . '/' . $this->appname);
-        $this->call('mv ' . $this->conf->paths->temp . '/' . $this->appname . ' ' . $this->conf->paths->backups . '/' . $this->appname);
+        $this->call('rm -Rf ' . $this->conf->paths->temp . '/' . $this->appname . '.tar.gz');
+        $this->call('mv ' . $this->conf->paths->temp . '/' . $this->appname . '.tar.gz ' . $this->conf->paths->backups . '/' . $filename);
     }
 
     /**
@@ -178,5 +179,26 @@ class Conductor extends CliApplication
     {
         $this->call($this->conf->binaries->git . '--git-dir=' . $this->appdir . '/.git --work-tree=' . $this->appdir . ' fetch --all');
         $this->call($this->conf->binaries->git . ' --git-dir = ' . $this->appdir . '/.git --work-tree = ' . $this->appdir . ' reset --hard origin/master');
+    }
+
+    /**
+     * Initiates an application backup.
+     * @return void
+     */
+    public function backup()
+    {
+        $archive_filename = $this->appname . '-' . date('Y-m-d-H-i') . '.tar.gz';
+        if (file_exists($this->appdir)) {
+            $this->writeln('Starting application backup...');
+            $this->backupApplication($archive_filename);
+            $this->writeln('...finished!');
+            $this->writeln();
+            $this->writeln('Backup successfully created: ' . $this->conf->paths->backups . '/' . $this->appname . '.tar.gz');
+            $this->writeln();
+            $this->endWithSuccess();
+        } else {
+            $this->writeln('Application was not found on this server!');
+            $this->endWithError();
+        }
     }
 }
