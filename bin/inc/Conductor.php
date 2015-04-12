@@ -357,7 +357,7 @@ class Conductor extends CliApplication
         }
 
         mkdir($this->conf->paths->temp . '/restore_' . $this->appname, 755);
-        $this->call('tar -zxf ' . $archive . ' -C ' . $this->conf->paths->temp . 'restore_' . $this->appname);
+        $this->call('tar -zxf ' . $archive . ' -C ' . $this->conf->paths->temp . '/restore_' . $this->appname);
 
         if (file_exists($this->conf->paths->temp . 'restore_' . $this->appname . '/appdb.sql.gz')) {
             $this->writeln('Importing application MySQL database...');
