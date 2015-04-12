@@ -162,7 +162,6 @@ class CliApplication
         }
 
         $answer = rtrim(fgets(STDIN), PHP_EOL);
-        $valid = rtrim(implode(',', $options), ',');
 
         if (empty($answer)) {
             $answer = $default;

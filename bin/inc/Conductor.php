@@ -213,6 +213,62 @@ class Conductor extends CliApplication
         $environment = $this->input('Environment type:', 'production');
         $mysql_req = $this->input('Requires MySQL?', 'y', ['y', 'n']);
         $deploy_git = $this->input('Deploy application with Git now?', 'y', ['y', 'n']);
+
+        if ($deploy_git == 'y') {
+            $this->writeln();
+            $gitrepo = $this->input('Git repository URL:');
+            $this->writeln();
+        }
+
+        // Validate that the Domain/Domains are valid FQDN's
+
+        copy($this->conf->paths->templates . '/laravel_template.tpl', $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
+
+        $conflines = explode(PHP_EOL, file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf'));
+        $confbuffer = [];
+        foreach ($conflines as $line) {
+            $confbuffer[] = str_replace('@@DOMAIN@@', $domain, $line);
+            $confbuffer[] = str_replace('@@APPNAME@@', $this->appname, $line);
+            $confbuffer[] = str_replace('@@HLOGS@@', $this->paths->applogs . '/' . $this->appname, $line);
+            $confbuffer[] = str_replace('@@ENVIROMENT@@', $environment, $line);
+        }
+        file_put_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf', implode(PHP_EOL, $confbuffer));
+
+        mkdir($this->appdir, 0755);
+        mkdir($this->paths->applogs . '/' . $this->appname);
+        $this->call('chown ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->paths->applogs . '/' . $this->appname . ' -R');
+        chmod($this->conf->paths->appconfs . '/' . $this->appname . '.conf', 755);
+
+        $this->call($this->conf->service->nginx->reload);
+
+        if ($deploy_git == 'y') {
+            $this->writeln('We\'ll now deploy your application using Git...');
+            $this->call('rm -Rf ' . $this->appname);
+            $this->call('git clone ' . $gitrepo . ' ' . $this->appdir);
+            if (file_exists($this->appdir . '/vendor')) {
+                $this->writeln('Skipping dependencies are the \'vendor\' directory exists!');
+            } else {
+                $this->writeln('Downloading dependencies...');
+                $this->call($this->conf->binaries->composer . '  --no-dev --optimize-autoloader --working-dir=' . $this->appdir . '');
+            }
+        } else {
+            $this->writeln('To deploy your application, manually copy the files to:');
+            $this->writeln();
+            $this->writeln($this->appdir . '/');
+            $this->writeln();
+            $this->writeln('Alternatively if you are migrating from another server, use \'conductor restore ' . $this->appname . '\' to restore now!');
+        }
+
+        $this->writeln('Setting ownership permissions on application files...');
+        $this->call('chown ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir . ' -R');
+
+        if ($mysql_req == 'y') {
+            $this->writeln();
+            $password = $this->input('Please enter a password for the MySQL database:');
+            $this->createMySQL($password);
+        }
+
+        $this->migrateLaravel();
     }
 
     public function updateApplication()
