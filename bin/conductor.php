@@ -36,10 +36,10 @@ switch ($conductor->commands()[1]) {
         $conductor->writeln('Restoring an applicaiton!');
         break;
     case "start":
-        $conductor->writeln('Attempting to start a Laravel application.');
+        $conductor->startLaravelApplication();
         break;
     case "stop":
-        $conductor->writeln('Attempting to stop a Laravel application.');
+        $conductor->stopLaravelApplication();
         break;
     case "services":
         $conductor->serviceControl($conductor->commands()[2]);

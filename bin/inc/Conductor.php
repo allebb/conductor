@@ -250,4 +250,30 @@ class Conductor extends CliApplication
             $this->endWithError();
         }
     }
+
+    /**
+     * Start a Laravel application.
+     * @return void
+     */
+    public function startLaravelApplication()
+    {
+        $this->writeln('Attempting to start the Laravel Application');
+        if (file_exists($this->appdir . '/artisan')) {
+            $this->call($this->appdir . '/artisan start');
+        }
+        $this->writeln('Could not find the \'artisan\' tool!');
+    }
+
+    /**
+     * Stop a Laravel application.
+     * @return void
+     */
+    public function stopLaravelApplication()
+    {
+        $this->writeln('Attempting to stop the Laravel Application');
+        if (file_exists($this->appdir . '/artisan')) {
+            $this->call($this->appdir . '/artisan stop');
+        }
+        $this->writeln('Could not find the \'artisan\' tool!');
+    }
 }
