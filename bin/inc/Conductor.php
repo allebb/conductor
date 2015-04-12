@@ -93,7 +93,7 @@ class Conductor extends CliApplication
      */
     private function setAppName()
     {
-        if (!isset($this->getCommand(2))) {
+        if (!$this->getCommand(2)) {
             $this->writeln('No application name was specified!');
             $this->endWithError();
         }
