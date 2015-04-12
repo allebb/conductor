@@ -215,7 +215,7 @@ class Conductor extends CliApplication
         $mysql_req = $this->input('Requires MySQL?', 'y', ['y', 'n']);
         $deploy_git = $this->input('Deploy application with Git now?', 'y', ['y', 'n']);
 
-        if ($deploy_git == 'y') {
+        if (strtolower($deploy_git) == 'y') {
             $this->writeln();
             $gitrepo = $this->input('Git repository URL:');
             $this->writeln();
@@ -245,7 +245,7 @@ class Conductor extends CliApplication
 
         $this->call($this->conf->services->nginx->reload);
 
-        if ($deploy_git == 'y') {
+        if (strtolower($deploy_git) == 'y') {
             $this->writeln('We\'ll now deploy your application using Git...');
             $this->call('rm -Rf ' . $this->appname);
             $this->call('git clone ' . $gitrepo . ' ' . $this->appdir);
@@ -266,7 +266,7 @@ class Conductor extends CliApplication
         $this->writeln('Setting ownership permissions on application files...');
         $this->call('chown ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir . ' -R');
 
-        if ($mysql_req == 'y') {
+        if (strtolower($mysql_req) == 'y') {
             $this->writeln();
             $password = $this->input('Please enter a password for the MySQL database:');
             $this->createMySQL($password);
