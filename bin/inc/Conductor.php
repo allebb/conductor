@@ -243,7 +243,7 @@ class Conductor extends CliApplication
         $this->call('chown ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->conf->paths->applogs . '/' . $this->appname . ' -R');
         chmod($this->conf->paths->appconfs . '/' . $this->appname . '.conf', 755);
 
-        $this->call($this->conf->service->nginx->reload);
+        $this->call($this->conf->services->nginx->reload);
 
         if ($deploy_git == 'y') {
             $this->writeln('We\'ll now deploy your application using Git...');
@@ -253,7 +253,7 @@ class Conductor extends CliApplication
                 $this->writeln('Skipping dependencies are the \'vendor\' directory exists!');
             } else {
                 $this->writeln('Downloading dependencies...');
-                $this->call($this->conf->binaries->composer . '  --no-dev --optimize-autoloader --working-dir=' . $this->appdir . '');
+                $this->call($this->conf->binaries->composer . ' clone --no-dev --optimize-autoloader --working-dir=' . $this->appdir . '');
             }
         } else {
             $this->writeln('To deploy your application, manually copy the files to:');
