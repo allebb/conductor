@@ -274,7 +274,32 @@ class Conductor extends CliApplication
 
     public function updateApplication()
     {
-        
+        $this->appNameRequired();
+
+        if (!file_exists($this->appdir)) {
+            $this->writeln('Application was not found on this server!');
+            $this->endWithError();
+        }
+
+        $stopapp = $this->input('Do you wish to \'stop\' the application before upgrading?', 'y', ['y', 'n']);
+        if ($stopapp == 'y')
+            $this->stopLaravelApplication();
+
+        if (file_exists($this->conf->paths->backups . '/rollback_' . $this->appname . '.tag.gz')) {
+            unlink($this->conf->paths->backups . '/rollback_' . $this->appname . '.tag.gz');
+        }
+        $this->backupApplication('rollback_' . $this->appname . '.tar.gz');
+        $this->writeln('Starting application upgrade...');
+        if (file_exists($this->appdir . '/.git')) {
+            $this->gitPull();
+        }
+        $this->call('chown ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir . ' -R');
+        $this->migrateLaravel();
+        $this->writeln('...finished!');
+        if ($stopapp == 'y')
+            $this->startLaravelApplication();
+
+        $this->endWithSuccess();
     }
 
     /**
@@ -305,7 +330,7 @@ class Conductor extends CliApplication
             $this->backupApplication($archive_filename);
             $this->writeln('...finished!');
             $this->writeln();
-            $this->writeln('Backup successfully created: ' . $this->conf->paths->backups . '/' . $this->appname . '.tar.gz');
+            $this->writeln('Backup successfully created: ' . $this->conf->paths->backups . '/rollback' . $this->appname . '.tar.gz');
             $this->writeln();
             $this->endWithSuccess();
         } else {
@@ -322,23 +347,20 @@ class Conductor extends CliApplication
         $this->appNameRequired();
         $this->writeln('Tell us which archive you wish to restore (eg. /var/conductor/backups/myapp_2013-10-26-0900.tar.gz/)');
         $archive = $this->input('Backup archive:');
-        $stopapp = $this->input('Do you wish to \'stop\' the application before upgrading?', 'y', ['y', 'n']);
-        if ($stopapp == 'y')
-            $this->stopLaravelApplication();
 
         if (!file_exists($archive)) {
             $this->writeln('The backup archive could not be found!');
             $this->endWithError();
         }
 
-        mkdir($this->conf->paths->temp . 'restore_' . $this->appname, 755);
+        mkdir($this->conf->paths->temp . '/restore_' . $this->appname, 755);
         $this->call('tar -zxf ' . $archive . ' -C ' . $this->conf->paths->temp . 'restore_' . $this->appname);
 
         if (file_exists($this->conf->paths->temp . 'restore_' . $this->appname . '/appdb.sql.gz')) {
             $this->writeln('Importing application MySQL database...');
-            $this->call('gunzip < ' . $this->conf->paths->temp . 'restore_' . $this->appname . '/appdb.sql.gz\' | mysql -h' . $this->conf->mysql->host . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' db_' . $this->appname . '');
+            $this->call('gunzip < ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/appdb.sql.gz\' | mysql -h' . $this->conf->mysql->host . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' db_' . $this->appname . '');
             $this->writeln('Finished importing the MySQL database!');
-            unlink($this->conf->paths->temp . 'restore_' . $this->appname . '/appdb.sql.gz');
+            unlink($this->conf->paths->temp . '/restore_' . $this->appname . '/appdb.sql.gz');
         } else {
             $this->writeln('No Conductor database archive was found, skipping DB import!');
         }
@@ -349,8 +371,6 @@ class Conductor extends CliApplication
         $this->call('rm -Rf ' . $this->conf->paths->temp . '/restore_' . $this->appname);
 
         $this->writeln('...finished!');
-        if ($stopapp == 'y')
-            $this->startLaravelApplication();
         $this->endWithSuccess();
     }
 
