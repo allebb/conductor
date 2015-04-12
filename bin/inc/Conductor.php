@@ -415,7 +415,7 @@ class Conductor extends CliApplication
         $this->appNameRequired();
         if (file_exists($this->appdir)) {
             $this->writeln('Running a quick snapshot as you can never be too careful...');
-            $this->backup('priordestroy_' . $this->appname . '.tar.gz');
+            $this->backupApplication('priordestroy_' . $this->appname . '.tar.gz');
             $this->writeln('Destroying application...');
             $this->call('rm ' . $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
             $this->call($this->conf->services->nginx->reload);
