@@ -10,7 +10,7 @@ $conductor = new Conductor($argv);
 $conductor->enforceCli();
 $conductor->checkDependencies();
 
-$commands = $conductor->commands();
+$commands = $conductor->getCommands();
 
 if (isset($commands[1])) {
     switch ($commands[1]) {
