@@ -183,7 +183,7 @@ class Conductor extends CliApplication
         if (file_exists($this->appdir . '/artisan')) {
             $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan --force');
             $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan cache:clear');
-            $this->call($this->conf->binaries->composer . ' dump-autoload -o --working-dir = ' . $this->appdir);
+            $this->call($this->conf->binaries->composer . ' dump-autoload -o --working-dir=' . $this->appdir);
         }
     }
 
