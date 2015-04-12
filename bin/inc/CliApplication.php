@@ -25,6 +25,18 @@ class CliApplication
     }
 
     /**
+     * Checks that the user is root!
+     * @return boolean
+     */
+    public function isSuperUser()
+    {
+        if (posix_getuid() == 0) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Return CLI arguments
      * @return array
      */

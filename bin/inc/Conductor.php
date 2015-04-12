@@ -27,9 +27,17 @@ class Conductor extends CliApplication
     public function __construct($argv, $appname = '')
     {
         parent::__construct($argv);
-        // Enforce CLI operation only!
+
+        // Enforce that the application is ran from the CLI only!
         $this->enforceCli();
-        // Load the conductor configuration files.
+
+        // We require root user permissions for this script...
+        if (!$this->isSuperUser()) {
+            $this->writeln('You must be root to use this tool!');
+            $this->endWithError();
+        }
+
+        // Load the Conductor configuration files.
         $this->conf = $this->conductorConfiguration();
 
         // Set the applicaiton name and directory if this is set.
