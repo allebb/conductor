@@ -71,7 +71,7 @@ sudo chmod +x /etc/conductor/bin/*
 sudo chmod +x /etc/conductor/utils/*
 
 # Lets symlink the main conductor script...
-sudo ln -s /etc/conductor/bin/conductor /usr/bin/conductor
+sudo ln -s /etc/conductor/bin/conductor.php /usr/bin/conductor
 # Lets set the new symlink as executable
 sudo chmod +x /usr/bin/conductor
 
@@ -105,7 +105,7 @@ sudo /etc/init.d/php5-fpm restart
 sudo /etc/init.d/nginx restart
 
 # Lets copy the configuration file template to /etc/conductor.conf for simplified administration.
-sudo cp /etc/conductor/bin/conf/conductor.template.conf /etc/conductor.conf
+sudo cp /etc/conductor/bin/conf/conductor.template.json /etc/conductor.conf
 
 # Set the root password on our configuration script.
 sudo sed -i "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;

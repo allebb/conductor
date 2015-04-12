@@ -81,7 +81,7 @@ chmod +x /etc/conductor/bin/*
 chmod +x /etc/conductor/utils/*
 
 # Lets symlink the main conductor script...
-ln -s /etc/conductor/bin/conductor /usr/bin/conductor
+ln -s /etc/conductor/bin/conductor.php /usr/bin/conductor
 # Lets set the new symlink as executable
 chmod +x /usr/bin/conductor
 
@@ -112,7 +112,7 @@ sh -c 'echo beanstalkd_enable=\"YES\" >> /etc/rc.conf'
 service beanstalkd start
 
 # Lets copy the configuration file template to /etc/conductor.conf for simplified administration.
-cp /etc/conductor/bin/conf/conductor.template.conf /etc/conductor.conf
+cp /etc/conductor/bin/conf/conductor.template.json /etc/conductor.conf
 
 # Set the root password on our configuration script.
 sed -i -f "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;
