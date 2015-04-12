@@ -26,9 +26,6 @@ switch ($conductor->commands()[1]) {
     case "rollback":
         $conductor->writeln('Rolling back application to last snapshot');
         break;
-    case "depupdate":
-        $conductor->writeln('Application Composer dependencies have been updated!');
-        break;
     case "backup":
         $conductor->writeln('Backing up the application!');
         $conductor->backup();

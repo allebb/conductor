@@ -28,19 +28,14 @@ class Conductor extends CliApplication
     {
         parent::__construct($argv);
 
-        // Enforce that the application is ran from the CLI only!
         $this->enforceCli();
 
-        // We require root user permissions for this script...
         if (!$this->isSuperUser()) {
             $this->writeln('You must be root to use this tool!');
             $this->endWithError();
         }
 
-        // Load the Conductor configuration files.
         $this->conf = $this->conductorConfiguration();
-
-        // Set the applicaiton name and directory if this is set.
         $this->appname = $appname;
         $this->appdir = $this->conf->paths->apps . '/' . $appname;
     }
@@ -103,7 +98,6 @@ class Conductor extends CliApplication
      */
     public function serviceControl($action)
     {
-        //var_dump($action);
         if (in_array($action, ['start', 'stop', 'restart', 'reload'])) {
             $this->call($this->conf->services->nginx->$action);
             $this->call($this->conf->services->php_fpm->$action);
@@ -158,6 +152,19 @@ class Conductor extends CliApplication
         $this->writeln();
     }
 
+    private function destroyMySQL()
+    {
+        $this->appNameRequired();
+        $db = mysql_connect($this->conf->mysql->host, $this->conf->mysql->username, $this->conf->mysql->password);
+        if (!$db) {
+            $this->writeln('MySQL connection error: ' . mysql_error());
+        }
+        mysql_query('DROP DATABASE IF EXISTS `db_' . $this->appname . '`;', $db);
+        mysql_query('DROP USER \'' . $this->appname . '\'@\'' . $this->conf->mysql->confrom . '\';', $db);
+        mysql_query('FLUSH PRIVILEGES;', $db);
+        mysql_close($db);
+    }
+
     /**
      * Migrate a Laravel specific application.
      * @return void
@@ -167,7 +174,7 @@ class Conductor extends CliApplication
         if (file_exists($this->appdir . '/artisan')) {
             $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan --force');
             $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan cache:clear');
-            $this->call($this->conf->binaries->composer . ' dump-autoload -o --working-dir=' . $this->appdir);
+            $this->call($this->conf->binaries->composer . ' dump-autoload -o --working-dir = ' . $this->appdir);
         }
     }
 
@@ -177,7 +184,7 @@ class Conductor extends CliApplication
      */
     private function gitPull()
     {
-        $this->call($this->conf->binaries->git . '--git-dir=' . $this->appdir . '/.git --work-tree=' . $this->appdir . ' fetch --all');
+        $this->call($this->conf->binaries->git . ' --git-dir = ' . $this->appdir . '/.git --work-tree = ' . $this->appdir . ' fetch --all');
         $this->call($this->conf->binaries->git . ' --git-dir = ' . $this->appdir . '/.git --work-tree = ' . $this->appdir . ' reset --hard origin/master');
     }
 
@@ -195,6 +202,33 @@ class Conductor extends CliApplication
             $this->writeln();
             $this->writeln('Backup successfully created: ' . $this->conf->paths->backups . '/' . $this->appname . '.tar.gz');
             $this->writeln();
+            $this->endWithSuccess();
+        } else {
+            $this->writeln('Application was not found on this server!');
+            $this->endWithError();
+        }
+    }
+
+    /**
+     * Destroy an application
+     * @return void
+     */
+    public function destroy()
+    {
+
+        if (file_exists($this->appdir)) {
+            $this->writeln('Running a quick snapshot as you can never be too careful...');
+            $this->backup('priordestroy_' . $this->appname . '.tar.gz');
+            $this->writeln('Destroying application...');
+            $this->call('rm ' . $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
+            $this->call($this->conf->services->nginx->reload);
+
+            if (file_exists($$this->appdir . '/conductor.json')) {
+                $this->destroyMySQL();
+            }
+            $this->call('rm -Rf ' . $this->appdir);
+            $this->call('rm -Rf ' . $this->applogs . $this->appname);
+            $this->writeln('...finished!');
             $this->endWithSuccess();
         } else {
             $this->writeln('Application was not found on this server!');
