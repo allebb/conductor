@@ -442,7 +442,7 @@ class Conductor extends CliApplication
         $this->appNameRequired();
         $this->writeln('Attempting to start the Laravel Application');
         if (file_exists($this->appdir . '/artisan')) {
-            $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan start');
+            $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan up');
         }
         $this->writeln('Could not find the \'artisan\' tool!');
     }
@@ -456,7 +456,7 @@ class Conductor extends CliApplication
         $this->appNameRequired();
         $this->writeln('Attempting to stop the Laravel Application');
         if (file_exists($this->appdir . '/artisan')) {
-            $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan stop');
+            $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan down');
         }
         $this->writeln('Could not find the \'artisan\' tool!');
     }
