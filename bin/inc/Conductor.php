@@ -228,15 +228,15 @@ class Conductor extends CliApplication
         $placeholders = [
             '@@DOMAIN@@' => $domain,
             '@@APPNAME@@' => $this->appname,
-            '@@HLOGS@@' => $this->paths->applogs . '/' . $this->appname,
+            '@@HLOGS@@' => $this->paths->applogs . '/' . $this->appname . '/',
             '@@ENVIROMENT@@' => $environment,
         ];
-        $config = file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf');    
-        foreach($placeholders as $placeholder=>$value){
+        $config = file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf');
+        foreach ($placeholders as $placeholder => $value) {
             $config = str_replace($placeholder, $value, $config);
         }
         file_put_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf', $config);
-        
+
 
         mkdir($this->appdir, 0755);
         mkdir($this->paths->applogs . '/' . $this->appname);
