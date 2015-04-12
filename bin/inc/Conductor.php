@@ -390,7 +390,7 @@ class Conductor extends CliApplication
 
         if (file_exists($this->conf->paths->temp . '/rollback_' . $this->appname . '/appdb.sql.gz')) {
             $this->writeln('Importing application MySQL database...');
-            $this->call('gunzip < ' . $this->conf->paths->temp . '/rollback_' . $this->appname . '/appdb.sql.gz\' | mysql -h' . $this->conf->mysql->host . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' db_' . $this->appname . '');
+            $this->call('gunzip < ' . $this->conf->paths->temp . '/rollback_' . $this->appname . '/appdb.sql.gz | mysql -h' . $this->conf->mysql->host . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' db_' . $this->appname . '');
             $this->writeln('Finished importing the MySQL database!');
             unlink($this->conf->paths->temp . '/rollback_' . $this->appname . '/appdb.sql.gz');
         } else {
