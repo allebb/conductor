@@ -4,7 +4,7 @@ class Conductor extends CliApplication
 {
 
     const CONDUCTOR_VERSION = "3.0 dev";
-    const CONDUCTOR_CONF = "/Users/ballen/Desktop/conductor.json";
+    const CONDUCTOR_CONF = "/etc/conductor.conf";
 
     /**
      * The current application number.
