@@ -386,6 +386,7 @@ class Conductor extends CliApplication
         }
 
         mkdir($this->conf->paths->temp . '/rollback_' . $this->appname, 755);
+        $this->writeln('Extracting the rollback image...');
         $this->call('tar -zxf ' . $this->conf->paths->backups . '/rollback_' . $this->appname . '.tar.gz -C ' . $this->conf->paths->temp . '/rollback_' . $this->appname);
 
         if (file_exists($this->conf->paths->temp . '/rollback_' . $this->appname . '/appdb.sql.gz')) {
@@ -401,8 +402,9 @@ class Conductor extends CliApplication
         $this->call('cp -Rf ' . $this->conf->paths->temp . '/rollback_' . $this->appname . '/ ' . $this->appdir . '/');
         $this->call('chown ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir . ' -R');
         $this->call('rm -Rf ' . $this->conf->paths->temp . '/rollback_' . $this->appname);
-
         $this->writeln('...finished!');
+        $this->writeln('Ensuring applicaiton is started after rollback...');
+        $this->startLaravelApplication();
         $this->endWithSuccess();
     }
 
