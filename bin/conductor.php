@@ -19,22 +19,19 @@ switch ($conductor->commands()[1]) {
         $conductor->newApplication();
         break;
     case "destroy":
-        $conductor->writeln('Destroying the application!');
         $conductor->destroy();
         break;
     case "update":
         $conductor->update();
-        $conductor->writeln('Application has been updated!');
         break;
     case "rollback":
         $conductor->writeln('Rolling back application to last snapshot');
         break;
     case "backup":
-        $conductor->writeln('Backing up the application!');
         $conductor->backup();
         break;
     case "restore":
-        $conductor->writeln('Restoring an applicaiton!');
+        $conductor->restore();
         break;
     case "start":
         $conductor->startLaravelApplication();

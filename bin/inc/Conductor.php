@@ -199,6 +199,7 @@ class Conductor extends CliApplication
 
     public function newApplication()
     {
+        $this->appNameRequired();
         if (file_exists($this->appdir)) {
             $this->writeln('Cannot create new application as it already exists on this server!');
             $this->endWithError();
@@ -297,6 +298,7 @@ class Conductor extends CliApplication
      */
     public function backup()
     {
+        $this->appNameRequired();
         $archive_filename = $this->appname . '-' . date('Y-m-d-H-i') . '.tar.gz';
         if (file_exists($this->appdir)) {
             $this->writeln('Starting application backup...');
@@ -313,12 +315,52 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Restores an application from a backup.
+     */
+    public function restore()
+    {
+        $this->appNameRequired();
+        $this->writeln('Tell us which archive you wish to restore (eg. /var/conductor/backups/myapp_2013-10-26-0900.tar.gz/)');
+        $archive = $this->input('Backup archive:');
+        $stopapp = $this->input('Do you wish to \'stop\' the application before upgrading?', 'y', ['y', 'n']);
+        if ($stopapp == 'y')
+            $this->stopLaravelApplication();
+
+        if (!file_exists($archive)) {
+            $this->writeln('The backup archive could not be found!');
+            $this->endWithError();
+        }
+
+        mkdir($this->conf->paths->temp . 'restore_' . $this->appname, 755);
+        $this->call('tar -zxf ' . $archive . ' -C ' . $this->conf->paths->temp . 'restore_' . $this->appname);
+
+        if (file_exists($this->conf->paths->temp . 'restore_' . $this->appname . '/appdb.sql.gz')) {
+            $this->writeln('Importing application MySQL database...');
+            $this->call('gunzip < ' . $this->conf->paths->temp . 'restore_' . $this->appname . '/appdb.sql.gz\' | mysql -h' . $this->conf->mysql->host . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' db_' . $this->appname . '');
+            $this->writeln('Finished importing the MySQL database!');
+            unlink($this->conf->paths->temp . 'restore_' . $this->appname . '/appdb.sql.gz');
+        } else {
+            $this->writeln('No Conductor database archive was found, skipping DB import!');
+        }
+
+        $this->call('rm -Rf ' . $this->appdir);
+        $this->call('cp -Rf ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/ ' . $this->appdir . '/');
+        $this->call('chown ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir . ' -R');
+        $this->call('rm -Rf ' . $this->conf->paths->temp . '/restore_' . $this->appname);
+
+        $this->writeln('...finished!');
+        if ($stopapp == 'y')
+            $this->startLaravelApplication();
+        $this->endWithSuccess();
+    }
+
+    /**
      * Destroy an application
      * @return void
      */
     public function destroy()
     {
-
+        $this->appNameRequired();
         if (file_exists($this->appdir)) {
             $this->writeln('Running a quick snapshot as you can never be too careful...');
             $this->backup('priordestroy_' . $this->appname . '.tar.gz');
@@ -345,6 +387,7 @@ class Conductor extends CliApplication
      */
     public function startLaravelApplication()
     {
+        $this->appNameRequired();
         $this->writeln('Attempting to start the Laravel Application');
         if (file_exists($this->appdir . '/artisan')) {
             $this->call($this->appdir . '/artisan start');
@@ -358,6 +401,7 @@ class Conductor extends CliApplication
      */
     public function stopLaravelApplication()
     {
+        $this->appNameRequired();
         $this->writeln('Attempting to stop the Laravel Application');
         if (file_exists($this->appdir . '/artisan')) {
             $this->call($this->appdir . '/artisan stop');
