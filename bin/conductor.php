@@ -10,7 +10,7 @@ $conductor = new Conductor($argv);
 $conductor->enforceCli();
 $conductor->checkDependencies();
 
-$commands = $conductor->getCommands();
+$commands = $conductor->commands();
 
 if (isset($commands[1])) {
     switch ($commands[1]) {
@@ -54,6 +54,8 @@ if (isset($commands[1])) {
             }
             displayHelp();
     }
+} else {
+    displayHelp($conductor);
 }
 
 function displayHelp($conductor)
