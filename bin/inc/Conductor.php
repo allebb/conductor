@@ -380,7 +380,7 @@ class Conductor extends CliApplication
     public function rollback()
     {
         $this->appNameRequired();
-        if (!file_exist($this->conf->paths->backups . '/rollback_' . $this->appname . '.tar.gz')) {
+        if (!file_exists($this->conf->paths->backups . '/rollback_' . $this->appname . '.tar.gz')) {
             $this->writeln('There is no available rollback snapshot to restore to!');
             $this->endWithError();
         }
