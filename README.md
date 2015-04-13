@@ -32,13 +32,7 @@ conductor --help
 Upgrading Conductor
 -------------------
 
-If you wish to upgrade the Conductor tool-set, you should execute the following commands in order to upgrade the Conductor utility:
-
-```
-cd /etc/conductor
-./upgrade.sh
-```
-Conductor should now be fully up to date, remember that the web server components are updated using 'apt-get upgrade' and is not covered in the above instructions.
+Upgrade instructions can be found in the [UPGRADE](UPGRADE.md) section.
 
 What does this install
 ----------------------
