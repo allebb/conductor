@@ -210,7 +210,7 @@ class Conductor extends CliApplication
             $this->endWithError();
         }
 
-        if (!$this->getOption('fqdn', false)) {
+        if (!$this->getOption('fqdn')) {
             // Entering interactive mode...
             $domain = $this->input('Domains (FQDN\'s) to map this application to:');
             $environment = $this->input('Environment type:', 'production');
@@ -221,14 +221,14 @@ class Conductor extends CliApplication
             $domain = $this->getOption('fqdn');
             $environment = $this->getOption('environment', 'production');
 
-            if (!$this->getOption('mysql-pass', false)) {
+            if ($this->getOption('mysql-pass')) {
                 $mysql_req = 'y';
                 $password = $this->getOption('mysql-pass');
             } else {
                 $mysql_req = 'n';
             }
 
-            if (!$this->getOption('git-uri', false)) {
+            if ($this->getOption('git-uri')) {
                 $deploy_git = 'y';
                 $gitrepo = $this->getOption('git-uri');
             } else {
