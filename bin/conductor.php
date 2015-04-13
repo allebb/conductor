@@ -12,7 +12,7 @@ $conductor->checkDependencies();
 
 $commands = $conductor->commands();
 
-if ($conductor->isFlagSet('v') or $conductor->isFlagSet('version')) {
+if ($conductor->isFlagSet('v')) {
     $conductor->writeln('Conductor v' . $conductor->version());
     $conductor->endWithSuccess();
 }
@@ -43,12 +43,15 @@ if (isset($commands[1])) {
             break;
         case "start":
             $conductor->startLaravelApplication();
+            $conductor->endWithSuccess();
             break;
         case "stop":
             $conductor->stopLaravelApplication();
+            $conductor->endWithSuccess();
             break;
         case "services":
-            $conductor->serviceControl($conductor->commands()[2]);
+            $conductor->serviceControl($commands[2]);
+            $conductor->endWithSuccess();
             break;
 
         default:
@@ -62,7 +65,7 @@ function displayHelp($conductor)
 {
     $conductor->writeln();
     $conductor->writeln('Usage: conductor [OTPION]');
-    $conductor->writeln('');
+    $conductor->writeln();
     $conductor->writeln('Options:');
     $conductor->writeln('  list              List all currently hosted applications');
     $conductor->writeln('  new {name}        Prepares and deploys a new application');
@@ -79,9 +82,10 @@ function displayHelp($conductor)
     $conductor->writeln('  services status   Displays the current daemon statuses');
     $conductor->writeln('  services restart  Restarts all dependent Conductor daemons');
     $conductor->writeln('  services reload   Reloads all dependent Conductor daemons');
+    $conductor->writeln();
     $conductor->writeln('  -v                Displays the version number of Conductor');
     $conductor->writeln('  -h                Displays this help screen.');
-    $conductor->writeln('');
+    $conductor->writeln();
     $conductor->writeln('Please report bug at: https://github.com/bobsta63/conductor');
     $conductor->writeln();
 }

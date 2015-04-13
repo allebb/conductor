@@ -279,12 +279,19 @@ class Conductor extends CliApplication
     {
         $this->appNameRequired();
 
+        // Checks for CLI options to surpress the 'stop' application user input.
+        if (!$this->getOption('down', false) && $this->getOption('down', "true")) {
+            $takedown = true;
+        }
+
         if (!file_exists($this->appdir)) {
             $this->writeln('Application was not found on this server!');
             $this->endWithError();
         }
 
-        $stopapp = $this->input('Do you wish to \'stop\' the application before upgrading?', 'y', ['y', 'n']);
+        if (!isset($takedown)) {
+            $stopapp = $this->input('Do you wish to \'stop\' the application before upgrading?', 'y', ['y', 'n']);
+        }
         if ($stopapp == 'y')
             $this->stopLaravelApplication();
 
