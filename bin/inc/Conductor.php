@@ -124,7 +124,7 @@ class Conductor extends CliApplication
     private function laravelApplicationVersion($application)
     {
         ob_start();
-        $this->call($this->conf->binaries->php . ' ' . $this->paths->apps . '/' . $application . '/artisan --version');
+        $this->call($this->conf->binaries->php . ' ' . $this->conf->paths->apps . '/' . $application . '/artisan --version');
         $data = ob_get_clean();
         if (preg_match("/\d+(?:\.*\d*)*/", $data, $version_number)) {
             if (isset($version_number[0])) {
