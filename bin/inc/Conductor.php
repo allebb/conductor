@@ -127,7 +127,7 @@ class Conductor extends CliApplication
             ob_start();
             $this->call($this->conf->binaries->php . ' ' . $this->conf->paths->apps . '/' . $application . '/artisan --version');
             $data = ob_get_clean();
-            if ((strpos($data, 'version') !== false) and ( preg_match("/\d+(?:\.*\d*)*/", $data, $version_number))) {
+            if ((strpos($data, 'version') !== false) and ( preg_match("#(\d+\.\d+(\.\d+)*)#", $data, $version_number))) {
                 if (isset($version_number[0]))
                     return $version_number[0];
                 return "";
