@@ -16,5 +16,5 @@ sudo chmod +x upgrade.sh
 
 # All done!
 echo "The upgrade is finished, you are now running: "
-sudo conductor --version
+sudo conductor -v
 echo ""
