@@ -236,10 +236,12 @@ class Conductor extends CliApplication
             }
         }
 
-        if (strtolower($deploy_git) == 'y' and ! isset($gitrepo)) {
-            $this->writeln();
-            $gitrepo = $this->input('Git repository URL:');
-            $this->writeln();
+        if (strtolower($deploy_git) == 'y') {
+            if (!isset($gitrepo)) {
+                $this->writeln();
+                $gitrepo = $this->input('Git repository URL:');
+                $this->writeln();
+            }
         }
 
         // Validate that the Domain/Domains are valid FQDN's
