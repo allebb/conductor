@@ -296,7 +296,7 @@ class Conductor extends CliApplication
         if (!isset($stopapp)) {
             $stopapp = $this->input('Do you wish to \'stop\' the application before upgrading?', 'y', ['y', 'n']);
         }
-        if ($stopapp == 'y')
+        if (strtolower($stopapp) == 'y')
             $this->stopLaravelApplication();
 
         if (file_exists($this->conf->paths->backups . '/rollback_' . $this->appname . '.tag.gz')) {
@@ -310,7 +310,7 @@ class Conductor extends CliApplication
         $this->call('chown ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir . ' -R');
         $this->migrateLaravel();
         $this->writeln('...finished!');
-        if ($stopapp == 'y')
+        if (strtolower($stopapp) == 'y')
             $this->startLaravelApplication();
 
         $this->endWithSuccess();
