@@ -41,11 +41,17 @@ mysql -u root -p"$randpassword" -e "DROP DATABASE IF EXISTS test";
 # Lets now install PHP and the required PHP extenions
 echo ""
 echo "Installing PHP and PHP extensions..."
-pkg install -y php56 php56-gd php56-hash php56-phar php56-ctype php56-filter php56-iconv php56-json php56-mbstring php56-mcrypt php56-curl php56-tokenizer php56-session php56-xml php56-simplexml sqlite3 php56-zip php56-zlib php56-readline php56-mysql php56-mysqli php56-sqlite3 php56-pdo php56-pdo_mysql php56-pdo_sqlite
+pkg install -y php56 php56-gd php56-hash php56-phar php56-ctype php56-filter php56-iconv php56-json php56-mbstring php56-mcrypt php56-curl php56-tokenizer php56-session php56-xml php56-simplexml sqlite3 php56-zip php56-zlib php56-readline php56-mysql php56-mysqli php56-sqlite3 php56-pdo php56-pdo_mysql php56-pdo_sqlite php56-posix
 
 echo ""
 echo "Installing OpenSSL and OpenSSL extention for PHP..."
 pkg install -y openssl php56-openssl
+
+echo ""
+echo "Linking the CA root certificates from CA_ROOT_NSS package"
+sudo ln -f -s /usr/local/share/certs/ca-root-nss.crt /etc/ssl/cert.pem
+sudo ln -f -s /usr/local/share/certs/ca-root-nss.crt /usr/local/etc/cert.pem
+sudo ln -f -s /usr/local/share/certs/ca-root-nss.crt /usr/local/openssl/cert.pem
 
 echo ""
 echo "Installing APCu..."
