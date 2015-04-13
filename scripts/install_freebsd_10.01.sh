@@ -92,7 +92,6 @@ sed -i -f "s/# HTTPS server/include \/etc\/conductor\/configs\/common\/conductor
 echo ""
 echo "Configuring PHP-FPM for Nginx..."
 sed -i -f "s/\listen = 127\.0\.0\.1\:9000/listen = \/var\/run\/php-fpm\.sock/g" /usr/local/etc/php-fpm.conf
-chown www:wheel /var/run/php-fpm.sock
 
 # We'll now install Redis Server
 echo ""
@@ -117,6 +116,7 @@ sed -i -f "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;
 # Restarting services...
 echo ""
 echo "Restarting the web application server..."
+chown www:wheel /var/run/php-fpm.sock
 service php-fpm restart
 service nginx restart
 
