@@ -311,7 +311,7 @@ class Conductor extends CliApplication
                 $this->writeln('Skipping dependencies are the \'vendor\' directory exists!');
             } else {
                 $this->writeln('Downloading dependencies...');
-                $this->call($this->conf->binaries->composer . ' install --no-dev --optimize-autoloader --working-dir=' . $this->appdir . '');
+                $this->call($this->conf->binaries->composer . ' install --no-dev --optimize-autoloader --working-dir=' . $this->appdir);
             }
         } else {
             $this->writeln('To deploy your application, manually copy the files to:');
