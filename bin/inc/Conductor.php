@@ -298,7 +298,7 @@ class Conductor extends CliApplication
 
         mkdir($this->appdir, 0755);
         mkdir($this->conf->paths->applogs . '/' . $this->appname);
-        $this->call('chown ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->conf->paths->applogs . '/' . $this->appname . ' -R');
+        $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->conf->paths->applogs . '/' . $this->appname);
         chmod($this->conf->paths->appconfs . '/' . $this->appname . '.conf', 755);
 
         $this->call($this->conf->services->nginx->reload);
@@ -322,7 +322,7 @@ class Conductor extends CliApplication
         }
 
         $this->writeln('Setting ownership permissions on application files...');
-        $this->call('chown ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir . ' -R');
+        $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
 
         if (strtolower($mysql_req) == 'y') {
             $this->writeln();
@@ -367,7 +367,7 @@ class Conductor extends CliApplication
         if (file_exists($this->appdir . '/.git')) {
             $this->gitPull();
         }
-        $this->call('chown ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir . ' -R');
+        $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
         $this->migrateLaravel();
         $this->writeln('...finished!');
         if (strtolower($stopapp) == 'y')
@@ -446,7 +446,7 @@ class Conductor extends CliApplication
 
         $this->call('rm -Rf ' . $this->appdir);
         $this->call('cp -Rf ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/ ' . $this->appdir . '/');
-        $this->call('chown ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir . ' -R');
+        $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
         $this->call('rm -Rf ' . $this->conf->paths->temp . '/restore_' . $this->appname);
 
         $this->writeln('...finished!');
@@ -476,7 +476,7 @@ class Conductor extends CliApplication
 
         $this->call('rm -Rf ' . $this->appdir);
         $this->call('cp -Rf ' . $this->conf->paths->temp . '/rollback_' . $this->appname . '/ ' . $this->appdir . '/');
-        $this->call('chown ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir . ' -R');
+        $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
         $this->call('rm -Rf ' . $this->conf->paths->temp . '/rollback_' . $this->appname);
         $this->writeln('...finished!');
         $this->writeln('Ensuring applicaiton is started after rollback...');
