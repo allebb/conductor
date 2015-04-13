@@ -479,7 +479,7 @@ class Conductor extends CliApplication
         $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
         $this->call('rm -Rf ' . $this->conf->paths->temp . '/rollback_' . $this->appname);
         $this->writeln('...finished!');
-        $this->writeln('Ensuring applicaiton is started after rollback...');
+        $this->writeln('Forcing application start...');
         $this->startLaravelApplication();
         $this->endWithSuccess();
     }
