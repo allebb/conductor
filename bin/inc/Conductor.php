@@ -210,30 +210,30 @@ class Conductor extends CliApplication
             $this->endWithError();
         }
 
-        if (!$this->getOption('fqdn', false)) {
-            $domain = $this->getOption('fqdn');
-        } else {
+        if ($this->getOption('fqdn', false)) {
+            // Entering interactive mode...
             $domain = $this->input('Domains (FQDN\'s) to map this application to:');
-        }
-
-        if (!$this->getOption('environment', false)) {
-            $environment = $this->getOption('environment');
-        } else {
             $environment = $this->input('Environment type:', 'production');
-        }
-
-        if (!$this->getOption('mysql-pass', false)) {
-            $mysql_req = 'y';
-            $password = $this->getOption('mysql-pass');
-        } else {
             $mysql_req = $this->input('Requires MySQL?', 'y', ['y', 'n']);
-        }
-
-        if (!$this->getOption('git-uri', false)) {
-            $deploy_git = 'y';
-            $gitrepo = $this->getOption('git-uri');
-        } else {
             $deploy_git = $this->input('Deploy application with Git now?', 'y', ['y', 'n']);
+        } else {
+            // FQDN is set, entering non-interactive mode!
+            $domain = $this->getOption('fqdn');
+            $environment = $this->getOption('environment', 'production');
+
+            if (!$this->getOption('mysql-pass', false)) {
+                $mysql_req = 'y';
+                $password = $this->getOption('mysql-pass');
+            } else {
+                $mysql_req = 'n';
+            }
+
+            if (!$this->getOption('git-uri', false)) {
+                $deploy_git = 'y';
+                $gitrepo = $this->getOption('git-uri');
+            } else {
+                $deploy_git = 'n';
+            }
         }
 
         if (strtolower($deploy_git) == 'y' and ! isset($gitrepo)) {
@@ -243,6 +243,10 @@ class Conductor extends CliApplication
         }
 
         // Validate that the Domain/Domains are valid FQDN's
+        //$fqdns = explode("", $domain);
+        //foreach($fqdns as $dnscheck){
+        //    // Now check that the individual hostname is valid
+        //}
 
         copy($this->conf->paths->templates . '/laravel_template.tpl', $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
 
