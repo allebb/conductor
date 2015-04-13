@@ -10,7 +10,7 @@ In "interactive" mode, Conductor asks a series of questions when a new applicati
 * ``--environment`` - The 'APP_ENV' that the application will be hosted under (normally this should be ``--environment=production``).
 * ``--mysql-pass`` - If this is set, a MySQL database will be created with the specified password!
 * ``--git-uri`` - This this is set, the application will be deployed at creation from a Git repository (You should use the Git protocol over HTTPS when using private repositories to ensure that the use of SSH keys will allow for unattended authentication.)
-* ``--no-public`` - This will disable the standard '/public' site mapping thus allowing users to host Wordpress sites etc without having to place the site in a '/public' directory.
+* ``--path`` - This will enable you to over-ride the default '/public' site mapping thus allowing users to host Wordpress sites etc without having to place the site in a '/public' directory.
 
 So for example, setting up a standard Laravel type project you would use:
 

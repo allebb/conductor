@@ -221,7 +221,7 @@ class Conductor extends CliApplication
             // FQDN is set, entering non-interactive mode!
             $domain = $this->getOption('fqdn');
             $environment = $this->getOption('environment', 'production');
-            $apppath = $this->getOption('environment', '/public');
+            $apppath = $this->getOption('path', '/public');
 
             if ($this->getOption('mysql-pass')) {
                 $mysql_req = 'y';
@@ -237,6 +237,9 @@ class Conductor extends CliApplication
                 $deploy_git = 'n';
             }
         }
+        
+        // Trim any trailing slash from the $path variable...
+        $path = rtrim($path, '/');
 
         if (strtolower($deploy_git) == 'y') {
             if (!isset($gitrepo)) {
