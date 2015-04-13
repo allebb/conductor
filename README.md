@@ -14,11 +14,26 @@ FreeBSD 10.1 support is currently in BETA! (Requires ``bash``, ``sudo`` and ``wg
 Installation
 ------------
 
-Installation can be done effortlessly by simply running this command from the console!
+Installation on Ubuntu servers can be done effortlessly by simply running this command from the console!
 
 ```shell
 wget https://raw.github.com/bobsta63/conductor/master/install.sh
 bash install.sh
+```
+If installing on FreeBSD, a slightly different approach is required at present (given that it needs some intial packages installed and OpenSSL needs some attention), use:
+
+```shell
+# Download some required packages that aren't available on the base version of FreeBSD...
+sudo pkg install wget openssl ca_root_nss
+
+# Now Symlink the CA root certificates (if your server doesn't already have them installed)
+sudo ln -f -s /usr/local/share/certs/ca-root-nss.crt /etc/ssl/cert.pem
+sudo ln -f -s /usr/local/share/certs/ca-root-nss.crt /usr/local/etc/cert.pem
+sudo ln -f -s /usr/local/share/certs/ca-root-nss.crt /usr/local/openssl/cert.pem
+
+# Now download and then execute the installer...
+wget https://raw.github.com/bobsta63/conductor/master/scripts/install_freebsd_10.01.sh
+sudo bash install.sh
 ```
 
 During the installation MySQL server will be installed and the ``root`` account will have a random password generated, to view this password, edit ``/etc/conductor.conf``, the password can be found in the bottom of the file. Conductor requires the root password in order to perform creation of user accounts and databases during it's operation.
@@ -26,7 +41,7 @@ During the installation MySQL server will be installed and the ``root`` account 
 Check that it's installed and working by entering the following command at the terminal!
 
 ```shell
-conductor --help
+conductor -h
 ```
 
 Upgrading Conductor
