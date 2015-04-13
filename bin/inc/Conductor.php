@@ -239,7 +239,7 @@ class Conductor extends CliApplication
         }
         
         // Trim any trailing slash from the $path variable...
-        $path = rtrim($path, '/');
+        $apppath = rtrim($apppath, '/');
 
         if (strtolower($deploy_git) == 'y') {
             if (!isset($gitrepo)) {
