@@ -20,7 +20,7 @@ Installation on Ubuntu servers can be done effortlessly by simply running this c
 wget https://raw.github.com/bobsta63/conductor/master/install.sh
 sudo bash install.sh
 ```
-If installing on FreeBSD, a slightly different approach is required at present (given that it needs some intial packages installed and OpenSSL needs some attention), use:
+If installing on FreeBSD, a slightly different approach is required at present (given that it needs some initial packages installed and OpenSSL needs some attention), use:
 
 ```shell
 # Download some required packages that aren't available on the base version of FreeBSD...
@@ -78,7 +78,7 @@ When you first want to deploy a new instance of a Laravel 4.x/5.x application on
 
 ```sudo conductor new {app name}```
 
-This command will prompt you for the 'FQDN' (or you can add multiples address of which the Virtualhost will server requests for, these should be separated by spaces!). After entering the FQDN(s) for the new application you will then be asked for your application's environment type (this basically sets the ``APP_ENV`` environment variable for Nginx of which can then be used by your PHP application like so ``$_SERVER['APP_ENV']``), if your application requires a MySQL database and as you would expect if you decide you do need a MySQL database Conductor will automatically create a database and MySQL user with permissions to only that database (to keep things secure!). The last part of the deployment you are asked how you would like to deploy your application, you have three options of which are as follows:-
+This command will prompt you for the 'FQDN' (or you can add multiples addresses of which the Virtualhost will serve requests for, these should be separated by spaces!). After entering the FQDN(s) for the new application you will then be asked for your application's environment type (this basically sets the ``APP_ENV`` environment variable for Nginx of which can then be used by your PHP application like so ``$_SERVER['APP_ENV']``), if your application requires a MySQL database and as you would expect if you decide you do need a MySQL database Conductor will automatically create a database and MySQL user with permissions to only that database (to keep things secure!). The last part of the deployment you are asked how you would like to deploy your application, you have three options of which are as follows:-
 
 * Git - Keep things automated and use Git to clone and keep your application up to date, this is highly recommended as it's so simple to do... This is what Conductor does best ;-)
 * Restore from a backup - You can restore from an application back-up taken from either on your current server of if you're migrating from another server; when restoring from a backup Conductor will automatically extract the contents of the specified backup archive and will also automatically import any MySQL databases if found in the backup archive.
@@ -93,16 +93,10 @@ Will remove the application from the server, removes the Nginx configuration for
 ####```conductor update {app name}```
 The upgrade command does three things, firstly it gives you the option of putting your application into 'offline mode' of which is up to you (you're prompted for your decision here), before it upgrades anything an automatic 'snapshot' is taken and stored separately to enable you to 'roll-back' later if required.. So next if Conductor finds that the application was previously deployed by Git or has a ```.git``` directory it will attempt to do a ```git fetch --all``` and then a ```git reset --hard origin/master``` to pull in the latest changes. If no git directory is found, Conductor assumes you're doing a 'manual upgrade' and prompts you at this point to upload the new files into your application's root directory... once this is complete you should confirm that the files have all been uploaded... Next Conductor will now execute any database migrations and then clear the application cache as well as dump the autoloader and finally (if you choose to 'take the application offline' during the upgrade process) it will now be automatically put back on-line!
 
-Since version 1.0.7 you can now use the ``--force`` argument on the end of the command to force the application backup ignoring any questions.
-
 ####```conductor rollback {app name}```
 This is basically the opposite of ```conductor upgrade {app name}```, this uses that last snapshot that was automatically taken the last time that you preformed an ```conductor upgrade {app name}``` on your application.
 
 You will be prompted to confirm that you wish to revert to the last database snapshot, it is recommended in most situations that you do this, if however you choose 'no' you will be given the option to run Laravel's ``migrate:rollback`` function instead!
-
-####```conductor depupdate {app name}```
-
-```depupgrade``` basically is shortened version of 'Dependency Upgrade', this command will basically snapshot your application (including the database) to enable you to 'rollback' if you need too before running ```composer update``` on your application.
 
 ####```conductor backup {app name}```
 
@@ -122,23 +116,23 @@ This command enables you to start serving your Laravel 4.x application, this inv
 
 This command enables you to stop serving your Laravel 4.x application, this invokes the 'php artistan stop' command.
 
-####```conductor --start```
+####```conductor services start```
 
 A very simple and quick method to start ALL dependent/bundled Conductor managed daemons  in the recommended order.
 
-####```conductor --stop```
+####```conductor services stop```
 
 A very simple and quick method to stop ALL dependent/bundled Conductor managed daemons in the recommended order.
 
-####```conductor --status```
+####```conductor services status```
 
 A very simple and quick method to display the current status of ALL dependent/bundled Conductor managed daemons.
 
-####```conductor --restart```
+####```conductor services restart```
 
 A very simple and quick method to restart ALL dependent/bundled Conductor managed daemons in the recommended order.
 
-####```conductor --reload```
+####```conductor services reload```
 
 When manually changing configuration of one or more of the dependent/bundled daemons this command will attempt to safely 'reload' the configuration of the daemons without the need to disconnect existing sessions. - Please not this is NOT required when using the ```conductor``` command to manage configuration files but is recommended if you make manual changes!
 
