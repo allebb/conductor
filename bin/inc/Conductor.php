@@ -117,6 +117,23 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Detects the current Laravel application version (if not found will return empty)
+     * @return string
+     */
+    private function laravelApplicationVersion()
+    {
+        ob_start();
+        $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan --version');
+        $data = ob_get_clean();
+        if (preg_match("/\d+(?:\.*\d*)*/", $data, $version_number)) {
+            if (isset($version_number[0])) {
+                return $version_number[0];
+            }
+        }
+        return "";
+    }
+
+    /**
      * Backs up the entire web application including it's database.
      * @param string $filename The filename to use when creating the backup.
      * @return void
@@ -181,7 +198,11 @@ class Conductor extends CliApplication
     private function migrateLaravel()
     {
         if (file_exists($this->appdir . '/artisan')) {
-            $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan migrate --force');
+            if(version_compare($this->laravelApplicationVersion(), "4.2", ">=")) {
+                $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan migrate --force');
+            } else {
+                $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan migrate');
+            }
             $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan cache:clear');
             $this->call($this->conf->binaries->composer . ' dump-autoload -o --working-dir=' . $this->appdir);
         }
@@ -237,7 +258,7 @@ class Conductor extends CliApplication
                 $deploy_git = 'n';
             }
         }
-        
+
         // Trim any trailing slash from the $path variable...
         $apppath = rtrim($apppath, '/');
 
