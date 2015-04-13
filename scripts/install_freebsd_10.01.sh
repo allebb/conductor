@@ -108,7 +108,7 @@ sh -c 'echo beanstalkd_enable=\"YES\" >> /etc/rc.conf'
 service beanstalkd start
 
 # Lets copy the configuration file template to /etc/conductor.conf for simplified administration.
-cp /etc/conductor/bin/conf/conductor.template.json /etc/conductor.conf
+cp /etc/conductor/bin/conf/conductor.freebsd.template.json /etc/conductor.conf
 
 # Set the root password on our configuration script.
 sed -i -f "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;

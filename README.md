@@ -18,7 +18,7 @@ Installation on Ubuntu servers can be done effortlessly by simply running this c
 
 ```shell
 wget https://raw.github.com/bobsta63/conductor/master/install.sh
-bash install.sh
+sudo bash install.sh
 ```
 If installing on FreeBSD, a slightly different approach is required at present (given that it needs some intial packages installed and OpenSSL needs some attention), use:
 
@@ -32,11 +32,11 @@ sudo ln -f -s /usr/local/share/certs/ca-root-nss.crt /usr/local/etc/cert.pem
 sudo ln -f -s /usr/local/share/certs/ca-root-nss.crt /usr/local/openssl/cert.pem
 
 # Now download and then execute the installer...
-wget https://raw.github.com/bobsta63/conductor/master/scripts/install_freebsd_10.01.sh
+wget https://raw.github.com/bobsta63/conductor/master/scripts/install_freebsd_10.01.sh -O install.sh
 sudo bash install.sh
 ```
 
-During the installation MySQL server will be installed and the ``root`` account will have a random password generated, to view this password, edit ``/etc/conductor.conf``, the password can be found in the bottom of the file. Conductor requires the root password in order to perform creation of user accounts and databases during it's operation.
+During the installation MySQL server will be installed and the ``root`` account will have a random password generated, to view this password, edit ``/etc/conductor.conf``. Conductor requires the root password in order to perform creation of user accounts and databases during it's operation.
 
 Check that it's installed and working by entering the following command at the terminal!
 
@@ -55,7 +55,7 @@ What does this install
 Out of the box this script will install and configure the following packages using aptitude:-
 
 * Nginx
-* PHP 5.5 (CLI and FPM)
+* PHP 5.6 (CLI and FPM)
 * Git Client
 * APC
 * MySQL
