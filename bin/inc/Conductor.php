@@ -198,7 +198,7 @@ class Conductor extends CliApplication
     private function migrateLaravel()
     {
         if (file_exists($this->appdir . '/artisan')) {
-            if(version_compare($this->laravelApplicationVersion(), "4.2", ">=")) {
+            if (version_compare($this->laravelApplicationVersion(), "4.2", ">=")) {
                 $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan migrate --force');
             } else {
                 $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan migrate');
@@ -380,8 +380,13 @@ class Conductor extends CliApplication
         $applications = new DirectoryIterator($this->conf->paths->apps);
         $this->writeln();
         foreach ($applications as $application) {
+            $lav = "";
+            if (!empty($this->laravelApplicationVersion())) {
+                $lav = ' [Laravel v' . $this->laravelApplicationVersion() . ']';
+            }
             if ($application->isDir() and ( $application->getBasename()[0] != '.')) {
-                $this->writeln(' - ' . $application->getBasename());
+
+                $this->writeln(' - ' . $application->getBasename() . $lav);
             }
         }
         $this->writeln();
