@@ -213,6 +213,7 @@ class Conductor extends CliApplication
         if (!$this->getOption('fqdn')) {
             // Entering interactive mode...
             $domain = $this->input('Domains (FQDN\'s) to map this application to:');
+            $apppath = $this->input('Hosted directory:', '/public');
             $environment = $this->input('Environment type:', 'production');
             $mysql_req = $this->input('Requires MySQL?', 'y', ['y', 'n']);
             $deploy_git = $this->input('Deploy application with Git now?', 'y', ['y', 'n']);
@@ -220,6 +221,7 @@ class Conductor extends CliApplication
             // FQDN is set, entering non-interactive mode!
             $domain = $this->getOption('fqdn');
             $environment = $this->getOption('environment', 'production');
+            $apppath = $this->getOption('environment', '/public');
 
             if ($this->getOption('mysql-pass')) {
                 $mysql_req = 'y';
@@ -255,6 +257,7 @@ class Conductor extends CliApplication
         $placeholders = [
             '@@DOMAIN@@' => $domain,
             '@@APPNAME@@' => $this->appname,
+            '@@APPPATH@@' => $this->appname . $apppath,
             '@@HLOGS@@' => $this->conf->paths->applogs . '/' . $this->appname . '/',
             '@@ENVIROMENT@@' => $environment,
         ];

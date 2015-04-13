@@ -20,7 +20,7 @@ server {
     server_tokens   off;
 
     # Application path and index file settings.
-    root            /var/conductor/applications/@@APPNAME@@/public;
+    root            /var/conductor/applications/@@APPPATH@@;
     index           index.php;
 
     # Logging settings
