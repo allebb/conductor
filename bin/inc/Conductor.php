@@ -382,11 +382,10 @@ class Conductor extends CliApplication
         $this->writeln();
         foreach ($applications as $application) {
             $lav = "";
-            if (!empty($this->laravelApplicationVersion())) {
-                $lav = ' [Laravel v' . $this->laravelApplicationVersion($application) . ']';
-            }
             if ($application->isDir() and ( $application->getBasename()[0] != '.')) {
-
+                if (!empty($this->laravelApplicationVersion())) {
+                    $lav = ' [Laravel v' . $this->laravelApplicationVersion($application->getBasename()) . ']';
+                }
                 $this->writeln(' - ' . $application->getBasename() . $lav);
             }
         }
