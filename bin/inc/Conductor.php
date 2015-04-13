@@ -280,7 +280,7 @@ class Conductor extends CliApplication
         //    // Now check that the individual hostname is valid
         //}
 
-        copy($this->conf->paths->templates . '/laravel_template.tpl', $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
+        copy($this->conf->paths->templates . '/' . $this->conf->paths->apptpl, $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
 
         $placeholders = [
             '@@DOMAIN@@' => $domain,

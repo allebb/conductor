@@ -5,7 +5,8 @@
         "backups": "/var/conductor/backups",
         "appconfs": "/etc/conductor/configs",
         "applogs": "/var/conductor/logs",
-        "templates": "/etc/conductor/configs/common"
+        "templates": "/etc/conductor/configs/common",
+        "apptpl": "laravel_template.tpl"
     },
     "permissions": {
         "webuser": "www-data",

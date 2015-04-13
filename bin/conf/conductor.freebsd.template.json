@@ -5,7 +5,8 @@
         "backups": "/var/conductor/backups",
         "appconfs": "/etc/conductor/configs",
         "applogs": "/var/conductor/logs",
-        "templates": "/etc/conductor/configs/common"
+        "templates": "/etc/conductor/configs/common",
+        "apptpl": "laravel_template_freebsd.tpl"
     },
     "permissions": {
         "webuser": "www",
@@ -14,7 +15,7 @@
     "binaries": {
         "php": "/usr/local/bin/php",
         "composer": "/usr/bin/composer",
-        "git": "/usr/bin/git",
+        "git": "/usr/bin/local/git",
         "mysql": "/usr/local/bin/mysql",
         "mysqldump": "/usr/local/bin/mysqldump",
         "gzip": "/usr/bin/gzip"
