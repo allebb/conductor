@@ -280,10 +280,12 @@ class Conductor extends CliApplication
         $this->appNameRequired();
 
         // Checks for CLI options to surpress the 'stop' application user input.
-        if (!$this->getOption('down', false) && ($this->getOption('down') == "true")) {
-            $stopapp = 'y';
-        } else {
-            $stopapp = 'n';
+        if ($this->getOption('down', false)) {
+            if ($this->getOption('down') == "true") {
+                $stopapp = 'y';
+            } else {
+                $stopapp = 'n';
+            }
         }
 
         if (!file_exists($this->appdir)) {
