@@ -118,12 +118,13 @@ class Conductor extends CliApplication
 
     /**
      * Detects the current Laravel application version (if not found will return empty)
+     * @param string $application The application of which to check the version of.
      * @return string
      */
-    private function laravelApplicationVersion()
+    private function laravelApplicationVersion($application)
     {
         ob_start();
-        $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan --version');
+        $this->call($this->conf->binaries->php . ' ' . $this->paths->apps . '/' . $application . '/artisan --version');
         $data = ob_get_clean();
         if (preg_match("/\d+(?:\.*\d*)*/", $data, $version_number)) {
             if (isset($version_number[0])) {
@@ -198,7 +199,7 @@ class Conductor extends CliApplication
     private function migrateLaravel()
     {
         if (file_exists($this->appdir . '/artisan')) {
-            if (version_compare($this->laravelApplicationVersion(), "4.2", ">=")) {
+            if (version_compare($this->laravelApplicationVersion($this->appname), "4.2", ">=")) {
                 $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan migrate --force');
             } else {
                 $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan migrate');
@@ -382,7 +383,7 @@ class Conductor extends CliApplication
         foreach ($applications as $application) {
             $lav = "";
             if (!empty($this->laravelApplicationVersion())) {
-                $lav = ' [Laravel v' . $this->laravelApplicationVersion() . ']';
+                $lav = ' [Laravel v' . $this->laravelApplicationVersion($application) . ']';
             }
             if ($application->isDir() and ( $application->getBasename()[0] != '.')) {
 
