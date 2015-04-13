@@ -280,8 +280,10 @@ class Conductor extends CliApplication
         $this->appNameRequired();
 
         // Checks for CLI options to surpress the 'stop' application user input.
-        if (!$this->getOption('down', false) && $this->getOption('down', "true")) {
-            $takedown = true;
+        if (!$this->getOption('down', false) && ($this->getOption('down') == "true")) {
+            $stopapp = 'y';
+        } else {
+            $stopapp = 'n';
         }
 
         if (!file_exists($this->appdir)) {
@@ -289,7 +291,7 @@ class Conductor extends CliApplication
             $this->endWithError();
         }
 
-        if (!isset($takedown)) {
+        if (!isset($stopapp)) {
             $stopapp = $this->input('Do you wish to \'stop\' the application before upgrading?', 'y', ['y', 'n']);
         }
         if ($stopapp == 'y')
