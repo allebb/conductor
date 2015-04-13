@@ -210,7 +210,7 @@ class Conductor extends CliApplication
             $this->endWithError();
         }
 
-        if ($this->getOption('fqdn', false)) {
+        if (!$this->getOption('fqdn', false)) {
             // Entering interactive mode...
             $domain = $this->input('Domains (FQDN\'s) to map this application to:');
             $environment = $this->input('Environment type:', 'production');
