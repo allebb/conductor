@@ -15,7 +15,7 @@
     "binaries": {
         "php": "/usr/local/bin/php",
         "composer": "/usr/bin/composer",
-        "git": "/usr/bin/local/git",
+        "git": "/usr/local/bin/git",
         "mysql": "/usr/local/bin/mysql",
         "mysqldump": "/usr/local/bin/mysqldump",
         "gzip": "/usr/bin/gzip"
