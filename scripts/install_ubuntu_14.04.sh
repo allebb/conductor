@@ -113,5 +113,5 @@ sudo cp /etc/conductor/bin/conf/conductor.template.json /etc/conductor.conf
 sudo sed -i "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;
 
 echo "Congratulations! Conductor is now successfully installed you are running: "
-sudo conductor --version
+sudo conductor -v
 echo ""

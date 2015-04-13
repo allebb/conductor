@@ -3,7 +3,7 @@
 class Conductor extends CliApplication
 {
 
-    const CONDUCTOR_VERSION = "3.0 dev";
+    const CONDUCTOR_VERSION = "3.0.1";
     const CONDUCTOR_CONF = "/etc/conductor.conf";
 
     /**

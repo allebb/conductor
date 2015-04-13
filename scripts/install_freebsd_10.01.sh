@@ -126,5 +126,5 @@ service nginx restart
 echo ""
 echo ""
 echo "Congratulations! Conductor is now successfully installed you are running: "
-conductor --version
+conductor -v
 echo ""
