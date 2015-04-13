@@ -210,12 +210,33 @@ class Conductor extends CliApplication
             $this->endWithError();
         }
 
-        $domain = $this->input('Domains (FQDN\'s) to map this application to:');
-        $environment = $this->input('Environment type:', 'production');
-        $mysql_req = $this->input('Requires MySQL?', 'y', ['y', 'n']);
-        $deploy_git = $this->input('Deploy application with Git now?', 'y', ['y', 'n']);
+        if (!$this->getOption('fqdn', false)) {
+            $domain = $this->getOption('fqdn');
+        } else {
+            $domain = $this->input('Domains (FQDN\'s) to map this application to:');
+        }
 
-        if (strtolower($deploy_git) == 'y') {
+        if (!$this->getOption('environment', false)) {
+            $environment = $this->getOption('environment');
+        } else {
+            $environment = $this->input('Environment type:', 'production');
+        }
+
+        if (!$this->getOption('mysql-pass', false)) {
+            $mysql_req = 'y';
+            $password = $this->getOption('mysql-pass');
+        } else {
+            $mysql_req = $this->input('Requires MySQL?', 'y', ['y', 'n']);
+        }
+
+        if (!$this->getOption('git-uri', false)) {
+            $deploy_git = 'y';
+            $gitrepo = $this->getOption('git-uri');
+        } else {
+            $deploy_git = $this->input('Deploy application with Git now?', 'y', ['y', 'n']);
+        }
+
+        if (strtolower($deploy_git) == 'y' and ! isset($gitrepo)) {
             $this->writeln();
             $gitrepo = $this->input('Git repository URL:');
             $this->writeln();
@@ -268,7 +289,9 @@ class Conductor extends CliApplication
 
         if (strtolower($mysql_req) == 'y') {
             $this->writeln();
-            $password = $this->input('Please enter a password for the MySQL database:');
+            if (!isset($password)) {
+                $password = $this->input('Please enter a password for the MySQL database:');
+            }
             $this->createMySQL($password);
         }
 

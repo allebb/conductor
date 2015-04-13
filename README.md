@@ -137,6 +137,10 @@ When manually changing configuration of one or more of the dependent/bundled dae
 
 Displays the current version of the Conductor application that you are currently running on your server, this should help determine whether you are running the latest version by comparing with our latest release's page on our website.
 
+CLI options for non-interactive operation
+-----------------------------------------
+In the default "interactive" mode, Conductor prompts for various options and questions, if however you wish to script this for unattended (non-interactive mode) etc. since v3, you can now use the [CLI Options document](CLI-OPTIONS.md) document to see the available CLI options.
+
 Automating application backups
 ------------------------------
 An automation script specifically designed to be used with CRON jobs etc. can be found in the ``utils/`` directory, this shell script will automatically backup all applications on the server and will also remove older backups (as configured in the script), the default backup retention is 7 days!
