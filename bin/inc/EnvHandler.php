@@ -68,7 +68,7 @@ class EnvHandler
     public function remove($key)
     {
         if ($this->get($key, true)) {
-            unset($key);
+            unset($this->vars[$key]);
         }
     }
 
