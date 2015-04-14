@@ -7,8 +7,8 @@ require_once $bindir . '/inc/Conductor.php';
 
 $conductor = new Conductor($argv);
 
-$conductor->enforceCli();
 $conductor->checkDependencies();
+$conductor->enforceCli();
 
 $commands = $conductor->commands();
 
