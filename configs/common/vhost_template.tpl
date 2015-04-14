@@ -45,7 +45,11 @@ server {
     }
 
     location / {
+    
+        # START APPLICTION ENV VARIABLES  
         fastcgi_param   APP_ENV     @@ENVIROMENT@@;
+        # END APPLICTION ENV VARIABLES
+        
         try_files $uri $uri/ /index.php?$query_string;
     }
 

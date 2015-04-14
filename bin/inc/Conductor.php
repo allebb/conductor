@@ -5,6 +5,7 @@ class Conductor extends CliApplication
 
     const CONDUCTOR_VERSION = "3.0.2";
     const CONDUCTOR_CONF = "/etc/conductor.conf";
+    const SPACES_ENV_INDENT = 8;
 
     /**
      * The current application number.
@@ -222,6 +223,22 @@ class Conductor extends CliApplication
         $this->call($this->conf->binaries->git . ' --git-dir=' . $this->appdir . '/.git --work-tree=' . $this->appdir . ' reset --hard origin/master');
     }
 
+    /**
+     * Format the environment variables for the vhost configuration.
+     * @param array $vars The environmental variables.
+     * @return string
+     */
+    private function envConfigurationBlock(array $vars)
+    {
+        $block = "";
+        if (count($vars) > 0) {
+            foreach ($vars as $key => $value) {
+                $block .= sprintf(SPACES_ENV_INDENT . "fastcgi_param    %s    %s;" . PHP_EOL, $key, $value);
+            }
+        }
+        return $block;
+    }
+
     public function newApplication()
     {
         $this->appNameRequired();
@@ -280,7 +297,7 @@ class Conductor extends CliApplication
         //    // Now check that the individual hostname is valid
         //}
 
-        copy($this->conf->paths->templates . '/vhost_template.conf', $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
+        copy($this->conf->paths->templates . '/vhost_template.tpl', $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
 
         $placeholders = [
             '@@DOMAIN@@' => $domain,
