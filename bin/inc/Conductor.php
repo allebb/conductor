@@ -271,12 +271,11 @@ class Conductor extends CliApplication
         $env_handler->load();
 
         if (count($this->options()) > 0) {
-            // Request is to add/ammed environmental vars
-            if ($this->isFlagSet('-d')) {
+            if (!$this->isFlagSet('-d')) {
                 foreach ($this->options() as $key => $value) {
                     $env_handler->push($key, $value);
                 }
-            } else { // Otherwise we'll add/ammend
+            } else {
                 foreach ($this->options() as $key => $value) {
                     $env_handler->remove($key);
                 }
