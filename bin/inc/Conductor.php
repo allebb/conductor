@@ -87,7 +87,7 @@ class Conductor extends CliApplication
             'json' => 'The PHP JSON extention is required but is missing',
         ];
         foreach ($depends as $function => $dependency) {
-            if (!function_exists($function)) {
+            if (!extension_loaded($function)) {
                 $this->writeln($dependency);
                 $this->endWithError();
             }
