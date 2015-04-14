@@ -265,7 +265,7 @@ class Conductor extends CliApplication
         $env_handler = new EnvHandler($env_conf);
         $env_handler->load();
 
-        if (count($this->options() > 0)) {
+        if (count($this->options()) > 0) {
             // Request is to add/ammed environmental vars
             if ($this->isFlagSet('-d')) {
                 foreach ($this->options() as $key => $value) {
@@ -282,7 +282,6 @@ class Conductor extends CliApplication
             // Apply them to the application configuration...
             $ammended_vhost_conf = $this->replaceBetweenSections('# START APPLICTION ENV VARIABLES', '# END APPLICTION ENV VARIABLES', file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf'), $this->envConfigurationBlock($env_handler->all()));
             file_put_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf', $ammended_vhost_conf);
-            
         } else {
             $this->writeln();
             foreach ($env_handler->all() as $key => $value) {
