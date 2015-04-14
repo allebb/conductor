@@ -35,7 +35,6 @@ if (isset($commands[1])) {
             break;
         case "envars":
             $conductor->updateEnvVars();
-            $conductor->reloadEnvVars();
             break;
         case "backup":
             $conductor->backup();

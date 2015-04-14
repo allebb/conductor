@@ -6,7 +6,7 @@ class Conductor extends CliApplication
     /**
      * The main Conductor application version.
      */
-    const CONDUCTOR_VERSION = "3.0.3";
+    const CONDUCTOR_VERSION = "3.0.5";
 
     /**
      * The path to the core application configuration file.
@@ -257,9 +257,14 @@ class Conductor extends CliApplication
     public function updateEnvVars()
     {
         $this->appNameRequired();
+        if (!file_exists($this->conf->paths->apps . '/' . $this->appname)) {
+            $this->writeln('Application was not found on this server!');
+            $this->endWithError();
+        }
         $env_conf = $this->conf->paths->appconfs . '/' . $this->appname . '_envars.json';
         if (!file_exists($env_conf)) {
             file_put_contents($env_conf, json_encode(['APP_ENV' => 'production']));
+            $this->reloadEnvVars();
         }
 
         $env_handler = new EnvHandler($env_conf);
@@ -282,6 +287,7 @@ class Conductor extends CliApplication
             // Apply them to the application configuration...
             $ammended_vhost_conf = $this->replaceBetweenSections('# START APPLICTION ENV VARIABLES', '# END APPLICTION ENV VARIABLES', file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf'), $this->envConfigurationBlock($env_handler->all()));
             file_put_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf', $ammended_vhost_conf);
+            $this->reloadEnvVars();
         } else {
             $this->writeln();
             foreach ($env_handler->all() as $key => $value) {
