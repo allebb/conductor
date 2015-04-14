@@ -3,6 +3,7 @@
 $bindir = dirname(__FILE__);
 
 require_once $bindir . '/inc/CliApplication.php';
+require_once $bindir . '/inc/EnvHandler.php';
 require_once $bindir . '/inc/Conductor.php';
 
 $conductor = new Conductor($argv);
