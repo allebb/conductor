@@ -314,7 +314,7 @@ class Conductor extends CliApplication
      */
     private function replaceBetweenSections($start, $end, $content, $new)
     {
-        $search = "/[^" . $start . "](.*)[^" . $end . "]/";
+        $search = '#('.$start.')(.*?)('.$end.')#si';
         return preg_replace($search, $content, $new);
     }
 
