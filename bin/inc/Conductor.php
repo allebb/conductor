@@ -590,7 +590,7 @@ class Conductor extends CliApplication
             $this->writeln('Running a quick snapshot as you can never be too careful...');
             $this->backupApplication('priordestroy_' . $this->appname . '.tar.gz');
             $this->writeln('Destroying application...');
-            $this->call('rm ' . $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
+            $this->call('rm ' . $this->conf->paths->appconfs . '/' . $this->appname . '*');
             $this->writeln('Reloading Nginx configuration...');
             $this->call($this->conf->services->nginx->reload);
             $this->writeln('Destroying MySQL database and associated users...');
