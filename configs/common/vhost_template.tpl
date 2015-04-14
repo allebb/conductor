@@ -42,11 +42,6 @@ server {
     }
 
     location / {
-    
-        # START APPLICTION ENV VARIABLES  
-        fastcgi_param   APP_ENV     @@ENVIROMENT@@;
-        # END APPLICTION ENV VARIABLES
-        
         try_files $uri $uri/ /index.php?$query_string;
     }
 
@@ -65,6 +60,9 @@ server {
         fastcgi_split_path_info         ^(.+\.php)(.*)$;
         include                         @@FASTCGIPARAMS@@;
         fastcgi_param                   SCRIPT_FILENAME $document_root$fastcgi_script_name;
+         # START APPLICTION ENV VARIABLES  
+        fastcgi_param   APP_ENV         @@ENVIROMENT@@;
+        # END APPLICTION ENV VARIABLES
     }
 
     location ~ /\.ht {
