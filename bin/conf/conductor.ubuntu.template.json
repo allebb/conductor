@@ -31,12 +31,14 @@
         "nginx": {
             "start": "service nginx start",
             "stop": "service nginx stop",
+            "status": "service nginx status",
             "restart": "service nginx restart",
             "reload": "service nginx reload"
         },
         "php_fpm": {
             "start": "/etc/init.d/php5-fpm start",
             "stop": "/etc/init.d/php5-fpm stop",
+            "status": "/etc/init.d/php5-pfm status",
             "restart": "/etc/init.d/php5-fpm restart",
             "reload": "/etc/init.d/php5-fpm reload"
         }

@@ -31,12 +31,14 @@
         "nginx": {
             "start": "service nginx start",
             "stop": "service nginx stop",
+            "status": "service nginx status",
             "restart": "service nginx restart",
             "reload": "service nginx reload"
         },
         "php_fpm": {
             "start": "service php-fpm start",
             "stop": "service php-fpm stop",
+            "status": "service php-pfm status",
             "restart": "service php-fpm restart",
             "reload": "service php-fpm reload"
         }
