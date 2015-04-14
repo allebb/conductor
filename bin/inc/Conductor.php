@@ -305,17 +305,20 @@ class Conductor extends CliApplication
     }
 
     /**
-     * Replaces the text/content between two parts of a file.
-     * @param string $start
-     * @param string $end
-     * @param string $content The entire content.
-     * @param string $new The content to be injected between the start and end vars.
-     * @return string The new content text.
+     * Replaces the text/content between two points.
+     * @param string $needle_start
+     * @param string $needle_end
+     * @param string $file
+     * @param string $replacement
+     * @return string
      */
-    private function replaceBetweenSections($start, $end, $content, $new)
+    public function replace_between($needle_start, $needle_end, $file, $replacement)
     {
-        $search = '#('.$start.')(.*?)('.$end.')#si';
-        return preg_replace($search, $content, $new);
+        $pos = strpos($file, $needle_start);
+        $start = $pos === false ? 0 : $pos + strlen($needle_start);
+        $pos = strpos($file, $needle_end, $start);
+        $end = $pos === false ? strlen($file) : $pos;
+        return substr_replace($file, $replacement, $start, $end - $start);
     }
 
     /**
