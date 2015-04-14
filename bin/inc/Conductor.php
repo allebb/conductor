@@ -295,10 +295,10 @@ class Conductor extends CliApplication
      */
     private function envConfigurationBlock(array $vars)
     {
-        $block = "";
+        $block = PHP_EOL . "";
         if (count($vars) > 0) {
             foreach ($vars as $key => $value) {
-                $block .= sprintf(self::SPACES_ENV_INDENT . "fastcgi_param    %s    %s;" . PHP_EOL, $key, $value);
+                $block .= sprintf(str_repeat(' ', self::SPACES_ENV_INDENT) . "fastcgi_param    %s    %s;" . PHP_EOL, $key, $value);
             }
         }
         return $block;
