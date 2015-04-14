@@ -272,7 +272,7 @@ class Conductor extends CliApplication
             // If no options are specified we'll output the current application ENV variables.
             if (count($this->options()) == 0) {
                 $this->writeln();
-                foreach ($this->options() as $key => $value) {
+                foreach ($env_handler->all() as $key => $value) {
                     $this->writeln(sprintf(' %s=%s', $key, $value));
                 }
                 $this->writeln();
