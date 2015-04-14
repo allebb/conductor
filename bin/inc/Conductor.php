@@ -379,9 +379,6 @@ class Conductor extends CliApplication
         // Copy the virtualhost configuration file to our application configuration directory.
         copy($this->conf->paths->templates . '/vhost_template.tpl', $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
 
-        // Load  the application environment configuration in to the application configuration (which will create the initial ENV configuration)...
-        $this->updateEnvVars();
-
         $placeholders = [
             '@@DOMAIN@@' => $domain,
             '@@APPNAME@@' => $this->appname,
@@ -396,11 +393,14 @@ class Conductor extends CliApplication
             $config = str_replace($placeholder, $value, $config);
         }
         file_put_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf', $config);
-
+        
         mkdir($this->appdir, 0755);
         mkdir($this->conf->paths->applogs . '/' . $this->appname);
         $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->conf->paths->applogs . '/' . $this->appname);
         chmod($this->conf->paths->appconfs . '/' . $this->appname . '.conf', 755);
+        
+        // Load  the application environment configuration in to the application configuration (which will create the initial ENV configuration)...
+        $this->updateEnvVars();
 
         // Enable the site by reloading Nginx.
         $this->call($this->conf->services->nginx->reload);
