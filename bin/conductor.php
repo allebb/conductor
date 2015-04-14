@@ -7,9 +7,6 @@ require_once $bindir . '/inc/Conductor.php';
 
 $conductor = new Conductor($argv);
 
-$conductor->checkDependencies();
-$conductor->enforceCli();
-
 $commands = $conductor->commands();
 
 if ($conductor->isFlagSet('v')) {
@@ -34,6 +31,10 @@ if (isset($commands[1])) {
             break;
         case "rollback":
             $conductor->rollback();
+            break;
+        case "envars":
+            $conductor->updateEnvVars();
+            $this->call($this->conf->services->nginx->reload);
             break;
         case "backup":
             $conductor->backup();
@@ -61,6 +62,9 @@ if (isset($commands[1])) {
     displayHelp($conductor);
 }
 
+/**
+ * The 'help' screen text.
+ */
 function displayHelp($conductor)
 {
     $conductor->writeln();
@@ -72,7 +76,7 @@ function displayHelp($conductor)
     $conductor->writeln('  destroy {name}    Removes an application from the server');
     $conductor->writeln('  update {name}     Upgrades an application via. Git');
     $conductor->writeln('  rollback {name}   Rolls back the most recent upgrade');
-    $conductor->writeln('  depupdate {name}  Updates all application dependencies (composer update)');
+    $conductor->writeln('  envars {name}     Add, ammend or delete environment variables');
     $conductor->writeln('  backup {name}     Backs up an application and dependent DB\'s');
     $conductor->writeln('  restore {name}    Restores an application and dependent DB\'s');
     $conductor->writeln('  start {name}      Starts a specific application (Laravel Apps only!)');

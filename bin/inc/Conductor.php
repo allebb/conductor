@@ -3,8 +3,19 @@
 class Conductor extends CliApplication
 {
 
-    const CONDUCTOR_VERSION = "3.0.2";
+    /**
+     * The main Conductor application version.
+     */
+    const CONDUCTOR_VERSION = "3.0.3";
+    
+    /**
+     * The path to the core application configuration file.
+     */
     const CONDUCTOR_CONF = "/etc/conductor.conf";
+    
+    /**
+     * Number of spaces to use as indentation on the Nginx ENV block.
+     */
     const SPACES_ENV_INDENT = 8;
 
     /**
@@ -15,7 +26,7 @@ class Conductor extends CliApplication
 
     /**
      * The current application base directory.
-     * @var type 
+     * @var string 
      */
     private $appdir = '';
 
@@ -28,9 +39,11 @@ class Conductor extends CliApplication
     public function __construct($argv)
     {
         parent::__construct($argv);
-
+        
+        $this->checkDependencies();
+        
         $this->enforceCli();
-
+        
         if (!$this->isSuperUser()) {
             $this->writeln('You must be root to use this tool!');
             $this->endWithError();
@@ -82,7 +95,7 @@ class Conductor extends CliApplication
     }
 
     /**
-     * Checks and exit's if an application is not specified!
+     * Requests that the request can only be executed if the user has specified the application name.
      * @return void
      */
     private function appNameRequired()
@@ -110,7 +123,7 @@ class Conductor extends CliApplication
      */
     public function serviceControl($action)
     {
-        if (in_array($action, ['start', 'stop', 'restart', 'reload'])) {
+        if (in_array($action, ['start', 'stop', 'status', 'restart', 'reload'])) {
             $this->call($this->conf->services->nginx->$action);
             $this->call($this->conf->services->php_fpm->$action);
         } else {
@@ -141,7 +154,7 @@ class Conductor extends CliApplication
     }
 
     /**
-     * Backs up the entire web application including it's database.
+     * Executes a backup the entire web application including it's database.
      * @param string $filename The filename to use when creating the backup.
      * @return void
      */
@@ -160,7 +173,7 @@ class Conductor extends CliApplication
 
     /**
      * Creates a new MySQL user and database.
-     * @param strin $db_pass The password of which to use for the user account.
+     * @param string $db_pass The password of which to use for the user account.
      * @return void
      */
     private function createMySQL($db_pass)
@@ -185,6 +198,10 @@ class Conductor extends CliApplication
         $this->writeln();
     }
 
+    /**
+     * Destroys the database and user for the current application.
+     * @return void
+     */
     private function destroyMySQL()
     {
         $this->appNameRequired();
@@ -199,7 +216,7 @@ class Conductor extends CliApplication
     }
 
     /**
-     * Migrate a Laravel specific application.
+     * If detected as a Laravel appliaction will attempt to migrate it based on it's framework version number.
      * @return void
      */
     private function migrateLaravel()
@@ -216,7 +233,7 @@ class Conductor extends CliApplication
     }
 
     /**
-     * Pull the latest version from Git and reset as appropriate
+     * Pull the latest version of the application from Git and reset the local copy as appropriate.
      * @return void
      */
     private function gitPull()
@@ -226,7 +243,45 @@ class Conductor extends CliApplication
     }
 
     /**
-     * Format the environment variables for the vhost configuration.
+     * Update the environmental configuration for the application.
+     * @return void
+     */
+    public function updateEnvVars()
+    {
+        $this->appNameRequired();
+        if (count($this->options() > 0)) {
+            $env_handler = new EnvHandler($this->conf->paths->appconfs . '/' . $this->appname . '_envars.conf');
+            try {
+                // If we can load the configuration then great, lets load it and ammend as required.
+                $env_handler->load();
+            } catch (RuntimeException $ex) {
+                // If the environment configuration file doesnt exsist we'll create it now...
+                $env_handler->add('APP_ENV', 'production');
+                $env_handler->save();
+                return $this->updateEnvVars();
+            }
+
+            // Request is to add/ammed environmental vars
+            if ($this->isFlagSet('-d')) {
+                foreach ($this->options() as $key => $value) {
+                    $env_handler->push($key, $value);
+                }
+            } else { // Otherwise we'll add/ammend
+                foreach ($this->options() as $key => $value) {
+                    $env_handler->remove($key);
+                }
+            }
+            // Lets now write the changes to the file...
+            $env_handler->save();
+
+            // Apply them to the application configuration...
+            $ammended_vhost_conf = $this->replaceBetweenSections('# START APPLICTION ENV VARIABLES', '# END APPLICTION ENV VARIABLES', file_get_contents($this->conf->apps . '/' . $this->appname . '.conf'), $this->envConfigurationBlock($env_handler->all()));
+            file_put_contents($this->conf->apps . '/' . $this->appname . '.conf', $ammended_vhost_conf);
+        }
+    }
+
+    /**
+     * Format the environment variables for the virtual host configuration.
      * @param array $vars The environmental variables.
      * @return string
      */
@@ -241,6 +296,23 @@ class Conductor extends CliApplication
         return $block;
     }
 
+    /**
+     * Replaces the text/content between two parts of a file.
+     * @param string $start
+     * @param string $end
+     * @param string $content The entire content.
+     * @param string $new The content to be injected between the start and end vars.
+     * @return string The new content text.
+     */
+    private function replaceBetweenSections($start, $end, $content, $new)
+    {
+        $search = "/[^" . $start . "](.*)[^" . $end . "]/";
+        return preg_replace($search, $content, $new);
+    }
+
+    /**
+     * Creates a new application hosting container (and deploys as required)
+     */
     public function newApplication()
     {
         $this->appNameRequired();
@@ -293,13 +365,11 @@ class Conductor extends CliApplication
             }
         }
 
-        // Validate that the Domain/Domains are valid FQDN's
-        //$fqdns = explode("", $domain);
-        //foreach($fqdns as $dnscheck){
-        //    // Now check that the individual hostname is valid
-        //}
-
+        // Copy the virtualhost configuration file to our application configuration directory.
         copy($this->conf->paths->templates . '/vhost_template.tpl', $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
+
+        // Load  the application environment configuration in to the application configuration (which will create the initial ENV configuration)...
+        $this->updateEnvVars();
 
         $placeholders = [
             '@@DOMAIN@@' => $domain,
@@ -316,12 +386,12 @@ class Conductor extends CliApplication
         }
         file_put_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf', $config);
 
-
         mkdir($this->appdir, 0755);
         mkdir($this->conf->paths->applogs . '/' . $this->appname);
         $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->conf->paths->applogs . '/' . $this->appname);
         chmod($this->conf->paths->appconfs . '/' . $this->appname . '.conf', 755);
 
+        // Enable the site by reloading Nginx.
         $this->call($this->conf->services->nginx->reload);
 
         if (strtolower($deploy_git) == 'y') {
@@ -356,6 +426,9 @@ class Conductor extends CliApplication
         $this->migrateLaravel();
     }
 
+    /**
+     * Updates the code and executes migrations on an exsisting database.
+     */
     public function updateApplication()
     {
         $this->appNameRequired();
@@ -398,7 +471,7 @@ class Conductor extends CliApplication
     }
 
     /**
-     * List the applications on the server
+     * List all the hosted applications on the server.
      */
     public function listApplications()
     {
@@ -419,7 +492,6 @@ class Conductor extends CliApplication
 
     /**
      * Initiates an application backup.
-     * @return void
      */
     public function backup()
     {
@@ -474,6 +546,9 @@ class Conductor extends CliApplication
         $this->endWithSuccess();
     }
 
+    /**
+     * Rollback the current applicaiton to it's state prior to the upgrade.
+     */
     public function rollback()
     {
         $this->appNameRequired();
@@ -506,8 +581,7 @@ class Conductor extends CliApplication
     }
 
     /**
-     * Destroy an application
-     * @return void
+     * Delete an application and associated data.
      */
     public function destroy()
     {
@@ -533,8 +607,7 @@ class Conductor extends CliApplication
     }
 
     /**
-     * Start a Laravel application.
-     * @return void
+     * Start a specific Laravel application.
      */
     public function startLaravelApplication()
     {
@@ -549,7 +622,7 @@ class Conductor extends CliApplication
     }
 
     /**
-     * Stop a Laravel application.
+     * Stop a specific Laravel application.
      * @return void
      */
     public function stopLaravelApplication()
