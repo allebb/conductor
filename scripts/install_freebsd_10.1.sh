@@ -116,6 +116,7 @@ sed -i -f "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;
 # Restarting services...
 echo ""
 echo "Restarting the web application server..."
+service php-fpm restart
 chown www:wheel /var/run/php-fpm.sock
 service php-fpm restart
 service nginx restart
