@@ -256,7 +256,7 @@ class Conductor extends CliApplication
                 $env_handler->load();
             } catch (RuntimeException $ex) {
                 // If the environment configuration file doesnt exsist we'll create it now...
-                $env_handler->add('APP_ENV', 'production');
+                $env_handler->push('APP_ENV', 'production');
                 $env_handler->save();
                 return $this->updateEnvVars();
             }
