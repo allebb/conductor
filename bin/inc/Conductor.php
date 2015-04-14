@@ -275,8 +275,8 @@ class Conductor extends CliApplication
             $env_handler->save();
 
             // Apply them to the application configuration...
-            $ammended_vhost_conf = $this->replaceBetweenSections('# START APPLICTION ENV VARIABLES', '# END APPLICTION ENV VARIABLES', file_get_contents($this->conf->apps . '/' . $this->appname . '.conf'), $this->envConfigurationBlock($env_handler->all()));
-            file_put_contents($this->conf->apps . '/' . $this->appname . '.conf', $ammended_vhost_conf);
+            $ammended_vhost_conf = $this->replaceBetweenSections('# START APPLICTION ENV VARIABLES', '# END APPLICTION ENV VARIABLES', file_get_contents($this->conf->paths->apps . '/' . $this->appname . '.conf'), $this->envConfigurationBlock($env_handler->all()));
+            file_put_contents($this->conf->paths->apps . '/' . $this->appname . '.conf', $ammended_vhost_conf);
         }
     }
 
@@ -290,7 +290,7 @@ class Conductor extends CliApplication
         $block = "";
         if (count($vars) > 0) {
             foreach ($vars as $key => $value) {
-                $block .= sprintf(SPACES_ENV_INDENT . "fastcgi_param    %s    %s;" . PHP_EOL, $key, $value);
+                $block .= sprintf(self::SPACES_ENV_INDENT . "fastcgi_param    %s    %s;" . PHP_EOL, $key, $value);
             }
         }
         return $block;
