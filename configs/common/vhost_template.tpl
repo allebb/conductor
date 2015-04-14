@@ -35,9 +35,6 @@ server {
     # Enable GZip by default for common files.
     include /etc/conductor/configs/common/gzip.conf;
 
-    # Protect against Conductor Application configuration file(s).
-    include /etc/conductor/configs/common/protect.conf;
-
     # Set some sensible defaults for image files etc.
     location ~* \.(png|jpg|jpeg|gif|js|css|ico)$ {
         expires 30d;
