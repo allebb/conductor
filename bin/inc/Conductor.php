@@ -133,6 +133,14 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Reloadsof the Nginx configuration for environment variables to take affect.
+     */
+    public function reloadEnvVars()
+    {
+        $this->call($this->conf->services->nginx->reload);
+    }
+
+    /**
      * Detects the current Laravel application version (if not found will return empty)
      * @param string $application The application of which to check the version of.
      * @return string
@@ -275,8 +283,8 @@ class Conductor extends CliApplication
             $env_handler->save();
 
             // Apply them to the application configuration...
-            $ammended_vhost_conf = $this->replaceBetweenSections('# START APPLICTION ENV VARIABLES', '# END APPLICTION ENV VARIABLES', file_get_contents($this->conf->paths->apps . '/' . $this->appname . '.conf'), $this->envConfigurationBlock($env_handler->all()));
-            file_put_contents($this->conf->paths->apps . '/' . $this->appname . '.conf', $ammended_vhost_conf);
+            $ammended_vhost_conf = $this->replaceBetweenSections('# START APPLICTION ENV VARIABLES', '# END APPLICTION ENV VARIABLES', file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf'), $this->envConfigurationBlock($env_handler->all()));
+            file_put_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf', $ammended_vhost_conf);
         }
     }
 

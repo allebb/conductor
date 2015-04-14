@@ -35,7 +35,7 @@ if (isset($commands[1])) {
             break;
         case "envars":
             $conductor->updateEnvVars();
-            $this->call($this->conf->services->nginx->reload);
+            $conductor->reloadEnvVars();
             break;
         case "backup":
             $conductor->backup();
