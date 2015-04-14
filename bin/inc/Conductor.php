@@ -269,6 +269,15 @@ class Conductor extends CliApplication
                 return $this->updateEnvVars();
             }
 
+            // If no options are specified we'll output the current application ENV variables.
+            if (count($this->options()) == 0) {
+                $this->writeln();
+                foreach ($this->options() as $key => $value) {
+                    $this->writeln(sprintf(' %s=%s', $key, $value));
+                }
+                $this->writeln();
+            }
+
             // Request is to add/ammed environmental vars
             if ($this->isFlagSet('-d')) {
                 foreach ($this->options() as $key => $value) {
@@ -393,12 +402,12 @@ class Conductor extends CliApplication
             $config = str_replace($placeholder, $value, $config);
         }
         file_put_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf', $config);
-        
+
         mkdir($this->appdir, 0755);
-        mkdir($this->conf->paths->applogs . '/' . $this->appname);
+        mkdir($this->conf->paths->applogs . '/' . $this->appname, 0755);
         $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->conf->paths->applogs . '/' . $this->appname);
         chmod($this->conf->paths->appconfs . '/' . $this->appname . '.conf', 755);
-        
+
         // Load  the application environment configuration in to the application configuration (which will create the initial ENV configuration)...
         $this->updateEnvVars();
 
