@@ -270,7 +270,7 @@ class Conductor extends CliApplication
         $env_handler = new EnvHandler($env_conf);
         $env_handler->load();
 
-        if (count($this->options()) > 0) {
+        if ((strtolower($this->getCommand(1)) == 'envars') and ( count($this->options()) > 0)) {
             if (!$this->isFlagSet('-d')) {
                 foreach ($this->options() as $key => $value) {
                     $env_handler->push($key, $value);
