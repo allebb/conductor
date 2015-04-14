@@ -70,6 +70,8 @@ class Conductor extends CliApplication
     {
         $depends = [
             'mysql' => 'The PHP MySQL extention is required but is missing',
+            'posix' => 'The PHP POSIX extention is required but is missing',
+            'json' => 'The PHP JSON extention is required but is missing',
         ];
         foreach ($depends as $function => $dependency) {
             if (!function_exists($function)) {
