@@ -7,12 +7,12 @@ class Conductor extends CliApplication
      * The main Conductor application version.
      */
     const CONDUCTOR_VERSION = "3.0.3";
-    
+
     /**
      * The path to the core application configuration file.
      */
     const CONDUCTOR_CONF = "/etc/conductor.conf";
-    
+
     /**
      * Number of spaces to use as indentation on the Nginx ENV block.
      */
@@ -39,11 +39,11 @@ class Conductor extends CliApplication
     public function __construct($argv)
     {
         parent::__construct($argv);
-        
+
         $this->checkDependencies();
-        
+
         $this->enforceCli();
-        
+
         if (!$this->isSuperUser()) {
             $this->writeln('You must be root to use this tool!');
             $this->endWithError();
@@ -591,11 +591,11 @@ class Conductor extends CliApplication
             $this->backupApplication('priordestroy_' . $this->appname . '.tar.gz');
             $this->writeln('Destroying application...');
             $this->call('rm ' . $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
+            $this->writeln('Reloading Nginx configuration...');
             $this->call($this->conf->services->nginx->reload);
-
-            if (file_exists($this->appdir . '/conductor.json')) {
-                $this->destroyMySQL();
-            }
+            $this->writeln('Destroying MySQL database and associated users...');
+            $this->destroyMySQL();
+            $this->writeln('Destroying app directory and log files...');
             $this->call('rm -Rf ' . $this->appdir);
             $this->call('rm -Rf ' . $this->conf->paths->applogs . '/' . $this->appname);
             $this->writeln('...finished!');
