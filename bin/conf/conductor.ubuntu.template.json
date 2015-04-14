@@ -6,7 +6,8 @@
         "appconfs": "/etc/conductor/configs",
         "applogs": "/var/conductor/logs",
         "templates": "/etc/conductor/configs/common",
-        "apptpl": "laravel_template.tpl"
+        "fpmsocket": "/var/run/php5-fpm.sock",
+        "fastcgiparams": "/etc/nginx/fastcgi_params"
     },
     "permissions": {
         "webuser": "www-data",

@@ -107,7 +107,7 @@ sudo /etc/init.d/php5-fpm restart
 sudo /etc/init.d/nginx restart
 
 # Lets copy the configuration file template to /etc/conductor.conf for simplified administration.
-sudo cp /etc/conductor/bin/conf/conductor.template.json /etc/conductor.conf
+sudo cp /etc/conductor/bin/conf/conductor.ubuntu.template.json /etc/conductor.conf
 
 # Set the root password on our configuration script.
 sudo sed -i "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;

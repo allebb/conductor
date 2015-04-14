@@ -280,7 +280,7 @@ class Conductor extends CliApplication
         //    // Now check that the individual hostname is valid
         //}
 
-        copy($this->conf->paths->templates . '/' . $this->conf->paths->apptpl, $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
+        copy($this->conf->paths->templates . '/vhost_template.conf', $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
 
         $placeholders = [
             '@@DOMAIN@@' => $domain,
@@ -288,6 +288,8 @@ class Conductor extends CliApplication
             '@@APPPATH@@' => $this->appname . $apppath,
             '@@HLOGS@@' => $this->conf->paths->applogs . '/' . $this->appname . '/',
             '@@ENVIROMENT@@' => $environment,
+            '@@SOCKET@@' => $this->conf->paths->fpmsocket,
+            '@@FASTCGIPARAMS@@' => $this->conf->paths->fastcgiparams,
         ];
         $config = file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf');
         foreach ($placeholders as $placeholder => $value) {

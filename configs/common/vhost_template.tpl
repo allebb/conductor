@@ -50,6 +50,24 @@ server {
     }
 
     # Laravel framework specific configuration
-    include /etc/conductor/configs/common/laravel4.tpl;
-    
+    if (!-d $request_filename) {
+        rewrite ^/(.+)/$ /$1 permanent;
+    }
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location = /robots.txt  { access_log off; log_not_found off; }
+
+    location ~* \.php$ {
+        try_files $uri /index.php =404;
+        fastcgi_pass                    unix:@@SOCKET@@;
+        fastcgi_index                   index.php;
+        fastcgi_split_path_info         ^(.+\.php)(.*)$;
+        include                         @@FASTCGIPARAMS@@;
+        fastcgi_param                   SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+
 }

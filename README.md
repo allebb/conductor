@@ -32,7 +32,7 @@ sudo ln -f -s /usr/local/share/certs/ca-root-nss.crt /usr/local/etc/cert.pem
 sudo ln -f -s /usr/local/share/certs/ca-root-nss.crt /usr/local/openssl/cert.pem
 
 # Now download and then execute the installer...
-wget https://raw.github.com/bobsta63/conductor/master/scripts/install_freebsd_10.01.sh -O install.sh
+wget https://raw.github.com/bobsta63/conductor/master/scripts/install_freebsd_10.1.sh -O install.sh
 sudo bash install.sh
 ```
 
