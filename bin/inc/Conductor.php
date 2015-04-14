@@ -312,7 +312,7 @@ class Conductor extends CliApplication
      * @param string $replacement
      * @return string
      */
-    public function replace_between($needle_start, $needle_end, $file, $replacement)
+    public function replaceBetweenSections($needle_start, $needle_end, $file, $replacement)
     {
         $pos = strpos($file, $needle_start);
         $start = $pos === false ? 0 : $pos + strlen($needle_start);
