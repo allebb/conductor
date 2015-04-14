@@ -250,7 +250,7 @@ class Conductor extends CliApplication
     {
         $this->appNameRequired();
         if (count($this->options() > 0)) {
-            $env_handler = new EnvHandler($this->conf->paths->appconfs . '/' . $this->appname . '_envars.conf');
+            $env_handler = new EnvHandler($this->conf->paths->appconfs . '/' . $this->appname . '_envars.json');
             try {
                 // If we can load the configuration then great, lets load it and ammend as required.
                 $env_handler->load();
