@@ -257,27 +257,15 @@ class Conductor extends CliApplication
     public function updateEnvVars()
     {
         $this->appNameRequired();
+        $env_conf = $this->conf->paths->appconfs . '/' . $this->appname . '_envars.json';
+        if (!file_exists($env_conf)) {
+            file_put_contents($env_conf, json_encode(['APP_ENV' => 'production']));
+        }
+
+        $env_handler = new EnvHandler($env_conf);
+        $env_handler->load();
+
         if (count($this->options() > 0)) {
-            $env_handler = new EnvHandler($this->conf->paths->appconfs . '/' . $this->appname . '_envars.json');
-            try {
-                // If we can load the configuration then great, lets load it and ammend as required.
-                $env_handler->load();
-            } catch (RuntimeException $ex) {
-                // If the environment configuration file doesnt exsist we'll create it now...
-                $env_handler->push('APP_ENV', 'production');
-                $env_handler->save();
-                return $this->updateEnvVars();
-            }
-
-            // If no options are specified we'll output the current application ENV variables.
-            if (count($this->options()) == 0) {
-                $this->writeln();
-                foreach ($env_handler->all() as $key => $value) {
-                    $this->writeln(sprintf(' %s=%s', $key, $value));
-                }
-                $this->writeln();
-            }
-
             // Request is to add/ammed environmental vars
             if ($this->isFlagSet('-d')) {
                 foreach ($this->options() as $key => $value) {
@@ -294,6 +282,13 @@ class Conductor extends CliApplication
             // Apply them to the application configuration...
             $ammended_vhost_conf = $this->replaceBetweenSections('# START APPLICTION ENV VARIABLES', '# END APPLICTION ENV VARIABLES', file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf'), $this->envConfigurationBlock($env_handler->all()));
             file_put_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf', $ammended_vhost_conf);
+            
+        } else {
+            $this->writeln();
+            foreach ($env_handler->all() as $key => $value) {
+                $this->writeln(sprintf(' %s=%s', $key, $value));
+            }
+            $this->writeln();
         }
     }
 
