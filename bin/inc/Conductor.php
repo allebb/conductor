@@ -555,7 +555,7 @@ class Conductor extends CliApplication
     public function restore()
     {
         $this->appNameRequired();
-        $this->writeln('Tell us which archive you wish to restore (eg. /var/conductor/backups/myapp_2013-10-26-0900.tar.gz/)');
+        $this->writeln('Tell us which archive you wish to restore (eg. /var/conductor/backups/myapp_2013-10-26-0900.tar.gz)');
         $archive = $this->input('Backup archive:');
 
         if (!file_exists($archive)) {
