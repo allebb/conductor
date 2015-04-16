@@ -286,9 +286,7 @@ class Conductor extends CliApplication
             // Apply them to the application configuration...
             $ammended_vhost_conf = $this->replaceBetweenSections('# START APPLICTION ENV VARIABLES', '# END APPLICTION ENV VARIABLES', file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf'), $this->envConfigurationBlock($env_handler));
             file_put_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf', $ammended_vhost_conf);
-            if (version_compare($this->laravelApplicationVersion($env_conf), '5.0', '>=')) {
-                file_put_contents($this->appdir . '/.env', $this->envFileLaravelConfiguration($env_handler));
-            }
+            file_put_contents($this->appdir . '/.env', $this->envFileLaravelConfiguration($env_handler));
             $this->reloadEnvVars();
         } else {
             $this->writeln();
