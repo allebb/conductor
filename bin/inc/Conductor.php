@@ -204,6 +204,9 @@ class Conductor extends CliApplication
         $this->writeln('  DB Username: ' . $this->appname);
         $this->writeln('  DB Password: ' . $db_pass);
         $this->writeln();
+        
+        // For convienice we'll add these DB params to the ENV vars with the benefit of using default Laravel ENV var names.
+        $this->call('/usr/bin/conductor envars ' .$this->appname. ' --DB_HOST=\"' .$this->conf->mysql->host. '\" --DB_DATABASE=\"' .$this->appname. '\" --DB_USERNAME=\"' .$this->appname. '\"  --DB_PASSWORD=\"' .$db_pass. '\"');
     }
 
     /**
