@@ -204,9 +204,9 @@ class Conductor extends CliApplication
         $this->writeln('  DB Username: ' . $this->appname);
         $this->writeln('  DB Password: ' . $db_pass);
         $this->writeln();
-        
+
         // For convienice we'll add these DB params to the ENV vars with the benefit of using default Laravel ENV var names.
-        $this->call('/usr/bin/conductor envars ' .$this->appname. ' --DB_HOST=\"' .$this->conf->mysql->host. '\" --DB_DATABASE=\"' .$this->appname. '\" --DB_USERNAME=\"' .$this->appname. '\"  --DB_PASSWORD=\"' .$db_pass. '\"');
+        $this->call('/usr/bin/conductor envars ' . $this->appname . ' --DB_HOST=\"' . $this->conf->mysql->host . '\" --DB_DATABASE=\"db_' . $this->appname . '\" --DB_USERNAME=\"' . $this->appname . '\"  --DB_PASSWORD=\"' . $db_pass . '\"');
     }
 
     /**
@@ -428,10 +428,11 @@ class Conductor extends CliApplication
         chmod($this->conf->paths->appconfs . '/' . $this->appname . '.conf', 755);
 
         // Load  the application environment configuration in to the application configuration (which will create the initial ENV configuration)...
-        $this->updateEnvVars();
+        //$this->updateEnvVars();
+        $this->call('/usr/bin/conductor envars APP_ENV=\"' . $environment . '"');
 
         // Enable the site by reloading Nginx.
-        $this->call($this->conf->services->nginx->reload);
+        //$this->call($this->conf->services->nginx->reload);
 
         if (strtolower($deploy_git) == 'y') {
             $this->writeln('We\'ll now deploy your application using Git...');
