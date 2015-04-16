@@ -284,15 +284,10 @@ class Conductor extends CliApplication
             $env_handler->save();
 
             // Apply them to the application configuration...
-            $ammended_vhost_conf = $this->replaceBetweenSections('# START APPLICTION ENV VARIABLES', '# END APPLICTION ENV VARIABLES', file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf'), $this->envConfigurationBlock($env_handler->all()));
+            $ammended_vhost_conf = $this->replaceBetweenSections('# START APPLICTION ENV VARIABLES', '# END APPLICTION ENV VARIABLES', file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf'), $this->envConfigurationBlock($env_handler));
             file_put_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf', $ammended_vhost_conf);
             if (version_compare($this->laravelApplicationVersion($env_conf), '5.0', '>=')) {
-                $env_content = "";
-                foreach ($env_handler->all() as $key => $value) {
-                    $env_content .= $key . "=" . $value . PHP_EOL;
-                }
-                // We'll write the ENV vars to the .env file..
-                file_put_contents($this->appdir . '/.env', $env_content);
+                file_put_contents($this->appdir . '/.env', $this->envFileLaravelConfiguration($env_handler));
             }
             $this->reloadEnvVars();
         } else {
@@ -306,15 +301,31 @@ class Conductor extends CliApplication
 
     /**
      * Format the environment variables for the virtual host configuration.
-     * @param array $vars The environmental variables.
+     * @param EnvHandler $envars The environmental variables.
      * @return string
      */
-    private function envConfigurationBlock(array $vars)
+    private function envConfigurationBlock(EnvHandler $envars)
     {
         $block = PHP_EOL . "";
-        if (count($vars) > 0) {
-            foreach ($vars as $key => $value) {
+        if (count($envars->all()) > 0) {
+            foreach ($envars->all() as $key => $value) {
                 $block .= sprintf(str_repeat(' ', self::SPACES_ENV_INDENT) . "fastcgi_param    %s    %s;" . PHP_EOL, $key, $value);
+            }
+        }
+        return $block;
+    }
+
+    /**
+     * Formats the environment variables for Laravel 5 based applications.
+     * @param EnvHandler $envars The environmental variables.
+     * @return string
+     */
+    private function envFileLaravelConfiguration(EnvHandler $envars)
+    {
+        $block = "";
+        if (count($envars->all()) > 0) {
+            foreach ($envars->all() as $key => $value) {
+                $block.= $key . "=" . $value . PHP_EOL;
             }
         }
         return $block;
