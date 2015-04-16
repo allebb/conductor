@@ -566,9 +566,9 @@ class Conductor extends CliApplication
         mkdir($this->conf->paths->temp . '/restore_' . $this->appname, 755);
         $this->call('tar -zxf ' . $archive . ' -C ' . $this->conf->paths->temp . '/restore_' . $this->appname);
 
-        if (file_exists($this->conf->paths->temp . 'restore_' . $this->appname . '/appdb.sql.gz')) {
+        if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/appdb.sql.gz')) {
             $this->writeln('Importing application MySQL database...');
-            $this->call('gunzip < ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/appdb.sql.gz\' | mysql -h' . $this->conf->mysql->host . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' db_' . $this->appname . '');
+            $this->call('gunzip < ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/appdb.sql.gz | mysql -h' . $this->conf->mysql->host . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' db_' . $this->appname . '');
             $this->writeln('Finished importing the MySQL database!');
             unlink($this->conf->paths->temp . '/restore_' . $this->appname . '/appdb.sql.gz');
         } else {
@@ -579,8 +579,8 @@ class Conductor extends CliApplication
         $this->call('cp -Rf ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/ ' . $this->appdir . '/');
         $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
         $this->call('rm -Rf ' . $this->conf->paths->temp . '/restore_' . $this->appname);
-
         $this->writeln('...finished!');
+        $this->startLaravelApplication();
         $this->endWithSuccess();
     }
 
