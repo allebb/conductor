@@ -6,7 +6,7 @@ class Conductor extends CliApplication
     /**
      * The main Conductor application version.
      */
-    const CONDUCTOR_VERSION = "3.0.6";
+    const CONDUCTOR_VERSION = "3.0.7";
 
     /**
      * The path to the core application configuration file.
@@ -206,7 +206,7 @@ class Conductor extends CliApplication
         $this->writeln();
 
         // For convienice we'll add these DB params to the ENV vars with the benefit of using default Laravel ENV var names.
-        $this->call('/usr/bin/conductor envars ' . $this->appname . ' --DB_HOST=\"' . $this->conf->mysql->host . '\" --DB_DATABASE=\"db_' . $this->appname . '\" --DB_USERNAME=\"' . $this->appname . '\"  --DB_PASSWORD=\"' . $db_pass . '\"');
+        $this->call('/usr/bin/conductor envars ' . $this->appname . ' --DB_HOST="' . $this->conf->mysql->host . '" --DB_DATABASE="db_' . $this->appname . '" --DB_USERNAME="' . $this->appname . '"  --DB_PASSWORD="' . $db_pass . '"');
     }
 
     /**
@@ -429,7 +429,7 @@ class Conductor extends CliApplication
 
         // Load  the application environment configuration in to the application configuration (which will create the initial ENV configuration)...
         //$this->updateEnvVars();
-        $this->call('/usr/bin/conductor envars APP_ENV=\"' . $environment . '"');
+        $this->call('/usr/bin/conductor envars APP_ENV="' . $environment . '"');
 
         // Enable the site by reloading Nginx.
         //$this->call($this->conf->services->nginx->reload);
@@ -499,7 +499,10 @@ class Conductor extends CliApplication
         $this->backupApplication('rollback_' . $this->appname . '.tar.gz');
         $this->writeln('Starting application upgrade...');
         if (file_exists($this->appdir . '/.git')) {
+            $this->writeln('Pulling latest code from Git...');
             $this->gitPull();
+            $this->writeln('Downloading Composer dependencies...');
+            $this->call($this->conf->binaries->composer . ' install --no-dev --optimize-autoloader --working-dir=' . $this->appdir);
         }
         $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
         $this->migrateLaravel();
