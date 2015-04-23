@@ -152,8 +152,9 @@ class Conductor extends CliApplication
             $this->call($this->conf->binaries->php . ' ' . $this->conf->paths->apps . '/' . $application . '/artisan --version');
             $data = ob_get_clean();
             if ((strpos($data, 'version') !== false) and ( preg_match("#(\d+\.\d+(\.\d+)*)#", $data, $version_number))) {
-                if (isset($version_number[0]))
+                if (isset($version_number[0])){
                     return $version_number[0];
+                }
                 return "";
             }
             return "";
@@ -473,7 +474,7 @@ class Conductor extends CliApplication
     public function updateApplication()
     {
         $this->appNameRequired();
-        
+
         // Get the current environment type to execute the Laravel migrations with.
         $env_handler = new EnvHandler($this->conf->paths->appconfs . '/' . $this->appname . '_envars.json');
         $env_handler->load();
@@ -496,8 +497,10 @@ class Conductor extends CliApplication
         if (!isset($stopapp)) {
             $stopapp = $this->input('Do you wish to \'stop\' the application before upgrading?', 'y', ['y', 'n']);
         }
-        if (strtolower($stopapp) == 'y')
+        
+        if (strtolower($stopapp) == 'y') {
             $this->stopLaravelApplication();
+        }
 
         if (file_exists($this->conf->paths->backups . '/rollback_' . $this->appname . '.tag.gz')) {
             unlink($this->conf->paths->backups . '/rollback_' . $this->appname . '.tag.gz');
@@ -513,8 +516,9 @@ class Conductor extends CliApplication
         $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
         $this->migrateLaravel($environment);
         $this->writeln('...finished!');
-        if (strtolower($stopapp) == 'y')
+        if (strtolower($stopapp) == 'y') {
             $this->startLaravelApplication();
+        }
 
         $this->endWithSuccess();
     }
