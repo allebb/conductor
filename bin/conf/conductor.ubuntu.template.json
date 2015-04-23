@@ -44,7 +44,7 @@
             "reload": "/etc/init.d/php5-fpm reload"
         },
         "cron": {
-            "reload": ""
+            "reload": "service cron reload"
         }
     }
 }

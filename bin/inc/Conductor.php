@@ -6,7 +6,7 @@ class Conductor extends CliApplication
     /**
      * The main Conductor application version.
      */
-    const CONDUCTOR_VERSION = "3.0.8";
+    const CONDUCTOR_VERSION = "3.0.9";
 
     /**
      * The path to the core application configuration file.
@@ -361,7 +361,7 @@ class Conductor extends CliApplication
         $cron_conf_path = $this->conf->paths->crons . '/laravel_' . $this->appname;
         if (!file_exists($cron_conf_path)) {
             // Add file
-            file_put_contents($cron_conf_path, sprintf('* * * * * php %s/artisan schedule:run 1>> /dev/null 2>&1', $this->appdir));
+            file_put_contents($cron_conf_path, sprintf('* * * * * %s %s %s/artisan schedule:run 1>> /dev/null 2>&1', $this->conf->permissions->webuser, $this->conf->binaries->php, $this->appdir));
             // Chmod file(s)
             chmod($cron_conf_path, 755);
             // Reload Crons

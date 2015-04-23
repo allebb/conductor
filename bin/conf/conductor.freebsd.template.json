@@ -8,7 +8,7 @@
         "templates": "/etc/conductor/configs/common",
         "fpmsocket": "/var/run/php-fpm.sock",
         "fastcgiparams": "/usr/local/etc/nginx/fastcgi_params",
-        "crontabs": "/etc/cron.d"
+        "crontabs": "/var/cron/tabs"
     },
     "permissions": {
         "webuser": "www",
@@ -44,7 +44,7 @@
             "reload": "service php-fpm reload"
         },
         "cron": {
-            "reload": ""
+            "reload": "/etc/rc.d/cron restart"
         }
     }
 }
