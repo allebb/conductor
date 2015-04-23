@@ -152,7 +152,7 @@ class Conductor extends CliApplication
             $this->call($this->conf->binaries->php . ' ' . $this->conf->paths->apps . '/' . $application . '/artisan --version');
             $data = ob_get_clean();
             if ((strpos($data, 'version') !== false) and ( preg_match("#(\d+\.\d+(\.\d+)*)#", $data, $version_number))) {
-                if (isset($version_number[0])){
+                if (isset($version_number[0])) {
                     return $version_number[0];
                 }
                 return "";
@@ -352,6 +352,52 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Adds the Laravel 5 application task scheduler to the servers cron-tab and enables it.
+     * @return void
+     */
+    private function addScheduler()
+    {
+        $this->appNameRequired();
+        $cron_conf_path = $this->conf->paths->crons . '/laravel_' . $this->appname;
+        if (!file_exists($cron_conf_path)) {
+            // Add file
+            file_put_contents($cron_conf_path, sprintf('* * * * * php %s/artisan schedule:run 1>> /dev/null 2>&1', $this->appdir));
+            // Chmod file(s)
+            chmod($cron_conf_path, 755);
+            // Reload Crons
+            $this->reloadCronJobs();
+            $this->writeln('Added Laravel 5 task scheduler cron to the system.');
+        } else {
+            $this->writeln('Task scheduler cron already exists.');
+        }
+    }
+
+    /**
+     * Removes the Laravel 5 application task scheduler from the servers cron-tab.
+     */
+    private function removeScheduler()
+    {
+        $this->appNameRequired();
+        $cron_conf_path = $this->conf->paths->crons . '/laravel_' . $this->appname;
+        if (file_exists($cron_conf_path)) {
+            unlink($cron_conf_path);
+            $this->writeln('Successfully deleted Laravel Scheduler from the system cron!');
+        } else {
+            $this->writeln('No Task scheduler cron found, skipping...');
+        }
+    }
+
+    /**
+     * Reloads the Crontab service
+     * return @void
+     */
+    private function reloadCronJobs()
+    {
+        $this->call($this->conf->services->cron->reload);
+        $this->writeln('Reloaded the system crons.');
+    }
+
+    /**
      * Creates a new application hosting container (and deploys as required)
      */
     public function newApplication()
@@ -497,7 +543,7 @@ class Conductor extends CliApplication
         if (!isset($stopapp)) {
             $stopapp = $this->input('Do you wish to \'stop\' the application before upgrading?', 'y', ['y', 'n']);
         }
-        
+
         if (strtolower($stopapp) == 'y') {
             $this->stopLaravelApplication();
         }

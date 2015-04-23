@@ -7,7 +7,8 @@
         "applogs": "/var/conductor/logs",
         "templates": "/etc/conductor/configs/common",
         "fpmsocket": "/var/run/php5-fpm.sock",
-        "fastcgiparams": "/etc/nginx/fastcgi_params"
+        "fastcgiparams": "/etc/nginx/fastcgi_params",
+        "crontabs": "/etc/cron.d"
     },
     "permissions": {
         "webuser": "www-data",
@@ -41,6 +42,9 @@
             "status": "/etc/init.d/php5-pfm status",
             "restart": "/etc/init.d/php5-fpm restart",
             "reload": "/etc/init.d/php5-fpm reload"
+        },
+        "cron": {
+            "reload": ""
         }
     }
 }
