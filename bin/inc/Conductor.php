@@ -228,17 +228,18 @@ class Conductor extends CliApplication
 
     /**
      * If detected as a Laravel appliaction will attempt to migrate it based on it's framework version number.
+     * @param string $environment The environment of which to execute the Laravel commands under.
      * @return void
      */
-    private function migrateLaravel()
+    private function migrateLaravel($environment = 'production')
     {
         if (file_exists($this->appdir . '/artisan')) {
             if (version_compare($this->laravelApplicationVersion($this->appname), "4.2", ">=")) {
-                $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan migrate --force');
+                $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan migrate --force --env=' . $environment);
             } else {
-                $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan migrate');
+                $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan migrate --env=' . $environment);
             }
-            $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan cache:clear');
+            $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan cache:clear --env=' . $environment);
             $this->call($this->conf->binaries->composer . ' dump-autoload -o --working-dir=' . $this->appdir);
         }
     }
@@ -463,7 +464,7 @@ class Conductor extends CliApplication
             $this->createMySQL($password);
         }
 
-        $this->migrateLaravel();
+        $this->migrateLaravel($environment);
     }
 
     /**
@@ -472,6 +473,11 @@ class Conductor extends CliApplication
     public function updateApplication()
     {
         $this->appNameRequired();
+        
+        // Get the current environment type to execute the Laravel migrations with.
+        $env_handler = new EnvHandler($this->conf->paths->appconfs . '/' . $this->appname . '_envars.json');
+        $env_handler->load();
+        $environment = $env_handler->get('APP_ENV', 'production');
 
         // Checks for CLI options to surpress the 'stop' application user input.
         if ($this->getOption('down', false)) {
@@ -505,7 +511,7 @@ class Conductor extends CliApplication
             $this->call($this->conf->binaries->composer . ' install --no-dev --optimize-autoloader --working-dir=' . $this->appdir);
         }
         $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
-        $this->migrateLaravel();
+        $this->migrateLaravel($environment);
         $this->writeln('...finished!');
         if (strtolower($stopapp) == 'y')
             $this->startLaravelApplication();
