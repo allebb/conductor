@@ -480,7 +480,7 @@ class Conductor extends CliApplication
 
         // Load  the application environment configuration in to the application configuration (which will create the initial ENV configuration)...
         //$this->updateEnvVars();
-        $this->call('/usr/bin/conductor envars APP_ENV="' . $environment . '"');
+        $this->call('/usr/bin/conductor envars ' .$this->appname. ' APP_ENV="' . $environment . '"');
 
         // Enable the site by reloading Nginx.
         //$this->call($this->conf->services->nginx->reload);
