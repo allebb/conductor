@@ -175,7 +175,7 @@ Automating composer updates
 As conductor is designed to be a 'set and forget' system, we've now implemented an script that you can add as a CRON job (to get rid of those nasty '30 days out of date' errors), by adding this script to the CRONtab you can be sure that Composer is automatically updated on the first day of every month at 03:00.
 
 ```shell
-0 3 0 * * /etc/conductor/utils/update_composer.sh
+0 3 1 * * /etc/conductor/utils/update_composer.sh
 ```
 
 Help and support

@@ -3,14 +3,27 @@
 # https://github.com/bobsta63/conductor                       #
 ###############################################################
 
+
+# Enable this configuration block if you wish to configure SSL and force
+# all HTTP traffic to the HTTPS configuraion.
+##server {
+##       listen         80;
+##       server_name    @@DOMAIN@@;
+##       return         301 https://$server_name$request_uri;
+##}
+
 server {
 
+    # Comment this line if you wish to are switching to HTTPS
     listen          80;
 
-    #listen          443;
-    #ssl on;
-    #ssl_certificate /var/conductor/certificates/@@APPNAME@@/www.yourdomain.com.bundle.crt;
-    #ssl_certificate_key /var/conductor/certificates/@@APPNAME@@/www.yourdomain.com.key;
+    # Standard SSL configuration
+    ##listen          443;
+    ##ssl on;
+    ##ssl_certificate /var/conductor/certificates/@@APPNAME@@.bundle.crt;
+    ##ssl_certificate_key /var/conductor/certificates/@@APPNAME@@.key;
+    
+    # Optional (advanced) configuration settings for SSL, uncomment if needed!
     ##ssl_client_certificate /var/conductor/certificates/AlphaSSL_Root.pem;
     ##ssl_protocols  SSLv3 TLSv1 TLSv1.2;
     ##ssl_ciphers AES:HIGH:!ADH:!MD5;
