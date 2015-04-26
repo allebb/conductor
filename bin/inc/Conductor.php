@@ -7,7 +7,7 @@ class Conductor extends CliApplication
     /**
      * The main Conductor application version.
      */
-    const CONDUCTOR_VERSION = "3.0.9";
+    const CONDUCTOR_VERSION = "3.0.10";
 
     /**
      * The path to the core application configuration file.
@@ -225,9 +225,12 @@ class Conductor extends CliApplication
     private function destroyMySQL()
     {
         $this->appNameRequired();
-        $this->mysql->exec('DROP DATABASE IF EXISTS `db_' . $this->appname . '`;');
-        $this->mysql->exec('DROP USER \'' . $this->appname . '\'@\'' . $this->conf->mysql->confrom . '\';');
-        $this->mysql->exec('FLUSH PRIVILEGES;');
+        if ($this->mysql->query('SHOW DATABASES LIKE \'db_' . $this->appname . '\';')->fetchObject()) {
+            $this->writeln('Detected a Application MySQL user and database...');
+            $this->mysql->exec('DROP DATABASE IF EXISTS `db_' . $this->appname . '`;');
+            $this->mysql->exec('DROP USER \'' . $this->appname . '\'@\'' . $this->conf->mysql->confrom . '\';');
+            $this->mysql->exec('FLUSH PRIVILEGES;');
+        }
     }
 
     /**
@@ -480,7 +483,7 @@ class Conductor extends CliApplication
 
         // Load  the application environment configuration in to the application configuration (which will create the initial ENV configuration)...
         //$this->updateEnvVars();
-        $this->call('/usr/bin/conductor envars ' .$this->appname. ' APP_ENV="' . $environment . '"');
+        $this->call('/usr/bin/conductor envars ' . $this->appname . ' APP_ENV="' . $environment . '"');
 
         // Enable the site by reloading Nginx.
         //$this->call($this->conf->services->nginx->reload);
