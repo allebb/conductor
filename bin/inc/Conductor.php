@@ -1,4 +1,5 @@
 <?php
+require_once 'MysqlPdo.php';
 
 class Conductor extends CliApplication
 {
@@ -36,6 +37,12 @@ class Conductor extends CliApplication
      */
     private $conf;
 
+    /**
+     * The MySQL PDO instance for database operations.
+     * @var \Pdo
+     */
+    private $mysql;
+
     public function __construct($argv)
     {
         parent::__construct($argv);
@@ -50,6 +57,8 @@ class Conductor extends CliApplication
         }
 
         $this->conf = $this->conductorConfiguration();
+
+        $this->mysql = MysqlPdo::connect('information_schema', $this->conf->mysql->username, $this->conf->mysql->password, $this->conf->mysql->host);
     }
 
     /**
@@ -82,7 +91,8 @@ class Conductor extends CliApplication
     public function checkDependencies()
     {
         $depends = [
-            'mysql' => 'The PHP MySQL extention is required but is missing',
+            'PDO' => 'The PHP PDO extention is required but is missing',
+            'pdo_mysql' => 'The PHP MySQL PDO extension is required but is missing',
             'posix' => 'The PHP POSIX extention is required but is missing',
             'json' => 'The PHP JSON extention is required but is missing',
         ];
@@ -171,8 +181,10 @@ class Conductor extends CliApplication
     {
         $this->appNameRequired();
         $this->call('cp -R ' . $this->appdir . ' ' . $this->conf->paths->temp . '/' . $this->appname);
-        $this->writeln('Backing up MySQL database (if exists)...');
-        $this->call($this->conf->binaries->mysqldump . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' --no-create-db db_' . $this->appname . ' | ' . $this->conf->binaries->gzip . ' -c | cat > ' . $this->conf->paths->temp . '/' . $this->appname . '/appdb.sql.gz');
+        if ($this->mysql->query('SHOW DATABASES LIKE \'db_' . $this->appname . '\';')->fetchObject()) {
+            $this->writeln('Detected a MySQL database, backing it up...');
+            $this->call($this->conf->binaries->mysqldump . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' --no-create-db db_' . $this->appname . ' | ' . $this->conf->binaries->gzip . ' -c | cat > ' . $this->conf->paths->temp . '/' . $this->appname . '/appdb.sql.gz');
+        }
         $this->writeln('Compressing backup archive...');
         $this->call('tar -zcf ' . $this->conf->paths->temp . '/' . $filename . ' -C ' . $this->conf->paths->temp . '/' . $this->appname . '/ .');
         $this->writeln('Cleaning up...');
@@ -188,25 +200,21 @@ class Conductor extends CliApplication
     private function createMySQL($db_pass)
     {
         $this->appNameRequired();
-        $db = mysql_connect($this->conf->mysql->host, $this->conf->mysql->username, $this->conf->mysql->password);
-        if (!$db) {
-            $this->writeln('MySQL connection error: ' . mysql_error());
-        }
-        mysql_query('CREATE DATABASE IF NOT EXISTS `db_' . $this->appname . '`;', $db);
-        mysql_query('GRANT ALL ON `db_' . $this->appname . '`.* TO \'' . $this->appname . '\'@\'' . $this->conf->mysql->confrom . '\' IDENTIFIED BY \'' . $db_pass . '\';', $db);
-        mysql_query('FLUSH PRIVILEGES;', $db);
-        mysql_close($db);
+
+        $this->mysql->exec('CREATE DATABASE IF NOT EXISTS `db_' . $this->appname . '`;');
+        $this->mysql->exec('GRANT ALL ON `db_' . $this->appname . '`.* TO \'' . $this->appname . '\'@\'' . $this->conf->mysql->confrom . '\' IDENTIFIED BY \'' . $db_pass . '\';');
+        $this->mysql->exec('FLUSH PRIVILEGES;');
 
         $this->writeln();
         $this->writeln('MySQL Database and User Details:');
         $this->writeln();
-        $this->writeln('  DB Name: db_' . $this->appname);
-        $this->writeln('  DB Host: ' . $this->conf->mysql->host);
-        $this->writeln('  DB Username: ' . $this->appname);
-        $this->writeln('  DB Password: ' . $db_pass);
+        $this->writeln(' DB Name: db_' . $this->appname);
+        $this->writeln(' DB Host: ' . $this->conf->mysql->host);
+        $this->writeln(' DB Username: ' . $this->appname);
+        $this->writeln(' DB Password: ' . $db_pass);
         $this->writeln();
 
-        // For convienice we'll add these DB params to the ENV vars with the benefit of using default Laravel ENV var names.
+        // For convienice we'll add these DB params to the ENV vars with the benefit of using default Laravel ENV var names .
         $this->call('/usr/bin/conductor envars ' . $this->appname . ' --DB_HOST="' . $this->conf->mysql->host . '" --DB_DATABASE="db_' . $this->appname . '" --DB_USERNAME="' . $this->appname . '"  --DB_PASSWORD="' . $db_pass . '"');
     }
 
@@ -217,14 +225,9 @@ class Conductor extends CliApplication
     private function destroyMySQL()
     {
         $this->appNameRequired();
-        $db = mysql_connect($this->conf->mysql->host, $this->conf->mysql->username, $this->conf->mysql->password);
-        if (!$db) {
-            $this->writeln('MySQL connection error: ' . mysql_error());
-        }
-        mysql_query('DROP DATABASE IF EXISTS `db_' . $this->appname . '`;', $db);
-        mysql_query('DROP USER \'' . $this->appname . '\'@\'' . $this->conf->mysql->confrom . '\';', $db);
-        mysql_query('FLUSH PRIVILEGES;', $db);
-        mysql_close($db);
+        $this->mysql->exec('DROP DATABASE IF EXISTS `db_' . $this->appname . '`;');
+        $this->mysql->exec('DROP USER \'' . $this->appname . '\'@\'' . $this->conf->mysql->confrom . '\';');
+        $this->mysql->exec('FLUSH PRIVILEGES;');
     }
 
     /**
