@@ -16,8 +16,8 @@ From time to time, major changes may be made to Conductor which may require addi
 
 * Make a note of your MySQL root password under /etc/conductor.conf (or /etc/conductor/bin/conf/conductor.conf depending on when you originally installed Conductor).
 * Run ``sudo /etc/conductor/upgrade.sh``
-* Copy the Conductor configuration template to /etc/conductor.conf overwriting the existing one: ``sudo cp -f /etc/conductor/bin/conf/conductor.template.json /etc/conductor.conf``
+* Copy the Conductor configuration template to /etc/conductor.conf overwriting the existing one: ``sudo cp -f /etc/conductor/bin/conf/conductor.ubuntu.template.json /etc/conductor.conf``
 * Edit **/etc/conductor.conf** and set the MySQL root password back (replace where is says 'ROOT_PASSWORD_HERE').
-* Re-link the conductor CLI tool - ``ln -f -s /etc/conductor/bin/conductor.php /usr/bin/conductor``
+* Re-link the conductor CLI tool - ``sudo ln -f -s /etc/conductor/bin/conductor.php /usr/bin/conductor``
 * Test the upgrade was complete by running: ``sudo conductor -v``
 
