@@ -31,7 +31,7 @@ class EnvHandler
     public function load()
     {
         if (!file_exists($this->file)) {
-            throw new RuntimeException(sprintf('Configuration file does not exsist in %s', $this->file));
+            throw new RuntimeException(sprintf('Configuration file does not exist in %s', $this->file));
         }
         $conf_data = json_decode(file_get_contents($this->file), true);
         if (empty($conf_data)) {
