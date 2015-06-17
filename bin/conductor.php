@@ -68,7 +68,7 @@ if (isset($commands[1])) {
 function displayHelp($conductor)
 {
     $conductor->writeln();
-    $conductor->writeln('Usage: conductor [OTPION]');
+    $conductor->writeln('Usage: conductor [OPTION]');
     $conductor->writeln();
     $conductor->writeln('Options:');
     $conductor->writeln('  list              List all currently hosted applications');
