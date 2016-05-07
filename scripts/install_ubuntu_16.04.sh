@@ -19,21 +19,20 @@ sudo apt-get -y install python-software-properties debconf-utils
 sudo apt-get -y install nginx
 
 # Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
-#echo "mysql-server-5.5 mysql-server/root_password password root" | debconf-set-selections
-#echo "mysql-server-5.5 mysql-server/root_password_again password root" | debconf-set-selections
-#echo "mysql-server-5.5 mysql-server/root_password seen true" | debconf-set-selections
-#echo "mysql-server-5.5 mysql-server/root_password_again seen true" | debconf-set-selections
-#sudo apt-get -y install mysql-server-5.5
+export DEBIAN_FRONTEND="noninteractive"
+sudo debconf-set-selections <<< "mysql-server mysql-server/root_password password root"
+sudo debconf-set-selections <<< "mysql-server mysql-server/root_password_again password root"
+sudo apt-get -y install mysql-server
 
 # Set the new random password and do some system clean-up of the default MySQL tables.
 randpassword=$(passwordgen);
 
 # Set a random MySQL root password...
-#mysqladmin -u root -proot password "$randpassword"
-#mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";
-#mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
-#mysql -u root -p"$randpassword" -e "FLUSH PRIVILEGES";
-#mysql -u root -p"$randpassword" -e "DROP DATABASE IF EXISTS test";
+mysqladmin -u root -proot password "$randpassword"
+mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";
+mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
+mysql -u root -p"$randpassword" -e "FLUSH PRIVILEGES";
+mysql -u root -p"$randpassword" -e "DROP DATABASE IF EXISTS test";
 
 # We specifically specify 'php7.0-common' as we don't want Apache etc installed too!
 sudo apt-get -y install php7.0-common php7.0-cli php7.0-fpm php7.0-curl php7.0-gd php7.0-mcrypt php7.0-intl php7.0-mbstring php7.0-zip php7.0-sqlite3 php7.0-mysql php7.0-json
