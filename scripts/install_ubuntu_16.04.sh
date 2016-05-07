@@ -34,13 +34,11 @@ mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
 mysql -u root -p"$randpassword" -e "FLUSH PRIVILEGES";
 mysql -u root -p"$randpassword" -e "DROP DATABASE IF EXISTS test";
 
-# We specifically specify 'php5-common' as we don't want Apache etc installed too!
-sudo apt-get -y install php5-common php5-cli php5-fpm php-apc php5-curl php5-gd php5-mcrypt php5-sqlite php5-mysql php5-json
+# We specifically specify 'php7.0-common' as we don't want Apache etc installed too!
+sudo apt-get -y install php7.0-common php7.0-cli php7.0-fpm php7.0-curl php7.0-gd php7.0-mcrypt php7.0-intl php7.0-mbstring php7.0-zip php7.0-sqlite3 php7.0-mysql php7.0-json
 
-# We now need to enable the Mcrypt extension (as this isn't done by default)
-php5enmod mcrypt
-service nginx restart
-service php5-fpm restart
+sudo service nginx restart
+sudo service php7.0-fpm restart
 
 # We install the Git Client to enable auto deployments etc.
 sudo apt-get -y install git
