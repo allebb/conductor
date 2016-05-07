@@ -19,20 +19,21 @@ sudo apt-get -y install python-software-properties debconf-utils
 sudo apt-get -y install nginx
 
 # Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
-echo "mysql-server-5.5 mysql-server/root_password password root" | debconf-set-selections
-echo "mysql-server-5.5 mysql-server/root_password_again password root" | debconf-set-selections
-echo "mysql-server-5.5 mysql-server/root_password seen true" | debconf-set-selections
-echo "mysql-server-5.5 mysql-server/root_password_again seen true" | debconf-set-selections
-sudo apt-get -y install mysql-server-5.5
+#echo "mysql-server-5.5 mysql-server/root_password password root" | debconf-set-selections
+#echo "mysql-server-5.5 mysql-server/root_password_again password root" | debconf-set-selections
+#echo "mysql-server-5.5 mysql-server/root_password seen true" | debconf-set-selections
+#echo "mysql-server-5.5 mysql-server/root_password_again seen true" | debconf-set-selections
+#sudo apt-get -y install mysql-server-5.5
 
 # Set the new random password and do some system clean-up of the default MySQL tables.
 randpassword=$(passwordgen);
+
 # Set a random MySQL root password...
-mysqladmin -u root -proot password "$randpassword"
-mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";
-mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
-mysql -u root -p"$randpassword" -e "FLUSH PRIVILEGES";
-mysql -u root -p"$randpassword" -e "DROP DATABASE IF EXISTS test";
+#mysqladmin -u root -proot password "$randpassword"
+#mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";
+#mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
+#mysql -u root -p"$randpassword" -e "FLUSH PRIVILEGES";
+#mysql -u root -p"$randpassword" -e "DROP DATABASE IF EXISTS test";
 
 # We specifically specify 'php7.0-common' as we don't want Apache etc installed too!
 sudo apt-get -y install php7.0-common php7.0-cli php7.0-fpm php7.0-curl php7.0-gd php7.0-mcrypt php7.0-intl php7.0-mbstring php7.0-zip php7.0-sqlite3 php7.0-mysql php7.0-json
@@ -54,7 +55,7 @@ sudo mkdir /var/conductor/backups
 sudo mkdir /var/conductor/tmp
 
 # Now we'll install Composer
-curl -sS https://getcomposer.org/installer | sudo php -- --install-dir=/etc/conductor/bin/composer
+sudo curl -sS https://getcomposer.org/installer | sudo php -- --install-dir=/etc/conductor/bin/composer
 sudo ln -s /etc/conductor/bin/composer/composer.phar /usr/bin/composer
 # Lets set the new symlink as executable
 sudo chmod +x /usr/bin/composer
@@ -75,12 +76,10 @@ sudo chmod +x /etc/conductor/upgrade.sh
 echo "Configuring Nginx..."
 sudo sed -i "s/include \/etc\/nginx\/sites-enabled\/\*/include \/etc\/conductor\/configs\/common\/conductor_nginx\.conf/g" /etc/nginx/nginx.conf
 sudo sed -i "s/# server_tokens off\;/server_tokens off\;/g" /etc/nginx/nginx.conf
-# Now we link the Nginx config... (decided against this in the end, a proper switch of the sites-available is probably best practice!)
-#sudo ln -s /etc/conductor/configs/common/conductor_nginx.conf /etc/nginx/sites-enabled/conductor
 
 echo "Configuring PHP-FPM for Nginx..."
 # On Ubuntu 14.04 the following is already listening on a socket so this can be ignored!
-#sudo sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/tmp\/php5-fpm\.sock/g" /etc/php5/fpm/pool.d/www.conf
+#sudo sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/tmp\/php5-fpm\.sock/g" /etc/php/7.0/fpm/pool.d/www.conf
 # Change cgi.fix_pathinfo=1 to cgi.fix_pathinfo=0
 
 # We'll now install Redis Server
@@ -89,13 +88,10 @@ sudo /etc/init.d/redis-server restart
 
 # Now we'll install Beanstalkd
 sudo apt-get -y install beanstalkd
-sudo sed -i "s/\#START=yes/START=yes/g" /etc/default/beanstalkd
 sudo /etc/init.d/beanstalkd start
 
-# A good idea that we get Supervisord installed here too!
-
-#Lets now start PHP5-FPM and Nginx!
-sudo /etc/init.d/php5-fpm restart
+#Lets now restart PHP-FPM and Nginx!
+sudo /etc/init.d/php7.0-fpm restart
 sudo /etc/init.d/nginx restart
 
 # Lets copy the configuration file template to /etc/conductor.conf for simplified administration.
