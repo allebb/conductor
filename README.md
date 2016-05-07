@@ -7,7 +7,7 @@ You may be thinking what the hell has a bus or train conductor have to do with a
 
 Requirements
 ------------
-Conductor is developed and tested on the Ubuntu Server LTS releases (12.04 and 14.04) in future I may support other distributions too and I always welcome 'merge' requests from other members of the community too if they wish to contribute configuration changes/updates to the existing project source code!
+Conductor is developed, tested and supported on the Ubuntu Server LTS releases (16.04, 14.04 and 12.04) in future I may support other distributions too and I always welcome 'merge' requests from other members of the community too if they wish to contribute configuration changes/updates to the existing project source code!
 
 FreeBSD 10.1 support is currently in BETA! (Requires ``bash``, ``sudo`` and ``wget`` to be installed if you wish to use the automated installer script!)
 
@@ -67,9 +67,9 @@ What does this install
 Out of the box this script will install and configure the following packages using aptitude:-
 
 * Nginx
-* PHP 5.6 (CLI and FPM)
+* PHP (Ubuntu 16.04 uses PHP 5.7, other versions install PHP 5.6)
 * Git Client
-* APC
+* APC (Opcache is used on Ubuntu 16.04 instead)
 * MySQL
 * Redis
 * Beanstalkd
