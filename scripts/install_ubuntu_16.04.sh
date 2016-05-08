@@ -12,6 +12,10 @@ passwordgen() {
     tr -dc A-Za-z0-9 < /dev/urandom | head -c ${l} | xargs
 }
 
+# Ask the user here if they wish to install MySQL locally or not, if they choose
+# not we need to prompt the user for their remote DB server and user credentials.
+
+
 sudo apt-get update
 sudo apt-get -y install python-software-properties debconf-utils
 
@@ -95,6 +99,9 @@ sudo /etc/init.d/nginx restart
 
 # Lets copy the configuration file template to /etc/conductor.conf for simplified administration.
 sudo cp /etc/conductor/bin/conf/conductor.ubuntu.template.json /etc/conductor.conf
+
+# Ubuntu 16.04 specific replacements in the Ubuntu Server configuration.
+sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php7.0-pfm/g" /etc/php/7.0/fpm/pool.d/www.conf
 
 # Set the root password on our configuration script.
 sudo sed -i "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;
