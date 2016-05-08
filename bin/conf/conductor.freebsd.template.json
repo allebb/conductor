@@ -23,6 +23,7 @@
         "gzip": "/usr/bin/gzip"
     },
     "mysql": {
+        "enabled": true,
         "host": "localhost",
         "username": "root",
         "password": "ROOT_PASSWORD_HERE",
