@@ -82,12 +82,11 @@ sudo sed -i "s/# server_tokens off\;/server_tokens off\;/g" /etc/nginx/nginx.con
 
 echo "Configuring PHP-FPM for Nginx..."
 # On Ubuntu 14.04 the following is already listening on a socket so this can be ignored!
-sudo sed -i "sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/7.0/fpm/pool.d/www.conf
+#sudo sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/tmp\/php5-fpm\.sock/g" /etc/php/7.0/fpm/pool.d/www.conf
 # Change cgi.fix_pathinfo=1 to cgi.fix_pathinfo=0
 
 echo "Securing cgi.fix_pathinfo..."
-sudo sed -i ""
-;cgi.fix_pathinfo=1
+sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/7.0/fpm/php.ini
 
 # We'll now install Redis Server
 sudo apt-get -y install redis-server
