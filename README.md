@@ -12,12 +12,15 @@ FreeBSD 10.1 support is currently in BETA! (Requires ``bash``, ``sudo`` and ``wg
 Installation
 ------------
 
-Installation on Ubuntu servers can be done effortlessly by simply running this command from the console!
+Installation on Ubuntu servers running 16.04 can be done effortlessly by simply running this command from the console!
 
 ```shell
 wget https://raw.github.com/bobsta63/conductor/master/install.sh
 sudo bash install.sh
 ```
+
+If you wish to install on Ubuntu Server 12.04 or 14.04 (installs PHP 5.6 instead), please use the instructions found on the PHP 5.6 branch instead: https://github.com/bobsta63/conductor/tree/ubuntu1404_php56
+
 If installing on FreeBSD, a slightly different approach is required at present (given that it needs some initial packages installed and OpenSSL needs some attention). If you wish to install on FreeBSD please follow the [FreeBSD Installation](INSTALL-FREEBSD.md) instructions.
 
 Upgrading Conductor
@@ -31,10 +34,9 @@ What does this install
 Out of the box this script will install and configure the following packages using aptitude:-
 
 * Nginx
-* PHP (Ubuntu 16.04 uses PHP 5.7, other versions install PHP 5.6)
+* PHP 7.0
 * Git Client
-* APC (Opcache is used on Ubuntu 16.04 instead)
-* MySQL
+* MySQL 5.7
 * Redis
 * Beanstalkd
 
