@@ -237,7 +237,7 @@ class CliApplication
 
 // Is it the syntax '--option=argument'?
                 if (strpos($com, '=')) {
-                    list($com, $value) = preg_split("=", $com, 2);
+                    list($com, $value) = preg_split("/=/", $com, 2);
 // Is the option not followed by another option but by arguments
                 } elseif (strpos($args[0], '-') !== 0) {
                     while (strpos($args[0], '-') !== 0)
