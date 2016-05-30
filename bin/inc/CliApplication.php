@@ -223,10 +223,10 @@ class CliApplication
                 continue;
             }
 
-// Is it a command? (prefixed with --)
+            // Is it a command? (prefixed with --)
             if (substr($arg, 0, 2) === '--') {
 
-// Is it a long flag type? eg . --help?
+                // Is it a long flag type? eg . --help?
                 if (!strpos($arg, '=')) {
                     $ret['flags'][] = ltrim($arg, '--');
                     continue;
@@ -235,10 +235,10 @@ class CliApplication
                 $value = "";
                 $com = substr($arg, 2);
 
-// Is it the syntax '--option=argument'?
+                // Is it the syntax '--option=argument'?
                 if (strpos($com, '=')) {
                     list($com, $value) = preg_split("/=/", $com, 2);
-// Is the option not followed by another option but by arguments
+                    // Is the option not followed by another option but by arguments
                 } elseif (strpos($args[0], '-') !== 0) {
                     while (strpos($args[0], '-') !== 0)
                         $value .= array_shift($args) . ' ';
@@ -249,7 +249,7 @@ class CliApplication
                 continue;
             }
 
-// Is it a flag or a serial of flags? (prefixed with -)
+            // Is it a flag or a serial of flags? (prefixed with -)
             if (substr($arg, 0, 1) === '-') {
                 for ($i = 1; isset($arg[$i]); $i++)
                     $ret['flags'][] = $arg[$i];
@@ -260,7 +260,7 @@ class CliApplication
             continue;
         }
 
-// Set the object property values.
+        // Set the object property values.
         $this->arguments = $ret['arguments'];
         $this->commands = $ret['commands'];
         $this->flags = $ret['flags'];
