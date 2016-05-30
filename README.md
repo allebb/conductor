@@ -14,10 +14,10 @@ FreeBSD 10.1 support is currently in BETA! (Requires ``bash``, ``sudo`` and ``wg
 Installation
 ------------
 
-Installation on Ubuntu servers can be done effortlessly by simply running this command from the console!
+Installation on Ubuntu 12.04 and 14.04 servers (supporting PHP 5.6) can be done effortlessly by simply running this command from the console!
 
 ```shell
-wget https://raw.github.com/bobsta63/conductor/master/install.sh
+wget https://raw.github.com/bobsta63/conductor/ubuntu1404_php56/install.sh
 sudo bash install.sh
 ```
 If installing on FreeBSD, a slightly different approach is required at present (given that it needs some initial packages installed and OpenSSL needs some attention), use:
