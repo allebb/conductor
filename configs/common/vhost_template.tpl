@@ -48,11 +48,11 @@ server {
     # Enable GZip by default for common files.
     include /etc/conductor/configs/common/gzip.conf;
 
-    # Set some sensible defaults for image files etc.
-    location ~* \.(png|jpg|jpeg|gif|js|css|ico)$ {
-        expires 30d;
-        log_not_found off;
-    }
+    # Optional sensible defaults for image files etc.
+    # location ~* \.(png|jpg|jpeg|gif|js|css|ico)$ {
+    #    expires 30d;
+    #    log_not_found off;
+    # }
 
     location / {
         try_files $uri $uri/ /index.php?$query_string;
