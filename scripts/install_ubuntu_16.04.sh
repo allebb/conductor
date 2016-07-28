@@ -39,7 +39,7 @@ mysql -u root -p"$randpassword" -e "FLUSH PRIVILEGES";
 mysql -u root -p"$randpassword" -e "DROP DATABASE IF EXISTS test";
 
 # We specifically specify 'php7.0-common' as we don't want Apache etc installed too!
-sudo apt-get -y install php7.0-common php7.0-cli php7.0-fpm php7.0-curl php7.0-gd php7.0-mcrypt php7.0-intl php7.0-mbstring php7.0-zip php7.0-sqlite3 php7.0-mysql php7.0-json php-memcache php-apcu
+sudo apt-get -y install php7.0-common php7.0-cli php7.0-fpm php7.0-curl php7.0-gd php7.0-mcrypt php7.0-intl php7.0-mbstring php7.0-zip php7.0-sqlite3 php7.0-mysql php7.0-json php7.0-dom php-memcache php-apcu
 
 sudo service nginx restart
 sudo service php7.0-fpm restart
