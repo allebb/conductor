@@ -53,7 +53,7 @@ sudo apt-get -y install letsencrypt
 sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
 
 # Copy the SSL params settings to the server...
-sudo cp /etc/conductor/templates/ssl-params.conf /etc/nginx/snippets/ssl-params.conf;
+sudo cp /etc/conductor/templates/ssl-params.conf /etc/nginx/snippets;
 
 # Lets now create a default folder structure to hold all of our applications.
 # Now we need to pull 'conductor' from GitHub and we'll now deploy the application ready for it to be used.
@@ -64,7 +64,6 @@ sudo mkdir /var/conductor/certificates
 sudo mkdir /var/conductor/logs
 sudo mkdir /var/conductor/backups
 sudo mkdir /var/conductor/tmp
-sudo mkdir /var/www/html/.well-known
 
 # Create a blank default file.
 sudo cp /etc/conductor/templates/index.html /var/www/html
