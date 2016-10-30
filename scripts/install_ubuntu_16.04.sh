@@ -52,12 +52,12 @@ sudo apt-get -y install letsencrypt
 # Create a strong Diffie-Hellman Group
 sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
 
-# Copy the SSL params settings to the server...
-sudo cp /etc/conductor/templates/ssl-params.conf /etc/nginx/snippets;
 
 # Lets now create a default folder structure to hold all of our applications.
 # Now we need to pull 'conductor' from GitHub and we'll now deploy the application ready for it to be used.
 sudo git clone https://github.com/bobsta63/conductor.git /etc/conductor
+
+# Create some required directories
 sudo mkdir /var/conductor # We'll create a folder structure here to store all of the apps.
 sudo mkdir /var/conductor/applications
 sudo mkdir /var/conductor/certificates
@@ -68,6 +68,9 @@ sudo mkdir /var/conductor/tmp
 # Create a blank default file.
 sudo cp /etc/conductor/templates/index.html /var/www/html
 sudo chown www-data:www-data /var/www/html/index.html
+
+# Copy the SSL params settings to the server...
+sudo cp /etc/conductor/templates/ssl-params.conf /etc/nginx/snippets;
 
 # Now we'll install Composer
 sudo curl -sS https://getcomposer.org/installer | sudo php -- --install-dir=/etc/conductor/bin/composer
