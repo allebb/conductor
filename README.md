@@ -36,7 +36,7 @@ Out of the box this script will install and configure the following packages usi
 * Nginx
 * PHP 7.0
 * Git Client
-* MySQL 5.7
+* MariaDB
 * Redis
 * Beanstalkd
 

@@ -22,16 +22,16 @@ sudo apt-get -y install python-software-properties debconf-utils
 # We now install Nginx
 sudo apt-get -y install nginx
 
-# Now we'll install MySQL Server and set a default 'root' password, in future we'll generate a random one!
+# Now we'll install MariaDB Server and set a default 'root' password, in future we'll generate a random one!
 export DEBIAN_FRONTEND="noninteractive"
-sudo debconf-set-selections <<< "mysql-server mysql-server/root_password password root"
-sudo debconf-set-selections <<< "mysql-server mysql-server/root_password_again password root"
-sudo apt-get -y install mysql-server
+sudo debconf-set-selections <<< "mariadb-server mysql-server/root_password password root"
+sudo debconf-set-selections <<< "mariadb-server mysql-server/root_password_again password root"
+sudo apt-get -y install mariadb-server
 
 # Set the new random password and do some system clean-up of the default MySQL tables.
 randpassword=$(passwordgen);
 
-# Set a random MySQL root password...
+# Set a random MariaDB root password...
 mysqladmin -u root -proot password "$randpassword"
 mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";
 mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
