@@ -245,7 +245,7 @@ class Conductor extends CliApplication
     }
 
     /**
-     * If detected as a Laravel appliaction will attempt to migrate it based on it's framework version number.
+     * If detected as a Laravel application will attempt to migrate it based on it's framework version number.
      * @param string $environment The environment of which to execute the Laravel commands under.
      * @return void
      */
@@ -383,7 +383,7 @@ class Conductor extends CliApplication
             chmod($cron_conf_path, 755);
             // Reload Crons
             $this->reloadCronJobs();
-            $this->writeln('Added Laravel 5 task scheduler cron to the system.');
+            $this->writeln('Added Laravel 5.x task scheduler cron to the system.');
         } else {
             $this->writeln('Task scheduler cron already exists.');
         }
@@ -472,8 +472,11 @@ class Conductor extends CliApplication
         // Copy the virtualhost configuration file to our application configuration directory.
         copy($this->conf->paths->templates . '/vhost_template.tpl', $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
 
+        $domains = explode(' ', $domain);
+        
         $placeholders = [
             '@@DOMAIN@@' => $domain,
+            '@@DOMAIN_FIRST@@' => $domains[0],
             '@@APPNAME@@' => $this->appname,
             '@@APPPATH@@' => $this->appname . $apppath,
             '@@HLOGS@@' => $this->conf->paths->applogs . '/' . $this->appname . '/',

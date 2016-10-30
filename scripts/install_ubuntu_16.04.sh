@@ -47,6 +47,9 @@ sudo service php7.0-fpm restart
 # We install the Git Client to enable auto deployments etc.
 sudo apt-get -y install git
 
+# We now install the LetsEncrypt client
+sudo apt-get -y install letsencrypt
+
 # Lets now create a default folder structure to hold all of our applications.
 # Now we need to pull 'conductor' from GitHub and we'll now deploy the application ready for it to be used.
 sudo git clone https://github.com/bobsta63/conductor.git /etc/conductor
@@ -56,6 +59,11 @@ sudo mkdir /var/conductor/certificates
 sudo mkdir /var/conductor/logs
 sudo mkdir /var/conductor/backups
 sudo mkdir /var/conductor/tmp
+sudo mkdir /var/www/html/.well-known
+
+# Create a blank default file.
+sudo cp /etc/conductor/templates/index.html /var/www/html
+sudo chown www-data:www-data /var/www/html/index.html
 
 # Now we'll install Composer
 sudo curl -sS https://getcomposer.org/installer | sudo php -- --install-dir=/etc/conductor/bin/composer

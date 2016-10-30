@@ -12,22 +12,30 @@
 ##       return         301 https://$server_name$request_uri;
 ##}
 
+# If you wish to redirect HTTPS traffic too, such as from a www. address to a tld, you can use this:
+#server {
+#        listen          443;
+#        ssl on;
+#        ssl_certificate /etc/letsencrypt/live/@@DOMAIN_FIRST@@/fullchain.pem;
+#        ssl_certificate_key /etc/letsencrypt/live/@@DOMAIN_FIRST@@/privkey.pem;
+#        ssl_trusted_certificate /etc/letsencrypt/live/@@DOMAIN_FIRST@@/chain.pem;
+#        include /etc/nginx/snippets/ssl-params.conf;
+#        server_name   www.{yourdomain};
+#        return        301 https://{yourdomain}$request_uri;
+#}
+
+
 server {
 
     # Comment this line if you wish to are switching to HTTPS
     listen          80;
-
-    # Standard SSL configuration
-    ##listen          443;
-    ##ssl on;
-    ##ssl_certificate /var/conductor/certificates/@@APPNAME@@.bundle.crt;
-    ##ssl_certificate_key /var/conductor/certificates/@@APPNAME@@.key;
     
-    # Optional (advanced) configuration settings for SSL, uncomment if needed!
-    ##ssl_client_certificate /var/conductor/certificates/AlphaSSL_Root.pem;
-    ##ssl_protocols  SSLv3 TLSv1 TLSv1.2;
-    ##ssl_ciphers AES:HIGH:!ADH:!MD5;
-    ##ssl_prefer_server_ciphers   on;
+    # Uncomment to enable default LetsEncrypt Certificates.
+    #listen          443 ssl;
+    #ssl_certificate /etc/letsencrypt/live/@@DOMAIN_FIRST@@/fullchain.pem;
+    #ssl_certificate_key /etc/letsencrypt/live/@@DOMAIN_FIRST@@/privkey.pem;
+    #ssl_trusted_certificate /etc/letsencrypt/live/@@DOMAIN_FIRST@@/chain.pem;
+    #include /etc/nginx/snippets/ssl-params.conf;
 
     server_name     @@DOMAIN@@;
     server_tokens   off;
