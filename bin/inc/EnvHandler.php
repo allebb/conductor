@@ -1,5 +1,16 @@
 <?php
 
+/**
+ * Conductor
+ *
+ * Conductor is a CLI tool to aid provisioning and maintenance of PHP based sites and applications.
+ *
+ * @author Bobby Allen <ballen@bobbyallen.me>
+ * @license http://opensource.org/licenses/MIT
+ * @link https://github.com/bobsta63/conductor
+ * @link http://bobbyallen.me
+ *
+ */
 class EnvHandler
 {
 

@@ -1,5 +1,16 @@
 <?php
 
+/**
+ * Conductor
+ *
+ * Conductor is a CLI tool to aid provisioning and maintenance of PHP based sites and applications.
+ *
+ * @author Bobby Allen <ballen@bobbyallen.me>
+ * @license http://opensource.org/licenses/MIT
+ * @link https://github.com/bobsta63/conductor
+ * @link http://bobbyallen.me
+ *
+ */
 class CliApplication
 {
 
@@ -113,7 +124,7 @@ class CliApplication
     /**
      * Returns a command from the command index.
      * @param int $part Will return the Nth command. eg 1 for "./conductor new myapp" will return 'new'
-     * @param string $default An optioanl default value if the command index is not set.
+     * @param string $default An optional default value if the command index is not set.
      */
     public function getCommand($part, $default = false)
     {
