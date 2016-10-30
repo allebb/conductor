@@ -15,7 +15,6 @@ passwordgen() {
 # Ask the user here if they wish to install MySQL locally or not, if they choose
 # not we need to prompt the user for their remote DB server and user credentials.
 
-
 sudo apt-get update
 sudo apt-get -y install python-software-properties debconf-utils
 
@@ -49,6 +48,12 @@ sudo apt-get -y install git
 
 # We now install the LetsEncrypt client
 sudo apt-get -y install letsencrypt
+
+# Create a strong Diffie-Hellman Group
+sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
+
+# Copy the SSL params settings to the server...
+sudo cp /etc/conductor/templates/ssl-params.conf /etc/nginx/snippets/ssl-params.conf;
 
 # Lets now create a default folder structure to hold all of our applications.
 # Now we need to pull 'conductor' from GitHub and we'll now deploy the application ready for it to be used.

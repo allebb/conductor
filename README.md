@@ -39,6 +39,7 @@ Out of the box this script will install and configure the following packages usi
 * MariaDB
 * Redis
 * Beanstalkd
+* LetsEncrypt
 
 How to use it
 -------------
@@ -121,6 +122,16 @@ Displays the current version of the Conductor application that you are currently
 CLI options for non-interactive operation
 -----------------------------------------
 In the default "interactive" mode, Conductor prompts for various options and questions, if however you wish to script this for unattended (non-interactive mode) etc. since v3, you can now use the [CLI Options document](CLI-OPTIONS.md) document to see the available CLI options.
+
+Generating and updating LetsEncrypt Certificates
+------------------------------------------------
+You can generate and update LetsEncrypt certificates by running the following command:
+
+```shell
+sudo service nginx stop
+sudo letsencrypt certonly --standalone -d {domain} -d {sub-domain} --agree-tos --email={your_email_address}
+sudo service nginx start
+```
 
 Automating application backups
 ------------------------------
