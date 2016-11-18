@@ -23,8 +23,8 @@ sudo apt-get -y install nginx
 
 # Now we'll install MariaDB Server and set a default 'root' password, in future we'll generate a random one!
 export DEBIAN_FRONTEND="noninteractive"
-sudo debconf-set-selections <<< "mariadb-server mysql-server/root_password password root"
-sudo debconf-set-selections <<< "mariadb-server mysql-server/root_password_again password root"
+sudo debconf-set-selections <<< "mariadb-server-10.0 mysql-server/root_password password root"
+sudo debconf-set-selections <<< "mariadb-server-10.0 mysql-server/root_password_again password root"
 sudo apt-get -y install mariadb-server
 
 # Set the new random password and do some system clean-up of the default MySQL tables.
