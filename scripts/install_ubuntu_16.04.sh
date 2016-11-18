@@ -72,7 +72,7 @@ sudo chown www-data:www-data /var/www/html/index.html
 # Copy the SSL params settings to the server...
 sudo cp /etc/conductor/templates/ssl-params.conf /etc/nginx/snippets;
 
-# Now we'll install Composer
+# Install Composer
 sudo curl -sS https://getcomposer.org/installer | sudo php -- --install-dir=/etc/conductor/bin/composer
 sudo ln -s /etc/conductor/bin/composer/composer.phar /usr/bin/composer
 # Lets set the new symlink as executable
@@ -110,6 +110,11 @@ sudo /etc/init.d/redis-server restart
 # Now we'll install Beanstalkd
 sudo apt-get -y install beanstalkd
 sudo /etc/init.d/beanstalkd start
+
+# Install Supervisord (if requested at installation)
+sudo apt-get -y install supervisor
+sudo systemctl enable supervisor.service
+sudo /etc/init.d/supervisor start
 
 #Lets now restart PHP-FPM and Nginx!
 sudo /etc/init.d/php7.0-fpm restart

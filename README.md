@@ -39,6 +39,7 @@ Out of the box this script will install and configure the following packages usi
 * MariaDB
 * Redis
 * Beanstalkd
+* Supervisor
 * LetsEncrypt
 
 How to use it
