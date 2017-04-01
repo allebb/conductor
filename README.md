@@ -15,11 +15,11 @@ Installation
 Installation on Ubuntu servers running 16.04 can be done effortlessly by simply running this command from the console!
 
 ```shell
-wget https://raw.github.com/bobsta63/conductor/master/install.sh
+wget https://raw.github.com/allebb/conductor/master/install.sh
 sudo bash install.sh
 ```
 
-If you wish to install on Ubuntu Server 12.04 or 14.04 (installs PHP 5.6 instead), please use the instructions found on the PHP 5.6 branch instead: https://github.com/bobsta63/conductor/tree/ubuntu1404_php56
+If you wish to install on Ubuntu Server 12.04 or 14.04 (installs PHP 5.6 instead), please use the instructions found on the PHP 5.6 branch instead: https://github.com/allebb/conductor/tree/ubuntu1404_php56
 
 If installing on FreeBSD, a slightly different approach is required at present (given that it needs some initial packages installed and OpenSSL needs some attention). If you wish to install on FreeBSD please follow the [FreeBSD Installation](INSTALL-FREEBSD.md) instructions.
 
