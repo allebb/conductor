@@ -54,11 +54,11 @@ A simple command that displays the names of the currently deployed applications 
 
 #### ```conductor new {app name}```
 
-When you first want to deploy a new instance of a Laravel 4.x/5.x application on to your server, you are required to SSH in (or you could right a web-based application to speak to the executable behind if you wanted too) to your server and then execute the following command:-
+When you first want to deploy a new instance of a Laravel 4.x/5.x application on to your server, you are required to SSH in (or you could write a web-based application to speak to the **conductor(( behind if you wanted too) to your server and then execute the following command:-
 
-#### ```sudo conductor new {app name}```
+ ```sudo conductor new {app name}```
 
-This command will prompt you for the 'FQDN' (or you can add multiples addresses of which the Virtualhost will serve requests for, these should be separated by spaces!). After entering the FQDN(s) for the new application you will then be asked for your application's environment type (this basically sets the ``APP_ENV`` environment variable for Nginx of which can then be used by your PHP application like so ``$_SERVER['APP_ENV']``), if your application requires a MySQL database and as you would expect if you decide you do need a MySQL database Conductor will automatically create a database and MySQL user with permissions to only that database (to keep things secure!). The last part of the deployment you are asked how you would like to deploy your application, you have three options of which are as follows:-
+This command will prompt you for the 'FQDN' (or you can add multiple addresses of which the Virtualhost will serve requests for, these should be separated by spaces!). After entering the FQDN(s) for the new application you will then be asked for your application's environment type (this basically sets the ``APP_ENV`` environment variable for Nginx of which can then be used by your PHP application like so ``$_SERVER['APP_ENV']``), if your application requires a MySQL database and as you would expect if you decide you do need a MySQL database Conductor will automatically create a database and MySQL user with permissions to only that database (to keep things secure!). The last part of the deployment you are asked how you would like to deploy your application, you have three options of which are as follows:-
 
 * Git - Keep things automated and use Git to clone and keep your application up to date, this is highly recommended as it's so simple to do... This is what Conductor does best ;-)
 * Restore from a backup - You can restore from an application back-up taken from either on your current server of if you're migrating from another server; when restoring from a backup Conductor will automatically extract the contents of the specified backup archive and will also automatically import any MySQL databases if found in the backup archive.
