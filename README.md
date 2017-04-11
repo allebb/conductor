@@ -5,7 +5,7 @@ Conductor is CLI utility to automate the installation of Laravel 4.x and 5.x spe
 
 Requirements
 ------------
-Conductor is developed, tested and supported on the Ubuntu Server LTS releases (16.04, 14.04 and 12.04) in future I may support other distributions too and I always welcome 'merge' requests from other members of the community too if they wish to contribute configuration changes/updates to the existing project source code!
+Conductor is developed, tested and supported on the Ubuntu Server LTS releases (16.04, 14.04 and 12.04) in future I may support other distributions too and I always welcome PR's from other members of the community too if they wish to contribute configuration changes/updates to the existing project source code!
 
 FreeBSD 10.1 support is currently in BETA! (Requires ``bash``, ``sudo`` and ``wget`` to be installed if you wish to use the automated installer script!)
 
