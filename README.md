@@ -34,7 +34,7 @@ What does this install
 Out of the box this script will install and configure the following packages using aptitude:-
 
 * Nginx
-* PHP 7.0
+* PHP 7.3
 * Git Client
 * MariaDB
 * Redis
