@@ -47,10 +47,22 @@ mysql -u root -p"$randpassword" -e "DROP DATABASE IF EXISTS test";
 #sudo service nginx restart
 #sudo service php7.2-fpm restart
 
-# Lets add PHP 7.3
-sudo add-apt-repository ppa:ondrej/php
-sudo apt-get update
+# Enable the Universe repository (since Ubuntu 18.04 various packages are supplied in the universe repo eg. libzip4.0, beanstalkd, supervisor and letsencrypt)...
+sudo add-apt-repository universe
 
+# Install some Zip libraries required by PHP7.3-zip
+sudo apt-get install -y zip unzip
+
+# Lets add PHP 7.3
+sudo touch /etc/apt/sources.list.d/ondrej-php.list
+echo "deb http://ppa.launchpad.net/ondrej/php/ubuntu bionic main" | sudo tee -a /etc/apt/sources.list.d/ondrej-php.list
+echo "deb-src http://ppa.launchpad.net/ondrej/php/ubuntu bionic main" | sudo tee -a /etc/apt/sources.list.d/ondrej-php.list
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 4F4EA0AAE5267A6C
+sudo apt-get update
+sudo apt-get -y install php7.3-common php7.3-cli php7.3-fpm php7.3-curl php7.3-gd php7.3-intl php7.3-mbstring php7.3-sqlite3 php7.3-mysql php7.3-json php7.3-bcmath php-memcache php-apcu
+
+# Now we will install the ZIP extension for PHP...
+sudo apt-get install -y php7.3-zip
 
 # We install the Git Client to enable auto deployments etc.
 sudo apt-get -y install git
@@ -109,7 +121,7 @@ echo "Configuring PHP-FPM for Nginx..."
 # Change cgi.fix_pathinfo=1 to cgi.fix_pathinfo=0
 
 echo "Securing cgi.fix_pathinfo..."
-sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/7.0/fpm/php.ini
+sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/7.3/fpm/php.ini
 
 # We'll now install Redis Server
 sudo apt-get -y install redis-server
