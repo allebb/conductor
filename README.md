@@ -5,7 +5,7 @@ Conductor is CLI utility to automate the installation of Laravel 4.x and 5.x spe
 
 Requirements
 ------------
-Conductor is developed, tested and supported on the Ubuntu Server LTS releases (16.04, 14.04 and 12.04) in future I may support other distributions too and I always welcome PR's from other members of the community too if they wish to contribute configuration changes/updates to the existing project source code!
+Conductor is developed, tested and supported on the Ubuntu Server LTS releases (18.04, 16.04, 14.04 and 12.04) in future I may support other distributions too and I always welcome PR's from other members of the community too if they wish to contribute configuration changes/updates to the existing project source code!
 
 FreeBSD 10.1 support is currently in BETA! (Requires ``bash``, ``sudo`` and ``wget`` to be installed if you wish to use the automated installer script!)
 
@@ -19,7 +19,7 @@ wget https://raw.github.com/allebb/conductor/master/install.sh
 sudo bash install.sh
 ```
 
-If you wish to install on Ubuntu Server 12.04 or 14.04 (installs PHP 5.6 instead), please use the instructions found on the PHP 5.6 branch instead: https://github.com/allebb/conductor/tree/ubuntu1404_php56
+If you wish to install on Ubuntu Server 16.04, 14.04 or 12.04 please use the instructions found on the PHP 5.6 branch instead: https://github.com/allebb/conductor/tree/ubuntu1404_php56
 
 If installing on FreeBSD, a slightly different approach is required at present (given that it needs some initial packages installed and OpenSSL needs some attention). If you wish to install on FreeBSD please follow the [FreeBSD Installation](INSTALL-FREEBSD.md) instructions.
 
