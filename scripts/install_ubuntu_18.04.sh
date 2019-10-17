@@ -59,7 +59,7 @@ echo "deb http://ppa.launchpad.net/ondrej/php/ubuntu bionic main" | sudo tee -a 
 echo "deb-src http://ppa.launchpad.net/ondrej/php/ubuntu bionic main" | sudo tee -a /etc/apt/sources.list.d/ondrej-php.list
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 4F4EA0AAE5267A6C
 sudo apt-get update
-sudo apt-get -y install php7.3-common php7.3-cli php7.3-fpm php7.3-curl php7.3-gd php7.3-intl php7.3-mbstring php7.3-sqlite3 php7.3-mysql php7.3-json php7.3-bcmath php-memcache php-apcu
+sudo apt-get -y install php7.3-common php7.3-cli php7.3-fpm php7.3-curl php7.3-gd php7.3-intl php7.3-mbstring php7.3-sqlite3 php7.3-mysql php7.3-json php7.3-bcmath php7.3-xml php-memcache php-apcu
 
 # Now we will install the ZIP extension for PHP...
 sudo apt-get install -y php7.3-zip
