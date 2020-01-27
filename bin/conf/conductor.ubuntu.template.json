@@ -6,7 +6,7 @@
         "appconfs": "/etc/conductor/configs",
         "applogs": "/var/conductor/logs",
         "templates": "/etc/conductor/configs/common",
-        "fpmsocket": "/var/run/php/php7.3-fpm.sock",
+        "fpmsocket": "/var/run/php/php7.4-fpm.sock",
         "fastcgiparams": "/etc/nginx/fastcgi_params",
         "crontabs": "/etc/cron.d"
     },
@@ -37,11 +37,11 @@
             "reload": "service nginx reload"
         },
         "php_fpm": {
-            "start": "/etc/init.d/php7.3-fpm start",
-            "stop": "/etc/init.d/php7.3-fpm stop",
-            "status": "/etc/init.d/php7.3-fpm status",
-            "restart": "/etc/init.d/php7.3-fpm restart",
-            "reload": "/etc/init.d/php7.3-fpm reload"
+            "start": "/etc/init.d/php7.4-fpm start",
+            "stop": "/etc/init.d/php7.4-fpm stop",
+            "status": "/etc/init.d/php7.4-fpm status",
+            "restart": "/etc/init.d/php7.4-fpm restart",
+            "reload": "/etc/init.d/php7.4-fpm reload"
         },
         "cron": {
             "reload": "service cron reload"
