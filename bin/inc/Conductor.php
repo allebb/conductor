@@ -18,7 +18,7 @@ class Conductor extends CliApplication
     /**
      * The main Conductor application version.
      */
-    const CONDUCTOR_VERSION = "3.0.12";
+    const CONDUCTOR_VERSION = "3.0.13";
 
     /**
      * The path to the core application configuration file.
