@@ -53,16 +53,16 @@ sudo add-apt-repository universe
 # Install some Zip libraries required by PHP7.3-zip
 sudo apt-get install -y zip unzip
 
-# Lets add PHP 7.3
+# Lets add PHP 7.4
 sudo touch /etc/apt/sources.list.d/ondrej-php.list
 echo "deb http://ppa.launchpad.net/ondrej/php/ubuntu bionic main" | sudo tee -a /etc/apt/sources.list.d/ondrej-php.list
 echo "deb-src http://ppa.launchpad.net/ondrej/php/ubuntu bionic main" | sudo tee -a /etc/apt/sources.list.d/ondrej-php.list
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 4F4EA0AAE5267A6C
 sudo apt-get update
-sudo apt-get -y install php7.3-common php7.3-cli php7.3-fpm php7.3-curl php7.3-gd php7.3-intl php7.3-mbstring php7.3-sqlite3 php7.3-mysql php7.3-json php7.3-bcmath php7.3-xml php-memcache php-apcu
+sudo apt-get -y install php7.4-common php7.4-cli php7.4-fpm php7.4-curl php7.4-gd php7.4-intl php7.4-mbstring php7.4-sqlite3 php7.4-mysql php7.4-json php7.4-bcmath php7.4-xml php-memcache php-apcu
 
 # Now we will install the ZIP extension for PHP...
-sudo apt-get install -y php7.3-zip
+sudo apt-get install -y php7.4-zip
 
 # We install the Git Client to enable auto deployments etc.
 sudo apt-get -y install git
@@ -121,7 +121,7 @@ echo "Configuring PHP-FPM for Nginx..."
 # Change cgi.fix_pathinfo=1 to cgi.fix_pathinfo=0
 
 echo "Securing cgi.fix_pathinfo..."
-sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/7.3/fpm/php.ini
+sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/7.4/fpm/php.ini
 
 # We'll now install Redis Server
 sudo apt-get -y install redis-server
@@ -137,14 +137,14 @@ sudo systemctl enable supervisor.service
 sudo /etc/init.d/supervisor start
 
 #Lets now restart PHP-FPM and Nginx!
-sudo /etc/init.d/php7.3-fpm restart
+sudo /etc/init.d/php7.4-fpm restart
 sudo /etc/init.d/nginx restart
 
 # Lets copy the configuration file template to /etc/conductor.conf for simplified administration.
 sudo cp /etc/conductor/bin/conf/conductor.ubuntu.template.json /etc/conductor.conf
 
 # Ubuntu 16.04 specific replacements in the Ubuntu Server configuration.
-sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php7.3-pfm/g" /etc/php/7.3/fpm/pool.d/www.conf
+sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php7.4-pfm/g" /etc/php/7.4/fpm/pool.d/www.conf
 
 # Set the root password on our configuration script.
 sudo sed -i "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;

@@ -1,7 +1,7 @@
 Conductor
 =========
 
-Conductor is CLI utility to automate the installation of Laravel 4.x, 5.x and 6.0 specific application servers complete with some scripts and CLI commands to help deploy and manage multiple web applications on the server with ease.
+Conductor is CLI utility to automate the installation of Laravel 4.x, 5.x and 6.x application servers complete with some scripts and CLI commands to help deploy and manage multiple web applications on the server with ease.
 
 Requirements
 ------------
@@ -34,7 +34,7 @@ What does this install
 Out of the box this script will install and configure the following packages using aptitude:-
 
 * Nginx
-* PHP 7.3
+* PHP 7.4
 * Git Client
 * MariaDB
 * Redis
