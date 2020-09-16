@@ -173,6 +173,8 @@ This will only renew SSL certificates that are nearing their expirey, if you nee
 
 You can periodically check the status of this automatic LetsEncrypt renewal script by checking the log file that is located ``/var/log/letsencrypt/letsencrypt.log``.
 
+**Be aware:** If you remove a site from your server and/or move the site to another server (the DNS has been updated) you should remove the SSL certificate from your server using ``sudo certbot --cert-name {cert-name}`` (if the certificate path is, for example ``/etc/letsencrypt/live/test.mydomain.com/fullchain.pem`` then the _{cert-name}_ you should enter is ``test.mydomain.com`` (which is essentially the first domain you specified on the ``-d`` options and without any of the "alternate" domains that you specified when creating the SSL certificate) in order to prevent it attempting to auto-renew and thus failing due to DNS resolution issues. Remember - you can always open and check which certificate files/paths are set for an application under ``/etc/conductor/configs/{name}.conf`` if you are unsure.
+
 Help and support
 ----------------
 You can drop me an email at [ballen@bobbyallen.me](mailto:ballen@bobbyallen.me) I'll do my best to respond ASAP!
