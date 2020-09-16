@@ -19,7 +19,7 @@ wget https://raw.github.com/allebb/conductor/master/install.sh
 sudo bash install.sh
 ```
 
-If you wish to install on Ubuntu Server 18.04, 16.04, 14.04 or 12.04 please use the instructions found on the PHP 5.6 branch instead: https://github.com/allebb/conductor/tree/ubuntu1404_php56
+If you wish to install on Ubuntu Server 20.04, 18.04, 16.04, 14.04 or 12.04 please use the instructions found on the PHP 5.6 branch instead: https://github.com/allebb/conductor/tree/ubuntu1404_php56
 
 If installing on FreeBSD, a slightly different approach is required at present (given that it needs some initial packages installed and OpenSSL needs some attention). If you wish to install on FreeBSD please follow the [FreeBSD Installation](INSTALL-FREEBSD.md) instructions.
 
