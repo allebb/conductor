@@ -8,7 +8,7 @@ require_once 'MysqlPdo.php';
  *
  * @author Bobby Allen <ballen@bobbyallen.me>
  * @license http://opensource.org/licenses/MIT
- * @link https://github.com/bobsta63/conductor
+ * @link https://github.com/allebb/conductor
  * @link http://bobbyallen.me
  *
  */

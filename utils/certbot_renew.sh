@@ -10,7 +10,7 @@
 service nginx stop
 
 # No we attempt to renew all SSL certs on this server (we will not attempt to force any, you could however use '--force-renewal' or '--renew-by-default' in place of '--keep-until-expiring')
-certbot renew -n --keep-until-expiring --agree-tos
+certbot renew -n --keep-until-expiring --agree-tos --no-eff-email
 
 # Finally restart Nginx!
 service nginx start
