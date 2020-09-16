@@ -1,13 +1,11 @@
 Conductor
 =========
 
-Conductor is CLI utility to automate the installation of Laravel 4.x, 5.x and 6.x application servers complete with some scripts and CLI commands to help deploy and manage multiple web applications on the server with ease.
+Conductor is CLI utility to automate the installation of Laravel 4.x, 5.x, 6.x, 7.x and 8.x application servers complete with some scripts and CLI commands to help deploy and manage multiple web applications on the server with ease.
 
 Requirements
 ------------
-Conductor is developed, tested and supported on the Ubuntu Server LTS releases (18.04, 16.04, 14.04 and 12.04) in future I may support other distributions too and I always welcome PR's from other members of the community too if they wish to contribute configuration changes/updates to the existing project source code!
-
-FreeBSD 10.1 support is currently in BETA! (Requires ``bash``, ``sudo`` and ``wget`` to be installed if you wish to use the automated installer script!)
+Conductor is developed, tested and supported on the Ubuntu Server LTS releases (20.04, 18.04, 16.04, 14.04 and 12.04) in future I may support other distributions too and I always welcome PR's from other members of the community too if they wish to contribute configuration changes/updates to the existing project source code!
 
 Installation
 ------------
@@ -19,7 +17,7 @@ wget https://raw.github.com/allebb/conductor/master/install.sh
 sudo bash install.sh
 ```
 
-If you wish to install on Ubuntu Server 20.04, 18.04, 16.04, 14.04 or 12.04 please use the instructions found on the PHP 5.6 branch instead: https://github.com/allebb/conductor/tree/ubuntu1404_php56
+If you wish to install on Ubuntu Server 16.04, 14.04 or 12.04 please use the instructions found on the PHP 5.6 branch instead: https://github.com/allebb/conductor/tree/ubuntu1404_php56
 
 If installing on FreeBSD, a slightly different approach is required at present (given that it needs some initial packages installed and OpenSSL needs some attention). If you wish to install on FreeBSD please follow the [FreeBSD Installation](INSTALL-FREEBSD.md) instructions.
 
@@ -130,7 +128,7 @@ You can generate and update LetsEncrypt certificates by running the following co
 
 ```shell
 sudo service nginx stop
-sudo letsencrypt certonly --standalone -d {domain} -d {sub-domain} --agree-tos --email={your_email_address}
+sudo certbot certonly --standalone -d {domain} -d {sub-domain} --agree-tos --no-eff-email --email={your_email_address}
 sudo service nginx start
 ```
 
@@ -155,6 +153,21 @@ As conductor is designed to be a 'set and forget' system, we've now implemented 
 ```shell
 0 3 1 * * /etc/conductor/utils/update_composer.sh
 ```
+
+Automating LetsEncrypt renewal
+------------------------------
+
+A renewal script has been provided in this version of Conductor, you can enable the automatic renewal of LetsEncrypt certificates by adding the following to your CRONtab:
+
+This example will attempt to renew all LetsEcrypt SSL certificates configured on this server that are nearing expiry, this task will run on the 3rd day of every month at 04:05 in the morning.
+
+```shell
+5 4 3 * * /etc/conductor/utils/certbot_renew.sh
+```
+
+This will only renew SSL certificates that are nearing their expirey, if you need to force an SSL certificate you should ensure that you run ``certbot renew`` interactively where you can then choose if you wish to force renewals or not. 
+
+You can periodically check the status of this automatic LetsEncrypt renewal script by checking the log file that is located ``/var/log/letsencrypt/letsencrypt.log``.
 
 Help and support
 ----------------
