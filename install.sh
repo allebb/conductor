@@ -6,7 +6,7 @@
 ################################################################################
 
 # The installation script repository
-SITE='https://raw.github.com/bobsta63/conductor/master/scripts'
+SITE='https://raw.github.com/allebb/conductor/master/scripts'
 
 # Detect what version of OS they are using and then send them off to the correct install script!
 DISTRO=$(lsb_release -si| tr '[:upper:]' '[:lower:]')
