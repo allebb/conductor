@@ -132,6 +132,10 @@ sudo certbot certonly --standalone -d {domain} -d {sub-domain} --agree-tos --no-
 sudo service nginx start
 ```
 
+Once you have generated the SSL certificate you will need to edit and comment out/uncomment the required configuration for the required Nginx vhost file that can be found under ``/var/conductor/configs/{app-name}.conf`` and then restart Nginx for the changes to take affect.
+
+Unless you enable the automatic renewals (see below), you will need to periodically renew your SSL certificates by running ``sudo certbot renew`` at the console.
+
 Automating application backups
 ------------------------------
 An automation script specifically designed to be used with CRON jobs etc. can be found in the ``utils/`` directory, this shell script will automatically backup all applications on the server and will also remove older backups (as configured in the script), the default backup retention is 7 days!
