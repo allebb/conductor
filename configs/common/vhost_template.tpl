@@ -23,7 +23,6 @@
 #        return        301 https://{yourdomain}$request_uri;
 #}
 
-
 server {
 
     # Comment this line if you wish to are switching to HTTPS
