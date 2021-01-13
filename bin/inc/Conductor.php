@@ -306,7 +306,7 @@ class Conductor extends CliApplication
             $env_handler->save();
 
             // Apply them to the application configuration...
-            $ammended_vhost_conf = $this->replaceBetweenSections('# START APPLICTION ENV VARIABLES', '# END APPLICTION ENV VARIABLES', file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf'), $this->envConfigurationBlock($env_handler));
+            $ammended_vhost_conf = $this->replaceBetweenSections('# START APPLICATION ENV VARIABLES', '# END APPLICATION ENV VARIABLES', file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf'), $this->envConfigurationBlock($env_handler));
             file_put_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf', $ammended_vhost_conf);
             file_put_contents($this->conf->paths->apps . '/' . $this->appname . '/.env', $this->envFileLaravelConfiguration($env_handler));
             $this->reloadEnvVars();

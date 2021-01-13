@@ -3,16 +3,16 @@
 # https://github.com/allebb/conductor                         #
 ###############################################################
 
-
 # Enable this configuration block if you wish to configure SSL and force
-# all HTTP traffic to the HTTPS configuraion.
+# all HTTP traffic over SSL (https).
 ##server {
 ##       listen         80;
 ##       server_name    @@DOMAIN@@;
 ##       return         301 https://$server_name$request_uri;
 ##}
 
-# If you wish to redirect HTTPS traffic too, such as from a www. address to a tld, you can use this:
+# If you wish to redirect HTTPS traffic too, such as from a `www.` sub-domain to your TLD, you enable this configuration block too:
+# Just be sure to replace `{yourdomain}` with your TLD.
 #server {
 #        listen          443 ssl;
 #        ssl_certificate /etc/letsencrypt/live/@@DOMAIN_FIRST@@/fullchain.pem;
@@ -25,10 +25,10 @@
 
 server {
 
-    # Comment this line if you wish to are switching to HTTPS
+    # Comment this line out if you wish to switch to HTTPS (but then enable the next code block!).
     listen          80;
     
-    # Uncomment to enable default LetsEncrypt Certificates.
+    # Uncomment to enable default LetsEncrypt certificates.
     #listen          443 ssl;
     #ssl_certificate /etc/letsencrypt/live/@@DOMAIN_FIRST@@/fullchain.pem;
     #ssl_certificate_key /etc/letsencrypt/live/@@DOMAIN_FIRST@@/privkey.pem;
@@ -47,31 +47,34 @@ server {
     error_log       @@HLOGS@@error.log;
     rewrite_log     on;
 
-    # Additional per-application optimisations
+    # Disable access and error logs for requests to these common files.
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location = /robots.txt  { access_log off; log_not_found off; }
+
+    # Additional per-application optimisations.
     charset utf-8;
     client_max_body_size 32m;
 
     # Enable GZip by default for common files.
     include /etc/conductor/configs/common/gzip.conf;
 
-    # Optional sensible defaults for image files etc.
+    # Optional but sensible defaults for caching assets (eg. images, CSS) files etc.
     # location ~* \.(png|jpg|jpeg|gif|js|css|ico)$ {
     #    expires 30d;
     #    log_not_found off;
     # }
 
+    # Root location handler configuration.
     location / {
         try_files $uri $uri/ /index.php?$query_string;
     }
 
-    # Laravel framework specific configuration
+    # Laravel framework specific configuration.
     if (!-d $request_filename) {
         rewrite ^/(.+)/$ /$1 permanent;
     }
 
-    location = /favicon.ico { access_log off; log_not_found off; }
-    location = /robots.txt  { access_log off; log_not_found off; }
-
+    # PHP-FPM handler configuration.
     location ~* \.php$ {
         try_files $uri /index.php =404;
         # If your application requires PHP 7.4 instead, change the UNIX socket to: "unix:/var/run/php/php7.4-fpm.sock;" instead!
@@ -80,11 +83,12 @@ server {
         fastcgi_split_path_info         ^(.+\.php)(.*)$;
         include                         @@FASTCGIPARAMS@@;
         fastcgi_param                   SCRIPT_FILENAME $document_root$fastcgi_script_name;
-         # START APPLICTION ENV VARIABLES  
+         # START APPLICATION ENV VARIABLES
         fastcgi_param   APP_ENV         @@ENVIROMENT@@;
-        # END APPLICTION ENV VARIABLES
+        # END APPLICATION ENV VARIABLES
     }
 
+    # Deny access (by default) to any .htaccess files.
     location ~ /\.ht {
         deny all;
     }
