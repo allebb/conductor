@@ -14,8 +14,7 @@
 
 # If you wish to redirect HTTPS traffic too, such as from a www. address to a tld, you can use this:
 #server {
-#        listen          443;
-#        ssl on;
+#        listen          443 ssl;
 #        ssl_certificate /etc/letsencrypt/live/@@DOMAIN_FIRST@@/fullchain.pem;
 #        ssl_certificate_key /etc/letsencrypt/live/@@DOMAIN_FIRST@@/privkey.pem;
 #        ssl_trusted_certificate /etc/letsencrypt/live/@@DOMAIN_FIRST@@/chain.pem;
