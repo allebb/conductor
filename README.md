@@ -32,7 +32,7 @@ What does this install
 Out of the box this script will install and configure the following packages using aptitude:-
 
 * Nginx
-* PHP 7.4
+* PHP 8.0 (and 7.4 - you can set your applications/sites to use this version if you need!)
 * Git Client
 * MariaDB
 * Redis
@@ -44,7 +44,7 @@ How to use it
 -------------
 It's pretty straight forward to use, I'll go over briefly the main features (CLI options) and what they do.
 
-### List of avaliable commands and what they do
+### List of available commands and what they do
 
 #### ```conductor list```
 
@@ -169,11 +169,58 @@ This example will attempt to renew all LetsEcrypt SSL certificates configured on
 5 4 3 * * /etc/conductor/utils/certbot_renew.sh
 ```
 
-This will only renew SSL certificates that are nearing their expirey, if you need to force an SSL certificate you should ensure that you run ``certbot renew`` interactively where you can then choose if you wish to force renewals or not. 
+This will only renew SSL certificates that are nearing their expiry, if you need to force an SSL certificate you should ensure that you run ``certbot renew`` interactively where you can then choose if you wish to force renewals or not. 
 
 You can periodically check the status of this automatic LetsEncrypt renewal script by checking the log file that is located ``/var/log/letsencrypt/letsencrypt.log``.
 
 **Be aware:** If you remove a site from your server and/or move the site to another server (the DNS has been updated) you should remove the SSL certificate from your server using ``sudo certbot delete --cert-name {cert-name}`` (if the certificate path is, for example ``/etc/letsencrypt/live/test.mydomain.com/fullchain.pem`` then the _{cert-name}_ you should enter is ``test.mydomain.com`` (which is essentially the first domain you specified on the ``-d`` options and without any of the "alternate" domains that you specified when creating the SSL certificate) in order to prevent it attempting to auto-renew and thus failing due to DNS resolution issues. Remember - you can always open and check which certificate files/paths are set for an application under ``/etc/conductor/configs/{name}.conf`` if you are unsure.
+
+The use of PHP 8.0 and 7.4
+---------------------------
+
+By default, Conductor installs both PHP 8.0 and PHP 7.4 onto your server and will configure new applications/sites to use PHP 8.0 out of the box.
+
+If however you need to set a specific application or site to use PHP 7.4 you can edit the virtual host configuration in ``/etc/conductor/configs/{sitename}.conf`` and change the socket that PHP-FPM is running on, for example you should change:
+
+```shell
+fastcgi_pass                    unix:/var/run/php/php8.0-fpm.sock;
+```
+
+to...
+
+```shell
+fastcgi_pass                    unix:/var/run/php/php7.4-fpm.sock;
+```
+
+You should then reload nginx by running ``sudo service nginx reload`` or by using the ``sudo conductor services reload`` command.
+
+If you have configured the Laravel Scheduler or any other framework specific cron jobs, you should update your CRON job lines too, for example:
+
+```shell
+* * * * * cd /var/conductor/application/{appname} && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Should be changed to...
+
+```shell
+* * * * * cd /var/conductor/application/{appname} && php7.4 artisan schedule:run >> /dev/null 2>&1
+```
+
+**Notice the replacement of the ``php`` binary with the ``php7.4`` specific binary! If you fail to do this, your scheduled tasks will run using default PHP 8.0 runtime!
+
+If you want your server to use PHP 7.4 by default, you can update the default socket path that will be used when provisioning new virtual host configuration, to do this you should edit the main Conductor configuration settings file here: ``/etc/conductor.conf``, change this line:
+
+```text
+        "fpmsocket": "/var/run/php/php8.0-fpm.sock",
+```
+
+to...
+
+```text
+        "fpmsocket": "/var/run/php/php7.4-fpm.sock",
+```
+
+The next time you provision an application/site, it will instead use this default instead.
 
 Help and support
 ----------------

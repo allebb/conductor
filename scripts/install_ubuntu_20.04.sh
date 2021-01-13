@@ -47,10 +47,15 @@ sudo apt-get install -y zip unzip
 
 # Lets add PHP 7.4 (using the default distro pacakges)
 sudo apt-get update
-sudo apt-get -y install php7.4-common php7.4-cli php7.4-fpm php7.4-curl php7.4-gd php7.4-intl php7.4-mbstring php7.4-sqlite3 php7.4-mysql php7.4-json php7.4-bcmath php7.4-xml php-memcache php-apcu
+sudo apt-get -y install php7.4-common php7.4-cli php7.4-fpm php7.4-curl php7.4-gd php7.4-intl php7.4-mbstring php7.4-sqlite3 php7.4-mysql php7.4-json php7.4-bcmath php7.4-xml
+
+# Add PHP 8.0 (using the ondrej/php PPA)
+sudo add-apt-repository ppa:ondrej/php -y
+sudo apt-get update
+sudo apt-get -y install php8.0-common php8.0-cli php8.0-fpm php8.0-curl php8.0-gd php8.0-intl php8.0-mbstring php8.0-sqlite3 php8.0-mysql php8.0-bcmath php8.0-xml php8.0-memcache php8.0-apcu
 
 # Now we will install the ZIP extension for PHP...
-sudo apt-get install -y php7.4-zip
+sudo apt-get install -y php7.4-zip php8.0-zip
 
 # We install the Git Client to enable auto deployments etc.
 sudo apt-get -y install git
@@ -126,13 +131,14 @@ sudo /etc/init.d/supervisor start
 
 #Lets now restart PHP-FPM and Nginx!
 sudo /etc/init.d/php7.4-fpm restart
+sudo /etc/init.d/php8.0-fpm restart
 sudo /etc/init.d/nginx restart
 
 # Lets copy the configuration file template to /etc/conductor.conf for simplified administration.
 sudo cp /etc/conductor/bin/conf/conductor.ubuntu.template.json /etc/conductor.conf
 
 # Ubuntu 16.04 specific replacements in the Ubuntu Server configuration.
-sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php7.4-pfm/g" /etc/php/7.4/fpm/pool.d/www.conf
+sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php8.0-pfm/g" /etc/php/8.0/fpm/pool.d/www.conf
 
 # Set the root password on our configuration script.
 sudo sed -i "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;

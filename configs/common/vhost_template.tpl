@@ -74,6 +74,7 @@ server {
 
     location ~* \.php$ {
         try_files $uri /index.php =404;
+        # If your application requires PHP 7.4 instead, change the UNIX socket to: "unix:/var/run/php/php7.4-fpm.sock;" instead!
         fastcgi_pass                    unix:@@SOCKET@@;
         fastcgi_index                   index.php;
         fastcgi_split_path_info         ^(.+\.php)(.*)$;

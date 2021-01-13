@@ -168,7 +168,7 @@ class CliApplication
                 $available_options[] = $option;
             }
 
-            $available_opts = rtrim(implode($available_options, '/'), '/');
+            $available_opts = rtrim(implode('/', $available_options), '/');
             fwrite(STDOUT, $question . ' [' . $available_opts . '] ');
         }
 
