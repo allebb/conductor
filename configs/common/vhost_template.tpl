@@ -3,16 +3,15 @@
 # https://github.com/allebb/conductor                         #
 ###############################################################
 
-# Enable this configuration block if you wish to configure SSL and force
-# all HTTP traffic over SSL (https).
+# Enable this configuration block if you wish to configure SSL and force all HTTP traffic over SSL (https).
 ##server {
 ##       listen         80;
 ##       server_name    @@DOMAIN@@;
 ##       return         301 https://$server_name$request_uri;
 ##}
 
-# If you wish to redirect HTTPS traffic too, such as from a `www.` sub-domain to your TLD, you enable this configuration block too:
-# Just be sure to replace `{yourdomain}` with your TLD.
+# If you wish to redirect HTTPS traffic too, such as from a `www.` sub-domain to your TLD, you should enable this configuration block.
+# Be sure to replace the two occurrences of `{yourdomain}` in this configuration block with your TLD.
 #server {
 #        listen          443 ssl;
 #        ssl_certificate /etc/letsencrypt/live/@@DOMAIN_FIRST@@/fullchain.pem;
