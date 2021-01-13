@@ -101,6 +101,6 @@ function displayHelp($conductor)
     $conductor->writeln('  -v                Displays the version number of Conductor');
     $conductor->writeln('  -h                Displays this help screen.');
     $conductor->writeln();
-    $conductor->writeln('Please report bug at: https://github.com/bobsta63/conductor');
+    $conductor->writeln('Please report bug at: https://github.com/allebb/conductor');
     $conductor->writeln();
 }
