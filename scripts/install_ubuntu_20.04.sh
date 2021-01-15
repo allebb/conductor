@@ -80,6 +80,10 @@ sudo mkdir /var/conductor/logs
 sudo mkdir /var/conductor/backups
 sudo mkdir /var/conductor/tmp
 
+# Create the composer cache directory and set the required ownership
+sudo mkdir /var/www/.cache
+sudo chown -R www-data:www-data /var/www/.cache
+
 # Create a blank default file.
 sudo cp /etc/conductor/templates/index.html /var/www/html
 sudo chown www-data:www-data /var/www/html/index.html
