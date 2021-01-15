@@ -227,7 +227,7 @@ class Conductor extends CliApplication
         $this->writeln();
         $this->writeln('MySQL Database and User Details:');
         $this->writeln();
-        $this->writeln(' DB Name:      db_' . $this->appname);
+        $this->writeln(' DB Name:       db_' . $this->appname);
         $this->writeln(' DB Host:      ' . $this->conf->mysql->host);
         $this->writeln(' DB Username:  ' . $this->appname);
         $this->writeln(' DB Password:  ' . $db_pass);
@@ -398,7 +398,7 @@ class Conductor extends CliApplication
             chmod($cron_conf_path, 755);
             // Reload Crons
             $this->reloadCronJobs();
-            $this->writeln('Added Laravel 5.x task scheduler cron to the system.');
+            $this->writeln('Added Laravel task scheduler cron to the system.');
         } else {
             $this->writeln('Task scheduler cron already exists.');
         }
@@ -428,12 +428,12 @@ class Conductor extends CliApplication
         $deploy_key_path = $this->conf->paths->deploykeys . '/' . $this->appname . '.deploykey';
         $cmd_replacements = [
             '__PATH__' => $deploy_key_path,
-            '__COMMENT__' => 'conductor@.' . $this->appname . '.' . gethostname(),
+            '__COMMENT__' => 'deploy@' . $this->appname . '.' . gethostname(),
         ];
 
         if (file_exists($deploy_key_path)) {
             $this->writeln('Private key already exists at: ' . $deploy_key_path);
-            $this->writeln('Use \'conductor delkey {name}\' to remove it first.');
+            $this->writeln('Use \'conductor delkey {name}\' to remove it first or you can re-use it.');
             $this->writeln();
             $this->endWithError();
         }
@@ -468,10 +468,9 @@ class Conductor extends CliApplication
         $this->appNameRequired();
         $deploy_key_path = $this->conf->paths->deploykeys . '/' . $this->appname . '.deploykey';
         if (file_exists($deploy_key_path)) {
-            unlink([
-                $deploy_key_path,
-                $deploy_key_path . '.pub'
-            ]);
+            foreach ([$deploy_key_path, $deploy_key_path . '.pub'] as $keyfile) {
+                unlink($keyfile);
+            }
             $this->writeln('Deleted the deployment key: ' . $deploy_key_path);
         } else {
             $this->writeln('No private key found at: ' . $deploy_key_path);
@@ -605,11 +604,6 @@ class Conductor extends CliApplication
         $this->writeln('Setting ownership permissions on application files...');
         $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
 
-        if (strtolower($generate_keys) == self::OPTION_YES) {
-            $this->writeln('Generating a deployment (SSH) key pair...');
-            $this->createDeploymentKey();
-        }
-
         if (strtolower($mysql_req) == self::OPTION_YES) {
             $this->writeln();
             if (!isset($password)) {
@@ -618,11 +612,16 @@ class Conductor extends CliApplication
             $this->createMySQL($password);
         }
 
+        if (strtolower($generate_keys) == self::OPTION_YES) {
+            $this->writeln('Generating a deployment (SSH) key pair...');
+            $this->createDeploymentKey();
+        }
+
         $this->migrateLaravel($environment);
     }
 
     /**
-     * Updates the code and executes migrations on an exsisting database.
+     * Updates the code and executes migrations on an existing database.
      */
     public function updateApplication()
     {
@@ -805,6 +804,12 @@ class Conductor extends CliApplication
             $this->writeln('Destroying app directory and log files...');
             $this->call('rm -Rf ' . $this->appdir);
             $this->call('rm -Rf ' . $this->conf->paths->applogs . '/' . $this->appname);
+            $this->writeln();
+            $this->writeln('Deployment keys have been kept (if you wish to re-use them');
+            $this->writeln('otherwise you can delete them too by running:');
+            $this->writeln();
+            $this->writeln('  conductor delkey ' . $this->appname);
+            $this->writeln();
             $this->writeln('...finished!');
             $this->endWithSuccess();
         } else {

@@ -5,7 +5,7 @@ cd /etc/conductor
 
 # Pull the latest code changes from GitHub.
 sudo git fetch --all
-sudo git reset --hard origin/master
+sudo git reset --hard
 
 # Reset file permissions on the all required executable files.
 sudo chmod +x /usr/bin/conductor
