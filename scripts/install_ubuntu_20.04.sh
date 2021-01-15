@@ -70,6 +70,7 @@ sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
 # Lets now create a default folder structure to hold all of our applications.
 # Now we need to pull 'conductor' from GitHub and we'll now deploy the application ready for it to be used.
 sudo git clone https://github.com/allebb/conductor.git /etc/conductor
+sudo git checkout stable
 
 # Create some required directories
 sudo mkdir /var/conductor # We'll create a folder structure here to store all of the apps.
@@ -116,6 +117,7 @@ echo "Configuring PHP-FPM for Nginx..."
 
 echo "Securing cgi.fix_pathinfo..."
 sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/7.4/fpm/php.ini
+sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/8.0/fpm/php.ini
 
 # We'll now install Redis Server
 sudo apt-get -y install redis-server
@@ -139,6 +141,7 @@ sudo /etc/init.d/nginx restart
 sudo cp /etc/conductor/bin/conf/conductor.ubuntu.template.json /etc/conductor.conf
 
 # Ubuntu 16.04 specific replacements in the Ubuntu Server configuration.
+sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php7.4-pfm/g" /etc/php/7.4/fpm/pool.d/www.conf
 sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php8.0-pfm/g" /etc/php/8.0/fpm/pool.d/www.conf
 
 # Set the root password on our configuration script.

@@ -13,9 +13,11 @@ Installation
 Installation on Ubuntu servers can be done effortlessly by simply running this command from the console!
 
 ```shell
-wget https://raw.github.com/allebb/conductor/master/install.sh
-sudo bash install.sh
+bash -c "$(curl -fsSL https://raw.github.com/allebb/conductor/stable/install.sh)"
 ```
+
+If you would like to automate the deployments of your applications using Git and/or standalone webhooks, you should check out [Hooker](https://github.com/allebb/hooker) - Another tool that I've built ;)
+
 
 If you wish to install on Ubuntu Server 16.04, 14.04 or 12.04 please use the instructions found on the PHP 5.6 branch instead: https://github.com/allebb/conductor/tree/ubuntu1404_php56
 
