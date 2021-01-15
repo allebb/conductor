@@ -42,16 +42,17 @@ mysql -u root -p"$randpassword" -e "DROP DATABASE IF EXISTS test";
 # Enable the Universe repository (since Ubuntu 18.04 various packages are supplied in the universe repo eg. libzip4.0, beanstalkd, supervisor and letsencrypt)...
 sudo add-apt-repository universe
 
-# Install some Zip libraries required by PHP7.3-zip
+# Install some Zip libraries required by some PHP modules.
 sudo apt-get install -y zip unzip
 
-# Lets add PHP 7.4 (using the default distro pacakges)
-sudo apt-get update
-sudo apt-get -y install php7.4-common php7.4-cli php7.4-fpm php7.4-curl php7.4-gd php7.4-intl php7.4-mbstring php7.4-sqlite3 php7.4-mysql php7.4-json php7.4-bcmath php7.4-xml
-
-# Add PHP 8.0 (using the ondrej/php PPA)
+# Add the ondrej/php PPA (so we get the latest PHP versions...)
 sudo add-apt-repository ppa:ondrej/php -y
 sudo apt-get update
+
+# Lets add PHP 7.4 (using the default distro packages)
+sudo apt-get -y install php7.4-common php7.4-cli php7.4-fpm php7.4-curl php7.4-gd php7.4-intl php7.4-mbstring php7.4-sqlite3 php7.4-mysql php7.4-json php7.4-bcmath php7.4-xml php7.4-memcache php7.4-apcu
+
+# Add PHP 8.0 (using the ondrej/php PPA)
 sudo apt-get -y install php8.0-common php8.0-cli php8.0-fpm php8.0-curl php8.0-gd php8.0-intl php8.0-mbstring php8.0-sqlite3 php8.0-mysql php8.0-bcmath php8.0-xml php8.0-memcache php8.0-apcu
 
 # Now we will install the ZIP extension for PHP...

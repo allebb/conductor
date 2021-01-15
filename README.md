@@ -1,7 +1,7 @@
 Conductor
 =========
 
-Conductor is CLI utility to automate the installation of Laravel 4.x, 5.x, 6.x, 7.x and 8.x application servers complete with some scripts and CLI commands to help deploy and manage multiple web applications on the server with ease.
+Conductor is a CLI utility to automate the installation of Laravel 4.x, 5.x, 6.x, 7.x and 8.x application servers complete with some scripts and CLI commands to help deploy and manage multiple web applications on the server with ease.
 
 Requirements
 ------------
@@ -38,7 +38,7 @@ Out of the box this script will install and configure the following packages usi
 * Redis
 * Beanstalkd
 * Supervisor
-* LetsEncrypt
+* CertBot (LetsEncrypt)
 
 How to use it
 -------------
