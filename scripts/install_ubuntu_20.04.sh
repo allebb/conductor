@@ -70,7 +70,10 @@ sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
 # Lets now create a default folder structure to hold all of our applications.
 # Now we need to pull 'conductor' from GitHub and we'll now deploy the application ready for it to be used.
 sudo git clone https://github.com/allebb/conductor.git /etc/conductor
+export CURRENTDIR=`pwd`
+cd /etc/conductor
 sudo git checkout stable
+cd $CURRENTDIR
 
 # Create some required directories
 sudo mkdir /var/conductor # We'll create a folder structure here to store all of the apps.

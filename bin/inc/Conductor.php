@@ -447,7 +447,7 @@ class Conductor extends CliApplication
         }
         chown($deploy_key_path, $this->conf->permissions->webuser);
         chgrp($deploy_key_path, $this->conf->permissions->webuser);
-        chmod($deploy_key_path, '0700');
+        chmod($deploy_key_path, '700');
 
         $this->writeln('Deployment key has been generated successfully!');
         $this->writeln();

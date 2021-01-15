@@ -5,17 +5,18 @@
 
 # Enable this configuration block if you wish to configure SSL and force all HTTP traffic over SSL (https).
 ##server {
-##       listen         80;
-##       server_name    @@DOMAIN@@;
-##       return         301 https://$server_name$request_uri;
-##}
+#       listen         80;
+#       server_name    @@DOMAIN@@;
+#       include        /etc/conductor/configs/common/wellknown.conf;
+#       return         301 https://$server_name$request_uri;
+#}
 
 # If you wish to redirect HTTPS traffic too, such as from a `www.` sub-domain to your TLD, you should enable this configuration block.
 # Be sure to replace the two occurrences of `{yourdomain}` in this configuration block with your TLD.
 #server {
-#        listen          443 ssl;
-#        ssl_certificate /etc/letsencrypt/live/@@DOMAIN_FIRST@@/fullchain.pem;
-#        ssl_certificate_key /etc/letsencrypt/live/@@DOMAIN_FIRST@@/privkey.pem;
+#        listen                  443 ssl;
+#        ssl_certificate         /etc/letsencrypt/live/@@DOMAIN_FIRST@@/fullchain.pem;
+#        ssl_certificate_key     /etc/letsencrypt/live/@@DOMAIN_FIRST@@/privkey.pem;
 #        ssl_trusted_certificate /etc/letsencrypt/live/@@DOMAIN_FIRST@@/chain.pem;
 #        include /etc/nginx/snippets/ssl-params.conf;
 #        server_name   www.{yourdomain};
@@ -25,12 +26,12 @@
 server {
 
     # Comment this line out if you wish to switch to HTTPS (but then enable the next code block!).
-    listen          80;
+    listen                   80;
     
     # Uncomment to enable default LetsEncrypt certificates.
-    #listen          443 ssl;
-    #ssl_certificate /etc/letsencrypt/live/@@DOMAIN_FIRST@@/fullchain.pem;
-    #ssl_certificate_key /etc/letsencrypt/live/@@DOMAIN_FIRST@@/privkey.pem;
+    #listen                  443 ssl;
+    #ssl_certificate         /etc/letsencrypt/live/@@DOMAIN_FIRST@@/fullchain.pem;
+    #ssl_certificate_key     /etc/letsencrypt/live/@@DOMAIN_FIRST@@/privkey.pem;
     #ssl_trusted_certificate /etc/letsencrypt/live/@@DOMAIN_FIRST@@/chain.pem;
     #include /etc/nginx/snippets/ssl-params.conf;
 
@@ -46,9 +47,10 @@ server {
     error_log       @@HLOGS@@error.log;
     rewrite_log     on;
 
-    # Disable access and error logs for requests to these common files.
-    location = /favicon.ico { access_log off; log_not_found off; }
-    location = /robots.txt  { access_log off; log_not_found off; }
+    # Recommended security headers
+    add_header      X-Frame-Options         "SAMEORIGIN";
+    add_header      X-XSS-Protection        "1; mode=block";
+    add_header      X-Content-Type-Options  "nosniff";
 
     # Additional per-application optimisations.
     charset utf-8;
@@ -62,6 +64,13 @@ server {
     #    expires 30d;
     #    log_not_found off;
     # }
+
+    # LetsEncrypt verification block
+    include /etc/conductor/configs/common/wellknown.conf;
+
+    # Disable access and error logs for requests to these common files.
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location = /robots.txt  { access_log off; log_not_found off; }
 
     # Root location handler configuration.
     location / {
@@ -89,6 +98,11 @@ server {
 
     # Deny access (by default) to any .htaccess files.
     location ~ /\.ht {
+        deny all;
+    }
+
+    # Deny access (by default) to any .git* files.
+    location ~ /\.git {
         deny all;
     }
 
