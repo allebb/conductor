@@ -227,7 +227,7 @@ class Conductor extends CliApplication
         $this->writeln();
         $this->writeln('MySQL Database and User Details:');
         $this->writeln();
-        $this->writeln(' DB Name:       db_' . $this->appname);
+        $this->writeln(' DB Name:      db_' . $this->appname);
         $this->writeln(' DB Host:      ' . $this->conf->mysql->host);
         $this->writeln(' DB Username:  ' . $this->appname);
         $this->writeln(' DB Password:  ' . $db_pass);
