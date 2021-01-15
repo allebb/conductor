@@ -8,7 +8,8 @@
         "templates": "/etc/conductor/configs/common",
         "fpmsocket": "/var/run/php/php8.0-fpm.sock",
         "fastcgiparams": "/etc/nginx/fastcgi_params",
-        "crontabs": "/etc/cron.d"
+        "crontabs": "/etc/cron.d",
+        "deploykeys": "/var/www/.ssh"
     },
     "permissions": {
         "webuser": "www-data",
@@ -20,7 +21,8 @@
         "git": "/usr/bin/git",
         "mysql": "/usr/bin/mysql",
         "mysqldump": "/usr/bin/mysqldump",
-        "gzip": "/bin/gzip"
+        "gzip": "/bin/gzip",
+        "sshkeygen": "/usr/bin/ssh-keygen"
     },
     "mysql": {
         "host": "localhost",
@@ -46,5 +48,8 @@
         "cron": {
             "reload": "service cron reload"
         }
+    },
+    "cmdtpls": {
+        "sshkeygen": "/usr/bin/ssh-keygen -t rsa -b 4096 -N \"\" -C \"__COMMENT__\" -q -f __PATH__"
     }
 }

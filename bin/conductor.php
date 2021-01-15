@@ -21,7 +21,7 @@ $conductor = new Conductor($argv);
 
 $commands = $conductor->commands();
 
-if ($conductor->isFlagSet('v')) {
+if ($conductor->isFlagSet('v') || $conductor->isFlagSet('version')) {
     $conductor->writeln('Conductor v' . $conductor->version());
     $conductor->endWithSuccess();
 }
@@ -52,6 +52,12 @@ if (isset($commands[1])) {
             break;
         case "restore":
             $conductor->restore();
+            break;
+        case "genkey":
+            $conductor->createDeploymentKey();
+            break;
+        case "delkey":
+            $conductor->deleteDeploymentKey();
             break;
         case "start":
             $conductor->startLaravelApplication();
@@ -87,11 +93,14 @@ function displayHelp($conductor)
     $conductor->writeln('  destroy {name}    Removes an application from the server');
     $conductor->writeln('  update {name}     Upgrades an application via. Git');
     $conductor->writeln('  rollback {name}   Rolls back the most recent upgrade');
-    $conductor->writeln('  envars {name}     Add, ammend or delete environment variables');
+    $conductor->writeln('  envars {name}     Add, amend or delete environment variables');
     $conductor->writeln('  backup {name}     Backs up an application and dependent DB\'s');
     $conductor->writeln('  restore {name}    Restores an application and dependent DB\'s');
     $conductor->writeln('  start {name}      Starts a specific application (Laravel Apps only!)');
     $conductor->writeln('  stop {name}       Stops a specific application (Laravel Apps only!)');
+    $conductor->writeln('  genkey {name}     Generates an SSH deployment key for an application');
+    $conductor->writeln('  delkey {name}     Deletes the SSH deployment key for an application.');
+    $conductor->writeln('');
     $conductor->writeln('  services start    Starts all dependent Conductor daemons');
     $conductor->writeln('  services stop     Stops all dependent Conductor daemons');
     $conductor->writeln('  services status   Displays the current daemon statuses');

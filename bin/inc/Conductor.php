@@ -1,4 +1,5 @@
 <?php
+
 require_once 'MysqlPdo.php';
 
 /**
@@ -18,7 +19,7 @@ class Conductor extends CliApplication
     /**
      * The main Conductor application version.
      */
-    const CONDUCTOR_VERSION = "3.0.15";
+    const CONDUCTOR_VERSION = "3.0.16";
 
     /**
      * The path to the core application configuration file.
@@ -32,13 +33,13 @@ class Conductor extends CliApplication
 
     /**
      * The current application number.
-     * @var string 
+     * @var string
      */
     private $appname = '';
 
     /**
      * The current application base directory.
-     * @var string 
+     * @var string
      */
     private $appdir = '';
 
@@ -69,7 +70,8 @@ class Conductor extends CliApplication
 
         $this->conf = $this->conductorConfiguration();
 
-        $this->mysql = MysqlPdo::connect('information_schema', $this->conf->mysql->username, $this->conf->mysql->password, $this->conf->mysql->host);
+        $this->mysql = MysqlPdo::connect('information_schema', $this->conf->mysql->username,
+            $this->conf->mysql->password, $this->conf->mysql->host);
     }
 
     /**
@@ -172,7 +174,7 @@ class Conductor extends CliApplication
             ob_start();
             $this->call($this->conf->binaries->php . ' ' . $this->conf->paths->apps . '/' . $application . '/artisan --version');
             $data = ob_get_clean();
-            if ((strpos($data, 'version') !== false) and ( preg_match("#(\d+\.\d+(\.\d+)*)#", $data, $version_number))) {
+            if ((strpos($data, 'version') !== false) and (preg_match("#(\d+\.\d+(\.\d+)*)#", $data, $version_number))) {
                 if (isset($version_number[0])) {
                     return $version_number[0];
                 }
@@ -292,7 +294,7 @@ class Conductor extends CliApplication
         $env_handler = new EnvHandler($env_conf);
         $env_handler->load();
 
-        if ((strtolower($this->getCommand(1)) == 'envars') and ( count($this->options()) > 0)) {
+        if ((strtolower($this->getCommand(1)) == 'envars') and (count($this->options()) > 0)) {
             if (!$this->isFlagSet('d')) {
                 foreach ($this->options() as $key => $value) {
                     $env_handler->push($key, $value);
@@ -306,9 +308,13 @@ class Conductor extends CliApplication
             $env_handler->save();
 
             // Apply them to the application configuration...
-            $ammended_vhost_conf = $this->replaceBetweenSections('# START APPLICATION ENV VARIABLES', '# END APPLICATION ENV VARIABLES', file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf'), $this->envConfigurationBlock($env_handler));
+            $ammended_vhost_conf = $this->replaceBetweenSections('# START APPLICATION ENV VARIABLES',
+                '# END APPLICATION ENV VARIABLES',
+                file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf'),
+                $this->envConfigurationBlock($env_handler));
             file_put_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf', $ammended_vhost_conf);
-            file_put_contents($this->conf->paths->apps . '/' . $this->appname . '/.env', $this->envFileLaravelConfiguration($env_handler));
+            file_put_contents($this->conf->paths->apps . '/' . $this->appname . '/.env',
+                $this->envFileLaravelConfiguration($env_handler));
             $this->reloadEnvVars();
         } else {
             $this->writeln();
@@ -329,7 +335,8 @@ class Conductor extends CliApplication
         $block = PHP_EOL . "";
         if (count($envars->all()) > 0) {
             foreach ($envars->all() as $key => $value) {
-                $block .= sprintf(str_repeat(' ', self::SPACES_ENV_INDENT) . "fastcgi_param    %s    %s;" . PHP_EOL, $key, $value);
+                $block .= sprintf(str_repeat(' ', self::SPACES_ENV_INDENT) . "fastcgi_param    %s    %s;" . PHP_EOL,
+                    $key, $value);
             }
         }
         return $block;
@@ -378,7 +385,9 @@ class Conductor extends CliApplication
         $cron_conf_path = $this->conf->paths->crons . '/laravel_' . $this->appname;
         if (!file_exists($cron_conf_path)) {
             // Add file
-            file_put_contents($cron_conf_path, sprintf('* * * * * %s %s %s/artisan schedule:run 1>> /dev/null 2>&1', $this->conf->permissions->webuser, $this->conf->binaries->php, $this->appdir));
+            file_put_contents($cron_conf_path,
+                sprintf('* * * * * %s %s %s/artisan schedule:run 1>> /dev/null 2>&1', $this->conf->permissions->webuser,
+                    $this->conf->binaries->php, $this->appdir));
             // Chmod file(s)
             chmod($cron_conf_path, 755);
             // Reload Crons
@@ -401,6 +410,64 @@ class Conductor extends CliApplication
             $this->writeln('Successfully deleted Laravel Scheduler from the system cron!');
         } else {
             $this->writeln('No Task scheduler cron found, skipping...');
+        }
+    }
+
+    /**
+     * Generates an SSH deployment key (PPK) for the specified application.
+     */
+    public function createDeploymentKey()
+    {
+        $this->appNameRequired();
+        $deploy_key_path = $this->conf->paths->deploykeys . '/' . $this->appname .'.deploykey';
+        $cmd_replacements = [
+            '__PATH__' => $deploy_key_path,
+            '__COMMENT__' => 'conductor@.'.$this->appname. '.' . gethostname(),
+        ];
+
+        if(file_exists($deploy_key_path)){
+            $this->writeln('Private key already exists at: ' .$deploy_key_path);
+            $this->writeln('Use \'conductor delkey {name}\' to remove it first.');
+            $this->writeln();
+            $this->endWithError();
+        }
+
+        $this->call(str_replace(array_keys($cmd_replacements), array_values($cmd_replacements), $this->conf->cmdtpls->sshkeygen));
+
+        if(!file_exists($deploy_key_path)){
+            $this->writeln('An error occurred and the deployment key could not be generated!');
+            $this->endWithError();
+        }
+        chown($deploy_key_path, $this->conf->permissions->webuser);
+        chgrp($deploy_key_path, $this->conf->permissions->webuser);
+        chmod($deploy_key_path, '0700');
+
+        $this->writeln('Deployment key has been generated successfully!');
+        $this->writeln();
+        $this->writeln(file_get_contents($deploy_key_path.'.pub'));
+        $this->writeln();
+        $this->writeln('Copy and paste the above public key content to your remote service(s) as required.');
+        $this->writeln();
+        $this->writeln('You can review this public key in future by running:');
+        $this->writeln('   cat ' . $deploy_key_path.'.pub');
+        $this->writeln();
+    }
+
+    /**
+     * Deletes an SSH deployment key (PPK) for a specific application.
+     */
+    public function deleteDeploymentKey()
+    {
+        $this->appNameRequired();
+        $deploy_key_path = $this->conf->paths->deploykeys . '/' . $this->appname .'.deploykey';
+        if (file_exists($deploy_key_path)) {
+            unlink([
+                $deploy_key_path,
+                $deploy_key_path . '.pub'
+            ]);
+            $this->writeln('Deleted the deployment key: ' . $deploy_key_path);
+        } else {
+            $this->writeln('No private key found at: ' . $deploy_key_path);
         }
     }
 
@@ -470,10 +537,11 @@ class Conductor extends CliApplication
         }
 
         // Copy the virtualhost configuration file to our application configuration directory.
-        copy($this->conf->paths->templates . '/vhost_template.tpl', $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
+        copy($this->conf->paths->templates . '/vhost_template.tpl',
+            $this->conf->paths->appconfs . '/' . $this->appname . '.conf');
 
         $domains = explode(' ', $domain);
-        
+
         $placeholders = [
             '@@DOMAIN@@' => $domain,
             '@@DOMAIN_FIRST@@' => $domains[0],
@@ -598,7 +666,7 @@ class Conductor extends CliApplication
         $this->writeln();
         foreach ($applications as $application) {
             $lav = "";
-            if ($application->isDir() and ( $application->getBasename()[0] != '.')) {
+            if ($application->isDir() and ($application->getBasename()[0] != '.')) {
                 $laravel_framework_version = $this->laravelApplicationVersion($application->getBasename());
                 if (!empty($laravel_framework_version)) {
                     $lav = ' [Laravel v' . $laravel_framework_version . ']';
