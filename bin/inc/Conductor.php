@@ -19,7 +19,7 @@ class Conductor extends CliApplication
     /**
      * The main Conductor application version.
      */
-    const CONDUCTOR_VERSION = "3.0.16";
+    const CONDUCTOR_VERSION = "3.1.1";
 
     /**
      * The path to the core application configuration file.
@@ -30,6 +30,12 @@ class Conductor extends CliApplication
      * Number of spaces to use as indentation on the Nginx ENV block.
      */
     const SPACES_ENV_INDENT = 8;
+
+    /**
+     * CLI boolean value const.
+     */
+    const OPTION_YES = "y";
+    const OPTION_NO = "n";
 
     /**
      * The current application number.
@@ -221,13 +227,13 @@ class Conductor extends CliApplication
         $this->writeln();
         $this->writeln('MySQL Database and User Details:');
         $this->writeln();
-        $this->writeln(' DB Name: db_' . $this->appname);
-        $this->writeln(' DB Host: ' . $this->conf->mysql->host);
-        $this->writeln(' DB Username: ' . $this->appname);
-        $this->writeln(' DB Password: ' . $db_pass);
+        $this->writeln(' DB Name:      db_' . $this->appname);
+        $this->writeln(' DB Host:      ' . $this->conf->mysql->host);
+        $this->writeln(' DB Username:  ' . $this->appname);
+        $this->writeln(' DB Password:  ' . $db_pass);
         $this->writeln();
 
-        // For convienice we'll add these DB params to the ENV vars with the benefit of using default Laravel ENV var names .
+        // For convenience we'll add these DB params to the ENV vars with the benefit of using default Laravel ENV var names .
         $this->call('/usr/bin/conductor envars ' . $this->appname . ' --DB_HOST="' . $this->conf->mysql->host . '" --DB_DATABASE="db_' . $this->appname . '" --DB_USERNAME="' . $this->appname . '"  --DB_PASSWORD="' . $db_pass . '"');
     }
 
@@ -419,22 +425,23 @@ class Conductor extends CliApplication
     public function createDeploymentKey()
     {
         $this->appNameRequired();
-        $deploy_key_path = $this->conf->paths->deploykeys . '/' . $this->appname .'.deploykey';
+        $deploy_key_path = $this->conf->paths->deploykeys . '/' . $this->appname . '.deploykey';
         $cmd_replacements = [
             '__PATH__' => $deploy_key_path,
-            '__COMMENT__' => 'conductor@.'.$this->appname. '.' . gethostname(),
+            '__COMMENT__' => 'conductor@.' . $this->appname . '.' . gethostname(),
         ];
 
-        if(file_exists($deploy_key_path)){
-            $this->writeln('Private key already exists at: ' .$deploy_key_path);
+        if (file_exists($deploy_key_path)) {
+            $this->writeln('Private key already exists at: ' . $deploy_key_path);
             $this->writeln('Use \'conductor delkey {name}\' to remove it first.');
             $this->writeln();
             $this->endWithError();
         }
 
-        $this->call(str_replace(array_keys($cmd_replacements), array_values($cmd_replacements), $this->conf->cmdtpls->sshkeygen));
+        $this->call(str_replace(array_keys($cmd_replacements), array_values($cmd_replacements),
+            $this->conf->cmdtpls->sshkeygen));
 
-        if(!file_exists($deploy_key_path)){
+        if (!file_exists($deploy_key_path)) {
             $this->writeln('An error occurred and the deployment key could not be generated!');
             $this->endWithError();
         }
@@ -444,12 +451,12 @@ class Conductor extends CliApplication
 
         $this->writeln('Deployment key has been generated successfully!');
         $this->writeln();
-        $this->writeln(file_get_contents($deploy_key_path.'.pub'));
+        $this->writeln(file_get_contents($deploy_key_path . '.pub'));
         $this->writeln();
         $this->writeln('Copy and paste the above public key content to your remote service(s) as required.');
         $this->writeln();
         $this->writeln('You can review this public key in future by running:');
-        $this->writeln('   cat ' . $deploy_key_path.'.pub');
+        $this->writeln('   cat ' . $deploy_key_path . '.pub');
         $this->writeln();
     }
 
@@ -459,7 +466,7 @@ class Conductor extends CliApplication
     public function deleteDeploymentKey()
     {
         $this->appNameRequired();
-        $deploy_key_path = $this->conf->paths->deploykeys . '/' . $this->appname .'.deploykey';
+        $deploy_key_path = $this->conf->paths->deploykeys . '/' . $this->appname . '.deploykey';
         if (file_exists($deploy_key_path)) {
             unlink([
                 $deploy_key_path,
@@ -497,38 +504,45 @@ class Conductor extends CliApplication
             $this->endWithError();
         }
 
+        $option_yes_no_set = [self::OPTION_YES, self::OPTION_NO];
+
         if (!$this->getOption('fqdn')) {
             // Entering interactive mode...
             $domain = $this->input('Domains (FQDN\'s) to map this application to:');
             $apppath = $this->input('Hosted directory:', '/public');
             $environment = $this->input('Environment type:', 'production');
-            $mysql_req = $this->input('Requires MySQL?', 'y', ['y', 'n']);
-            $deploy_git = $this->input('Deploy application with Git now?', 'y', ['y', 'n']);
+            $mysql_req = $this->input('Requires MySQL?', self::OPTION_YES, $option_yes_no_set);
+            $deploy_git = $this->input('Deploy application with Git now?', self::OPTION_NO, $option_yes_no_set);
+            $generate_keys = $this->input('Create an SSH deployment key pair now?', self::OPTION_YES,
+                $option_yes_no_set);
         } else {
             // FQDN is set, entering non-interactive mode!
             $domain = $this->getOption('fqdn');
             $environment = $this->getOption('environment', 'production');
             $apppath = $this->getOption('path', '/public');
+            $mysql_req = self::OPTION_NO; // Disable this by default.
+            $deploy_git = self::OPTION_NO; // Disable this by default.
+            $generate_keys = self::OPTION_NO; // Disable this by default.
 
             if ($this->getOption('mysql-pass')) {
-                $mysql_req = 'y';
+                $mysql_req = self::OPTION_YES;
                 $password = $this->getOption('mysql-pass');
-            } else {
-                $mysql_req = 'n';
             }
 
             if ($this->getOption('git-uri')) {
-                $deploy_git = 'y';
+                $deploy_git = self::OPTION_YES;
                 $gitrepo = $this->getOption('git-uri');
-            } else {
-                $deploy_git = 'n';
+            }
+
+            if ($this->isFlagSet('genkey')) {
+                $generate_keys = self::OPTION_YES;
             }
         }
 
         // Trim any trailing slash from the $path variable...
         $apppath = rtrim($apppath, '/');
 
-        if (strtolower($deploy_git) == 'y') {
+        if (strtolower($deploy_git) == self::OPTION_YES) {
             if (!isset($gitrepo)) {
                 $this->writeln();
                 $gitrepo = $this->input('Git repository URL:');
@@ -570,7 +584,7 @@ class Conductor extends CliApplication
         // Enable the site by reloading Nginx.
         //$this->call($this->conf->services->nginx->reload);
 
-        if (strtolower($deploy_git) == 'y') {
+        if (strtolower($deploy_git) == self::OPTION_YES) {
             $this->writeln('We\'ll now deploy your application using Git...');
             $this->call('rm -Rf ' . $this->appname);
             $this->call($this->conf->binaries->git . ' clone ' . $gitrepo . ' ' . $this->appdir);
@@ -591,7 +605,12 @@ class Conductor extends CliApplication
         $this->writeln('Setting ownership permissions on application files...');
         $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
 
-        if (strtolower($mysql_req) == 'y') {
+        if (strtolower($generate_keys) == self::OPTION_YES) {
+            $this->writeln('Generating a deployment (SSH) key pair...');
+            $this->createDeploymentKey();
+        }
+
+        if (strtolower($mysql_req) == self::OPTION_YES) {
             $this->writeln();
             if (!isset($password)) {
                 $password = $this->input('Please enter a password for the MySQL database:');
@@ -614,12 +633,12 @@ class Conductor extends CliApplication
         $env_handler->load();
         $environment = $env_handler->get('APP_ENV', 'production');
 
-        // Checks for CLI options to surpress the 'stop' application user input.
+        // Checks for CLI options to suppress the 'stop' application user input.
         if ($this->getOption('down', false)) {
             if ($this->getOption('down') == "true") {
-                $stopapp = 'y';
+                $stopapp = self::OPTION_YES;
             } else {
-                $stopapp = 'n';
+                $stopapp = self::OPTION_NO;
             }
         }
 
@@ -629,10 +648,11 @@ class Conductor extends CliApplication
         }
 
         if (!isset($stopapp)) {
-            $stopapp = $this->input('Do you wish to \'stop\' the application before upgrading?', 'y', ['y', 'n']);
+            $stopapp = $this->input('Do you wish to \'stop\' the application before upgrading?', self::OPTION_YES,
+                [self::OPTION_YES, self::OPTION_NO]);
         }
 
-        if (strtolower($stopapp) == 'y') {
+        if (strtolower($stopapp) == self::OPTION_YES) {
             $this->stopLaravelApplication();
         }
 
@@ -650,7 +670,7 @@ class Conductor extends CliApplication
         $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
         $this->migrateLaravel($environment);
         $this->writeln('...finished!');
-        if (strtolower($stopapp) == 'y') {
+        if (strtolower($stopapp) == self::OPTION_YES) {
             $this->startLaravelApplication();
         }
 
@@ -734,7 +754,7 @@ class Conductor extends CliApplication
     }
 
     /**
-     * Rollback the current applicaiton to it's state prior to the upgrade.
+     * Rollback the current application to it's state prior to the upgrade.
      */
     public function rollback()
     {

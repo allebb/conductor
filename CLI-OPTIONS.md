@@ -9,13 +9,14 @@ In "interactive" mode, Conductor asks a series of questions when a new applicati
 * ``--fqdn`` - List of FQDN's (domains/sub-domains) that the application will respond on (if using multiples you must use double quotes encapsulate them).
 * ``--environment`` - The 'APP_ENV' that the application will be hosted under (normally this should be ``--environment=production``).
 * ``--mysql-pass`` - If this is set, a MySQL database will be created with the specified password!
-* ``--git-uri`` - This this is set, the application will be deployed at creation from a Git repository (You should use the Git protocol over HTTPS when using private repositories to ensure that the use of SSH keys will allow for unattended authentication.)
+* ``--git-uri`` - When this is set, the application will be deployed at creation from a Git repository (You should use the Git protocol over HTTPS when using private repositories to ensure that the use of SSH keys will allow for unattended authentication.)
 * ``--path`` - This will enable you to over-ride the default '/public' site mapping thus allowing users to host Wordpress sites etc without having to place the site in a '/public' directory.
+* ``--genkey`` - This will generate an SSH (deployment) key that can be used by this application.
 
 So for example, setting up a standard Laravel type project you could use:
 
 ```shell
-conductor new myapp --fqdn="mywebapp.com www.mywebapp.com" --environment="production" --mysql-pass="Password1234" --git-uri="https://github.com/bobsta63/pastie.git"
+conductor new myapp --fqdn="mywebapp.com www.mywebapp.com" --environment="production" --mysql-pass="Password1234" --git-uri="https://github.com/bobsta63/pastie.git" --genkey
 ```
 
 If you intended on hosting a Wordpress website instead and wish to manually upload the code, you would use:
