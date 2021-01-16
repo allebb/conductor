@@ -445,9 +445,11 @@ class Conductor extends CliApplication
             $this->writeln('An error occurred and the deployment key could not be generated!');
             $this->endWithError();
         }
-        chown($deploy_key_path, $this->conf->permissions->webuser);
-        chgrp($deploy_key_path, $this->conf->permissions->webuser);
-        chmod($deploy_key_path, '700');
+
+        foreach ([$deploy_key_path, $deploy_key_path . '.pub'] as $keyfile) {
+            $this->call('/usr/bin/chown ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $keyfile);
+            $this->call('/usr/bin/chmod 0700 ' . $keyfile);
+        }
 
         $this->writeln('Deployment key has been generated successfully!');
         $this->writeln();
@@ -457,6 +459,7 @@ class Conductor extends CliApplication
         $this->writeln();
         $this->writeln('You can review this public key in future by running:');
         $this->writeln('   cat ' . $deploy_key_path . '.pub');
+        $this->writeln();
         $this->writeln();
     }
 
@@ -484,12 +487,16 @@ class Conductor extends CliApplication
     {
         $this->appNameRequired();
 
-        if($this->isFlagSet('delete')){
-            $this->writeln('TODO - Wil update shortly!');
-            $this->writeln('Certificate files successfully deleted!');
+        if ($this->isFlagSet('delete')) {
+            $cmd_replacements = [
+                '__APP__' => $this->appname,
+            ];
+            $this->call(str_replace(array_keys($cmd_replacements), array_values($cmd_replacements),
+                $this->conf->cmdtpls->letsencryptdel));
             $this->writeln('');
             $this->writeln('Remember to update your application virtualhost configuration');
             $this->writeln('to comment out the HTTPS blocks before restarting Nginx!');
+            $this->writeln();
             $this->endWithSuccess();
         }
 
@@ -498,12 +505,8 @@ class Conductor extends CliApplication
             $this->writeln('Configuration file not found at: ' . $conf_path);
             $this->endWithError();
         }
-
-        // Read the contents of the application configuration file
         $conf_content = file_get_contents($conf_path);
-
         $managed_domains = null;
-
         if (preg_match('/:: Managed domains: \[(.*?)\]/', $conf_content, $match) == 1) {
             $managed_domains = $match[1];
         }
@@ -512,11 +515,8 @@ class Conductor extends CliApplication
             $this->writeln('No managed domains found!');
             $this->endWithError();
         }
-
-        // Get the domain list from the managed list.
         $domains = rtrim(str_replace(' ', ',', $managed_domains), ',');
 
-        // Generate the command:
         $deploy_key_path = $this->conf->paths->deploykeys . '/' . $this->appname . '.deploykey';
         $cmd_replacements = [
             '__APP__' => $this->appname,
@@ -525,14 +525,17 @@ class Conductor extends CliApplication
             '__EMAIL__' => $this->conf->admin->email,
         ];
 
-        // Provision the certificates.
         $this->call(str_replace(array_keys($cmd_replacements), array_values($cmd_replacements),
             $this->conf->cmdtpls->letsencryptgen));
-
-        // Show a message about enabling the SSL blocks
+        $this->writeln();
+        $this->writeln('If you wish to delete this certificate in future you can run:');
+        $this->writeln('   conductor letsencrypt ' .$this->appname. ' --delete');
         $this->writeln();
         $this->writeln('If required, remember to uncomment and configure your virtualhost configuration file');
         $this->writeln('in order to use the SSL certificates as required.');
+        $this->writeln();
+        $this->endWithSuccess();
+
     }
 
     /**

@@ -54,6 +54,7 @@
   },
   "cmdtpls": {
     "sshkeygen": "/usr/bin/ssh-keygen -t rsa -b 4096 -N \"\" -C \"__COMMENT__\" -q -f __PATH__",
-    "letsencryptgen": "/usr/bin/certbot certonly --standalone --http-01-port=8998 --cert-name=__APP__ --deploy-hook='__NGINX_RELOAD_CMD__' --agree-tos --email=__EMAIL__ -d __DOMAINS__"
+    "letsencryptgen": "/usr/bin/certbot certonly --standalone --http-01-port=8998 --non-interactive --cert-name=__APP__ --deploy-hook='__NGINX_RELOAD_CMD__' --agree-tos --email=__EMAIL__ -d __DOMAINS__",
+    "letsencryptdel": "/usr/bin/certbot delete --cert-name=__APP__"
   }
 }
