@@ -170,28 +170,6 @@ class Conductor extends CliApplication
     }
 
     /**
-     * Detects the current Laravel application version (if not found will return empty)
-     * @param string $application The application of which to check the version of.
-     * @return string
-     */
-    private function laravelApplicationVersion($application)
-    {
-        if (file_exists($this->conf->paths->apps . '/' . $application . '/artisan')) {
-            ob_start();
-            $this->call($this->conf->binaries->php . ' ' . $this->conf->paths->apps . '/' . $application . '/artisan --version');
-            $data = ob_get_clean();
-            if ((strpos($data, 'version') !== false) and (preg_match("#(\d+\.\d+(\.\d+)*)#", $data, $version_number))) {
-                if (isset($version_number[0])) {
-                    return $version_number[0];
-                }
-                return "";
-            }
-            return "";
-        }
-        return "";
-    }
-
-    /**
      * Executes a backup the entire web application including it's database.
      * @param string $filename The filename to use when creating the backup.
      * @return void
@@ -702,7 +680,13 @@ class Conductor extends CliApplication
         if (!file_exists($config_path)) {
             $this->writeln('Virtual host configuration not found at: ' . $config_path);
         }
-        system($this->conf->paths->editor . ' ' . $config_path . ' > `tty`');
+        system($this->conf->binaries->editor . ' ' . $config_path . ' > `tty`');
+        $this->writeln('Checking file updates for Nginx configuration issues...');
+        $this->writeln();
+        $this->call($this->conf->binaries->nginx . ' -t');
+        $this->writeln();
+        $this->writeln('** Remember to restart/reload Nginx for any changes to take affect! ** ');
+        $this->writeln();
     }
 
     /**
@@ -771,11 +755,7 @@ class Conductor extends CliApplication
         foreach ($applications as $application) {
             $lav = "";
             if ($application->isDir() and ($application->getBasename()[0] != '.')) {
-                $laravel_framework_version = $this->laravelApplicationVersion($application->getBasename());
-                if (!empty($laravel_framework_version)) {
-                    $lav = ' [Laravel v' . $laravel_framework_version . ']';
-                }
-                $this->writeln(' - ' . $application->getBasename() . $lav);
+                $this->writeln(' - ' . $application->getBasename());
             }
         }
         $this->writeln();

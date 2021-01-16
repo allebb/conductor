@@ -12,8 +12,7 @@
     "fpmsocket": "/var/run/php/php8.0-fpm.sock",
     "fastcgiparams": "/etc/nginx/fastcgi_params",
     "crontabs": "/etc/cron.d",
-    "deploykeys": "/var/www/.ssh",
-    "editor": "/usr/bin/nano"
+    "deploykeys": "/var/www/.ssh"
   },
   "permissions": {
     "webuser": "www-data",
@@ -26,7 +25,9 @@
     "mysql": "/usr/bin/mysql",
     "mysqldump": "/usr/bin/mysqldump",
     "gzip": "/bin/gzip",
-    "sshkeygen": "/usr/bin/ssh-keygen"
+    "sshkeygen": "/usr/bin/ssh-keygen",
+    "editor": "/usr/bin/nano",
+    "nginx": "/usr/sbin/nginx"
   },
   "mysql": {
     "host": "localhost",
