@@ -87,6 +87,10 @@ sudo mkdir /var/conductor/tmp
 sudo mkdir /var/www/.cache
 sudo chown -R www-data:www-data /var/www/.cache
 
+# Create a SSH key directory for the www-data user
+sudo mkdir /var/www/.ssh
+sudo chown -R www-data:www-data /var/www/.ssh
+
 # Create a blank default file.
 sudo cp /etc/conductor/templates/index.html /var/www/html
 sudo chown www-data:www-data /var/www/html/index.html

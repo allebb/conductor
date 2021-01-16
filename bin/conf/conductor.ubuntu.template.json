@@ -1,55 +1,59 @@
 {
-    "paths": {
-        "apps": "/var/conductor/applications",
-        "temp": "/var/conductor/tmp",
-        "backups": "/var/conductor/backups",
-        "appconfs": "/etc/conductor/configs",
-        "applogs": "/var/conductor/logs",
-        "templates": "/etc/conductor/configs/common",
-        "fpmsocket": "/var/run/php/php8.0-fpm.sock",
-        "fastcgiparams": "/etc/nginx/fastcgi_params",
-        "crontabs": "/etc/cron.d",
-        "deploykeys": "/var/www/.ssh"
+  "admin": {
+    "email": "update_this_now@localhost.com"
+  },
+  "paths": {
+    "apps": "/var/conductor/applications",
+    "temp": "/var/conductor/tmp",
+    "backups": "/var/conductor/backups",
+    "appconfs": "/etc/conductor/configs",
+    "applogs": "/var/conductor/logs",
+    "templates": "/etc/conductor/configs/common",
+    "fpmsocket": "/var/run/php/php8.0-fpm.sock",
+    "fastcgiparams": "/etc/nginx/fastcgi_params",
+    "crontabs": "/etc/cron.d",
+    "deploykeys": "/var/www/.ssh"
+  },
+  "permissions": {
+    "webuser": "www-data",
+    "webgroup": "www-data"
+  },
+  "binaries": {
+    "php": "/usr/bin/php",
+    "composer": "/usr/bin/composer",
+    "git": "/usr/bin/git",
+    "mysql": "/usr/bin/mysql",
+    "mysqldump": "/usr/bin/mysqldump",
+    "gzip": "/bin/gzip",
+    "sshkeygen": "/usr/bin/ssh-keygen"
+  },
+  "mysql": {
+    "host": "localhost",
+    "username": "root",
+    "password": "ROOT_PASSWORD_HERE",
+    "confrom": "localhost"
+  },
+  "services": {
+    "nginx": {
+      "start": "service nginx start",
+      "stop": "service nginx stop",
+      "status": "service nginx status",
+      "restart": "service nginx restart",
+      "reload": "service nginx reload"
     },
-    "permissions": {
-        "webuser": "www-data",
-        "webgroup": "www-data"
+    "php_fpm": {
+      "start": "/etc/init.d/php8.0-fpm start",
+      "stop": "/etc/init.d/php8.0-fpm stop",
+      "status": "/etc/init.d/php8.0-fpm status",
+      "restart": "/etc/init.d/php8.0-fpm restart",
+      "reload": "/etc/init.d/php8.0-fpm reload"
     },
-    "binaries": {
-        "php": "/usr/bin/php",
-        "composer": "/usr/bin/composer",
-        "git": "/usr/bin/git",
-        "mysql": "/usr/bin/mysql",
-        "mysqldump": "/usr/bin/mysqldump",
-        "gzip": "/bin/gzip",
-        "sshkeygen": "/usr/bin/ssh-keygen"
-    },
-    "mysql": {
-        "host": "localhost",
-        "username": "root",
-        "password": "ROOT_PASSWORD_HERE",
-        "confrom": "localhost"
-    },
-    "services": {
-        "nginx": {
-            "start": "service nginx start",
-            "stop": "service nginx stop",
-            "status": "service nginx status",
-            "restart": "service nginx restart",
-            "reload": "service nginx reload"
-        },
-        "php_fpm": {
-            "start": "/etc/init.d/php8.0-fpm start",
-            "stop": "/etc/init.d/php8.0-fpm stop",
-            "status": "/etc/init.d/php8.0-fpm status",
-            "restart": "/etc/init.d/php8.0-fpm restart",
-            "reload": "/etc/init.d/php8.0-fpm reload"
-        },
-        "cron": {
-            "reload": "service cron reload"
-        }
-    },
-    "cmdtpls": {
-        "sshkeygen": "/usr/bin/ssh-keygen -t rsa -b 4096 -N \"\" -C \"__COMMENT__\" -q -f __PATH__"
+    "cron": {
+      "reload": "service cron reload"
     }
+  },
+  "cmdtpls": {
+    "sshkeygen": "/usr/bin/ssh-keygen -t rsa -b 4096 -N \"\" -C \"__COMMENT__\" -q -f __PATH__",
+    "letsencryptgen": "/usr/bin/certbot certonly --standalone --http-01-port=8998 --cert-name=__APP__ --deploy-hook='__NGINX_RELOAD_CMD__' --agree-tos --email=__EMAIL__ -d __DOMAINS__"
+  }
 }
