@@ -12,7 +12,8 @@
     "fpmsocket": "/var/run/php/php8.0-fpm.sock",
     "fastcgiparams": "/etc/nginx/fastcgi_params",
     "crontabs": "/etc/cron.d",
-    "deploykeys": "/var/www/.ssh"
+    "deploykeys": "/var/www/.ssh",
+    "editor": "/usr/bin/nano"
   },
   "permissions": {
     "webuser": "www-data",

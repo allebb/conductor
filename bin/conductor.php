@@ -35,6 +35,9 @@ if (isset($commands[1])) {
         case "new":
             $conductor->newApplication();
             break;
+        case "edit":
+            $conductor->editApplicationConfig();
+            break;
         case "destroy":
             $conductor->destroy();
             break;
@@ -93,6 +96,7 @@ function displayHelp($conductor)
     $conductor->writeln('Options:');
     $conductor->writeln('  list                List all currently hosted applications');
     $conductor->writeln('  new {name}          Prepares and deploys a new application');
+    $conductor->writeln('  edit {name}         Open a text editor to update the vhost config.');
     $conductor->writeln('  destroy {name}      Removes an application from the server');
     $conductor->writeln('  update {name}       Upgrades an application via. Git');
     $conductor->writeln('  rollback {name}     Rolls back the most recent upgrade');

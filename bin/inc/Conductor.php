@@ -19,7 +19,7 @@ class Conductor extends CliApplication
     /**
      * The main Conductor application version.
      */
-    const CONDUCTOR_VERSION = "3.1.1";
+    const CONDUCTOR_VERSION = "3.2.0";
 
     /**
      * The path to the core application configuration file.
@@ -571,7 +571,7 @@ class Conductor extends CliApplication
             $domain = $this->input('Domains (FQDN\'s) to map this application to:');
             $apppath = $this->input('Hosted directory:', '/public');
             $environment = $this->input('Environment type:', 'production');
-            $mysql_req = $this->input('Requires MySQL?', self::OPTION_YES, $option_yes_no_set);
+            $mysql_req = $this->input('Provision a MySQL database?', self::OPTION_NO, $option_yes_no_set);
             $deploy_git = $this->input('Deploy application with Git now?', self::OPTION_NO, $option_yes_no_set);
             $generate_keys = $this->input('Create an SSH deployment key pair now?', self::OPTION_YES,
                 $option_yes_no_set);
@@ -679,6 +679,19 @@ class Conductor extends CliApplication
         }
 
         $this->migrateLaravel($environment);
+    }
+
+    /**
+     * Opens the configured text editor to edit the Nginx configuration file for a specific app.
+     */
+    public function editApplicationConfig(){
+        $this->appNameRequired();
+
+        $config_path = $this->conf->paths->appconfs . '/' . $this->appname . '.conf';
+        if(!file_exists($config_path)){
+            $this->writeln('Virtual host configuration not found at: ' .$config_path);
+        }
+        $this->call($this->conf->paths->editor . ' '.$config_path);
     }
 
     /**
