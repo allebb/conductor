@@ -500,6 +500,17 @@ class Conductor extends CliApplication
             $this->endWithSuccess();
         }
 
+        if ($this->isFlagSet('force-renew')) {
+            $cmd_replacements = [
+                '__APP__' => $this->appname,
+                '__NGINX_RELOAD_CMD__' => $this->conf->services->nginx->reload,
+            ];
+            $this->call(str_replace(array_keys($cmd_replacements), array_values($cmd_replacements),
+                $this->conf->cmdtpls->letsencryptforcerenew));
+            $this->writeln();
+            $this->endWithSuccess();
+        }
+
         $conf_path = "/etc/conductor/configs/{$this->appname}.conf";
         if (!file_exists($conf_path)) {
             $this->writeln('Configuration file not found at: ' . $conf_path);
@@ -529,13 +540,12 @@ class Conductor extends CliApplication
             $this->conf->cmdtpls->letsencryptgen));
         $this->writeln();
         $this->writeln('If you wish to delete this certificate in future you can run:');
-        $this->writeln('   conductor letsencrypt ' .$this->appname. ' --delete');
+        $this->writeln('   conductor letsencrypt ' . $this->appname . ' --delete');
         $this->writeln();
         $this->writeln('If required, remember to uncomment and configure your virtualhost configuration file');
         $this->writeln('in order to use the SSL certificates as required.');
         $this->writeln();
         $this->endWithSuccess();
-
     }
 
     /**
@@ -684,14 +694,15 @@ class Conductor extends CliApplication
     /**
      * Opens the configured text editor to edit the Nginx configuration file for a specific app.
      */
-    public function editApplicationConfig(){
+    public function editApplicationConfig()
+    {
         $this->appNameRequired();
 
         $config_path = $this->conf->paths->appconfs . '/' . $this->appname . '.conf';
-        if(!file_exists($config_path)){
-            $this->writeln('Virtual host configuration not found at: ' .$config_path);
+        if (!file_exists($config_path)) {
+            $this->writeln('Virtual host configuration not found at: ' . $config_path);
         }
-        $this->call($this->conf->paths->editor . ' '.$config_path);
+        system($this->conf->paths->editor . ' ' . $config_path . ' > `tty`');
     }
 
     /**

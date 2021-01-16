@@ -37,7 +37,7 @@ server {
 
     # Comment this line out if you wish to switch to HTTPS (but then enable the next code block!).
     listen                   80;
-    
+
     # Uncomment to enable default LetsEncrypt certificates.
     #listen                  443 ssl;
     #ssl_certificate         /etc/letsencrypt/live/@@APPNAME@@/fullchain.pem;
@@ -94,7 +94,7 @@ server {
 
     # PHP-FPM handler configuration.
     location ~* \.php$ {
-        try_files $uri /index.php =404;
+        try_files                       $uri /index.php =404;
         # If your application requires PHP 7.4 instead, change the UNIX socket to: "unix:/var/run/php/php7.4-fpm.sock;" instead!
         fastcgi_pass                    unix:@@SOCKET@@;
         fastcgi_index                   index.php;
@@ -102,18 +102,15 @@ server {
         include                         @@FASTCGIPARAMS@@;
         fastcgi_param                   SCRIPT_FILENAME $document_root$fastcgi_script_name;
          # START APPLICATION ENV VARIABLES
-        fastcgi_param   APP_ENV         @@ENVIROMENT@@;
+        fastcgi_param                   APP_ENV @@ENVIROMENT@@;
         # END APPLICATION ENV VARIABLES
     }
 
-    # Deny access (by default) to any .htaccess files.
-    location ~ /\.ht {
+    # Deny access to .htaccess, .git and other hidden files by default.
+    location ~ /\. {
         deny all;
-    }
-
-    # Deny access (by default) to any .git* files.
-    location ~ /\.git {
-        deny all;
+        access_log off;
+        log_not_found off;
     }
 
 }
