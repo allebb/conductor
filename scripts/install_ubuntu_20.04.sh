@@ -164,7 +164,9 @@ sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php8.0-pfm/g" /etc/php/8.0
 
 # Set the root password on our configuration script.
 sudo sed -i "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;
-
+echo ""
+echo "MySQL server root password has been set to: ${randpassword}"
+echo ""
 echo "Congratulations! Conductor is now successfully installed you are running: "
 sudo conductor -v
 echo ""
