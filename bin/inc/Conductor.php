@@ -597,9 +597,9 @@ class Conductor extends CliApplication
             $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->conf->paths->applogs . '/' . $this->appname);
             chmod($this->conf->paths->appconfs . '/' . $this->appname . '.conf', 755);
 
-            $cron_file = $this->conf->paths->crontab . '/conductor_' . $this->appname;
+            $cron_file = $this->conf->paths->crontabs . '/conductor_' . $this->appname;
             copy($this->conf->paths->templates . '/cron_template.tpl',
-                $this->conf->paths->crontab . '/conductor_' . $this->appname);
+                $this->conf->paths->crontabs . '/conductor_' . $this->appname);
             $placeholders = [
                 '@@APPNAME@@' => $this->appname,
                 '@@APPPATH@@' => $this->appname . $apppath,
