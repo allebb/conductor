@@ -422,7 +422,7 @@ class Conductor extends CliApplication
         $deploy_key_path = $this->conf->paths->deploykeys . '/' . $this->appname . '.deploykey';
         if (file_exists($deploy_key_path)) {
             foreach ([$deploy_key_path, $deploy_key_path . '.pub'] as $keyfile) {
-                unlink($keyfile);
+                @unlink($keyfile);
             }
             $this->writeln('Deleted the deployment key: ' . $deploy_key_path);
         } else {
@@ -816,7 +816,7 @@ class Conductor extends CliApplication
 
         $crontab = $this->conf->paths->crontabs . '/conductor_' . $this->appname;
         if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname)) {
-            unlink($crontab); // Delete existing crontab file if it exists!
+            @unlink($crontab); // Delete existing crontab file if it exists!
             $this->call('mv ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname . ' ' . $crontab);
             $this->call('chmod 744 ' . $crontab);
             $this->call('chown root:root ' . $crontab);
@@ -829,14 +829,14 @@ class Conductor extends CliApplication
             $this->writeln('Importing application MySQL database...');
             $this->call('gunzip < ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/appdb.sql.gz | mysql -h' . $this->conf->mysql->host . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' db_' . $this->appname . '');
             $this->writeln('Finished importing the MySQL database!');
-            unlink($this->conf->paths->temp . '/restore_' . $this->appname . '/appdb.sql.gz');
+            @unlink($this->conf->paths->temp . '/restore_' . $this->appname . '/appdb.sql.gz');
         } else {
             $this->writeln('No Conductor database archive was found, skipping DB import!');
         }
 
         $appconf = $this->conf->paths->appconfs . '/' . $this->appname . '.conf';
         if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/' . $this->appname . '.conf')) {
-            unlink($appconf); // Delete existing nginx config file if it exists!
+            @unlink($appconf); // Delete existing nginx config file if it exists!
             $this->call('mv ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/' . $this->appname . '.conf' . ' ' . $appconf);
             $this->call('chmod 744 ' . $appconf);
             $this->call('chown root:root ' . $crontab);
@@ -873,7 +873,7 @@ class Conductor extends CliApplication
 
         $crontab = $this->conf->paths->crontabs . '/conductor_' . $this->appname;
         if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname)) {
-            unlink($crontab); // Delete existing crontab file if it exists!
+            @unlink($crontab); // Delete existing crontab file if it exists!
             $this->call('mv ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname . ' ' . $crontab);
             $this->call('chmod 744 ' .$crontab);
             $this->call('chown root:root ' . $crontab);
@@ -893,7 +893,7 @@ class Conductor extends CliApplication
 
         $appconf = $this->conf->paths->appconfs . '/' . $this->appname . '.conf';
         if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/' . $this->appname . '.conf')) {
-            unlink($appconf); // Delete existing nginx config file if it exists!
+            @unlink($appconf); // Delete existing nginx config file if it exists!
             $this->call('mv ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/' . $this->appname . '.conf' . ' ' . $appconf);
             $this->call('chmod 744 ' . $appconf);
             $this->call('chown root:root ' . $crontab);
