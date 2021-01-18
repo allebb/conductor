@@ -182,10 +182,15 @@ class Conductor extends CliApplication
             $this->writeln('Detected a MySQL database, backing it up...');
             $this->call($this->conf->binaries->mysqldump . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' --no-create-db db_' . $this->appname . ' | ' . $this->conf->binaries->gzip . ' -c | cat > ' . $this->conf->paths->temp . '/' . $this->appname . '/appdb.sql.gz');
         }
-        $crontab = $this->paths->crontabs . '/conductor_' . $this->appname;
+        $crontab = $this->conf->paths->crontabs . '/conductor_' . $this->appname;
         if (file_exists($crontab)) {
             $this->writeln('Backing up crontab file...');
             $this->call('cp ' . $crontab . ' ' . $this->conf->paths->temp . '/' . $this->appname . '/');
+        }
+        $appconf = $this->conf->paths->appconfs . '/conductor_' . $this->appname;
+        if (file_exists($appconf)) {
+            $this->writeln('Backing up Nginx virtualhost config...');
+            $this->call('cp ' . $appconf . ' ' . $this->conf->paths->temp . '/' . $this->appname . '/');
         }
         $this->writeln('Compressing backup archive...');
         $this->call('tar - zcf ' . $this->conf->paths->temp . ' / ' . $filename . ' - C ' . $this->conf->paths->temp . ' / ' . $this->appname . ' / .');
@@ -797,7 +802,7 @@ class Conductor extends CliApplication
             mkdir($this->conf->paths->temp . '/restore_' . $this->appname, 755);
             $this->call('tar -zxf ' . $archive . ' -C ' . $this->conf->paths->temp . '/restore_' . $this->appname);
 
-            $crontab = $this->paths->crontabs . '/conductor_' . $this->appname;
+            $crontab = $this->conf->paths->crontabs . '/conductor_' . $this->appname;
             if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname)) {
                 unlink($crontab); // Delete existing crontab file if it exists!
                 mv($this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname, $crontab);
@@ -817,10 +822,23 @@ class Conductor extends CliApplication
                 $this->writeln('No Conductor database archive was found, skipping DB import!');
             }
 
+            $appconf = $this->conf->paths->appconfs . '/' . $this->appname.'.conf';
+            if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/'.$this->appname.'.conf')) {
+                unlink($appconf); // Delete existing nginx config file if it exists!
+                mv($this->conf->paths->temp . '/restore_' . $this->appname . '/'.$this->appname.'.conf', $appconf);
+                chmod($appconf, 744);
+                $this->call('chown root:root ' . $crontab);
+                $this->writeln('Finished importing the application (nginx) configuration!');
+            } else {
+                $this->writeln('No application (nginx) configuration was found, skipping virtualhost config import!');
+            }
+
             $this->call('rm -Rf ' . $this->appdir);
             $this->call('cp -Rf ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/ ' . $this->appdir . '/');
             $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
             $this->call('rm -Rf ' . $this->conf->paths->temp . '/restore_' . $this->appname);
+            $this->writeln('Restarting Nginx...');
+            $this->call($this->conf->services->nginx->restart);
             $this->writeln('...finished!');
             $this->startLaravelApplication();
             $this->endWithSuccess();
@@ -841,7 +859,7 @@ class Conductor extends CliApplication
             $this->writeln('Extracting the rollback image...');
             $this->call('tar -zxf ' . $this->conf->paths->backups . '/rollback_' . $this->appname . '.tar.gz -C ' . $this->conf->paths->temp . '/rollback_' . $this->appname);
 
-            $crontab = $this->paths->crontabs . '/conductor_' . $this->appname;
+            $crontab = $this->conf->paths->crontabs . '/conductor_' . $this->appname;
             if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname)) {
                 unlink($crontab); // Delete existing crontab file if it exists!
                 mv($this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname, $crontab);
@@ -859,6 +877,17 @@ class Conductor extends CliApplication
                 unlink($this->conf->paths->temp . '/rollback_' . $this->appname . '/appdb.sql.gz');
             } else {
                 $this->writeln('No Conductor database archive was found, skipping DB import!');
+            }
+
+            $appconf = $this->conf->paths->appconfs . '/' . $this->appname.'.conf';
+            if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/'.$this->appname.'.conf')) {
+                unlink($appconf); // Delete existing nginx config file if it exists!
+                mv($this->conf->paths->temp . '/restore_' . $this->appname . '/'.$this->appname.'.conf', $appconf);
+                chmod($appconf, 744);
+                $this->call('chown root:root ' . $crontab);
+                $this->writeln('Finished importing the application (nginx) configuration!');
+            } else {
+                $this->writeln('No application (nginx) configuration was found, skipping virtualhost config import!');
             }
 
             $this->call('rm -Rf ' . $this->appdir);
@@ -881,7 +910,7 @@ class Conductor extends CliApplication
                 $this->writeln('Running a quick snapshot as you can never be too careful...');
                 $this->backupApplication('priordestroy_' . $this->appname . '.tar.gz');
                 $this->writeln('Removing application crontab...');
-                $this->call('rm ' . $this->paths->crontabs . '/conductor_' . $this->appname);
+                $this->call('rm ' . $this->conf->paths->crontabs . '/conductor_' . $this->appname);
                 $this->writeln('Destroying application...');
                 $this->call('rm ' . $this->conf->paths->appconfs . '/' . $this->appname . '*');
                 $this->writeln('Reloading Nginx configuration...');
