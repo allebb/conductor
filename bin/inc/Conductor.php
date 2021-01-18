@@ -799,6 +799,10 @@ class Conductor extends CliApplication
                 $this->endWithError();
             }
 
+            mkdir($this->appdir, 0755);
+            mkdir($this->conf->paths->applogs . '/' . $this->appname, 0755);
+            $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->conf->paths->applogs . '/' . $this->appname);
+
             mkdir($this->conf->paths->temp . '/restore_' . $this->appname, 755);
             $this->call('tar -zxf ' . $archive . ' -C ' . $this->conf->paths->temp . '/restore_' . $this->appname);
 
