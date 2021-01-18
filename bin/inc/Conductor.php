@@ -805,7 +805,7 @@ class Conductor extends CliApplication
             $crontab = $this->conf->paths->crontabs . '/conductor_' . $this->appname;
             if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname)) {
                 unlink($crontab); // Delete existing crontab file if it exists!
-                mv($this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname, $crontab);
+                move($this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname, $crontab);
                 chmod($crontab, 744);
                 $this->call('chown root:root ' . $crontab);
                 $this->writeln('Finished importing the application crontab!');
@@ -825,7 +825,7 @@ class Conductor extends CliApplication
             $appconf = $this->conf->paths->appconfs . '/' . $this->appname.'.conf';
             if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/'.$this->appname.'.conf')) {
                 unlink($appconf); // Delete existing nginx config file if it exists!
-                mv($this->conf->paths->temp . '/restore_' . $this->appname . '/'.$this->appname.'.conf', $appconf);
+                move($this->conf->paths->temp . '/restore_' . $this->appname . '/'.$this->appname.'.conf', $appconf);
                 chmod($appconf, 744);
                 $this->call('chown root:root ' . $crontab);
                 $this->writeln('Finished importing the application (nginx) configuration!');
@@ -862,7 +862,7 @@ class Conductor extends CliApplication
             $crontab = $this->conf->paths->crontabs . '/conductor_' . $this->appname;
             if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname)) {
                 unlink($crontab); // Delete existing crontab file if it exists!
-                mv($this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname, $crontab);
+                move($this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname, $crontab);
                 chmod($crontab, 744);
                 $this->call('chown root:root ' . $crontab);
                 $this->writeln('Finished importing the application crontab!');
@@ -882,7 +882,7 @@ class Conductor extends CliApplication
             $appconf = $this->conf->paths->appconfs . '/' . $this->appname.'.conf';
             if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/'.$this->appname.'.conf')) {
                 unlink($appconf); // Delete existing nginx config file if it exists!
-                mv($this->conf->paths->temp . '/restore_' . $this->appname . '/'.$this->appname.'.conf', $appconf);
+                move($this->conf->paths->temp . '/restore_' . $this->appname . '/'.$this->appname.'.conf', $appconf);
                 chmod($appconf, 744);
                 $this->call('chown root:root ' . $crontab);
                 $this->writeln('Finished importing the application (nginx) configuration!');
