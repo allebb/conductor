@@ -187,13 +187,13 @@ class Conductor extends CliApplication
             $this->writeln('Backing up crontab file...');
             $this->call('cp ' . $crontab . ' ' . $this->conf->paths->temp . '/' . $this->appname . '/');
         }
-        $appconf = $this->conf->paths->appconfs . '/conductor_' . $this->appname;
+        $appconf = $this->conf->paths->appconfs . '/' . $this->appname.'.conf';
         if (file_exists($appconf)) {
             $this->writeln('Backing up Nginx virtualhost config...');
             $this->call('cp ' . $appconf . ' ' . $this->conf->paths->temp . '/' . $this->appname . '/');
         }
         $this->writeln('Compressing backup archive...');
-        $this->call('tar -zcf ' . $this->conf->paths->temp . '/' . $filename . ' -C ' . $this->conf->paths->temp . '/' . $this->appname . '/.');
+        $this->call('tar -zcf ' . $this->conf->paths->temp . '/' . $filename . ' -C ' . $this->conf->paths->temp . '/' . $this->appname . '/');
         $this->writeln('Cleaning up...');
         $this->call('rm -Rf ' . $this->conf->paths->temp . '/' . $this->appname);
         $this->call('mv ' . $this->conf->paths->temp . '/' . $filename . ' ' . $this->conf->paths->backups . '/' . $filename);
