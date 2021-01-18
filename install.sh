@@ -7,7 +7,7 @@
 
 # Check to see if there are is a "BRANCH_INSTALL" environment variable set.
 if [[ -z "${BRANCH_INSTALL}" ]]; then
-  BRANCH_INSTALL="master"
+  BRANCH_INSTALL="stable"
 else
   BRANCH_INSTALL="${BRANCH_INSTALL}"
 fi

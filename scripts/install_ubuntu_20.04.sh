@@ -5,6 +5,13 @@
 # Written by Bobby Allen <ballen@bobbyallen.me>, 16/09/2019                    # 
 ################################################################################
 
+# Check to see if there are is a "BRANCH_INSTALL" environment variable set.
+if [[ -z "${BRANCH_INSTALL}" ]]; then
+  BRANCH_INSTALL="stable"
+else
+  BRANCH_INSTALL="${BRANCH_INSTALL}"
+fi
+
 # A random password generation function to generate MySQL passwords.
 passwordgen() {
     l=$1
@@ -72,7 +79,7 @@ sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
 sudo git clone https://github.com/allebb/conductor.git /etc/conductor
 export CURRENTDIR=`pwd`
 cd /etc/conductor
-sudo git checkout stable
+sudo git checkout $BRANCH_INSTALL
 cd $CURRENTDIR
 
 # Create some required directories
