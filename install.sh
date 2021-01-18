@@ -13,7 +13,7 @@ else
 fi
 
 # The installation script repository
-SITE='https://raw.github.com/allebb/conductor/${BRANCH_INSTALL}/scripts'
+SITE="https://raw.github.com/allebb/conductor/${BRANCH_INSTALL}/scripts"
 
 # Detect what version of OS they are using and then send them off to the correct install script!
 DISTRO=$(lsb_release -si| tr '[:upper:]' '[:lower:]')
