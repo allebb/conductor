@@ -193,7 +193,7 @@ class Conductor extends CliApplication
             $this->call('cp ' . $appconf . ' ' . $this->conf->paths->temp . '/' . $this->appname . '/');
         }
         $this->writeln('Compressing backup archive...');
-        $this->call('tar -zcf ' . $this->conf->paths->temp . '/' . $filename . ' -C ' . $this->conf->paths->temp . '/' . $this->appname . '/');
+        $this->call('tar -zcf ' . $this->conf->paths->temp . '/' . $filename . ' -C ' . $this->conf->paths->temp . '/' . $this->appname . '/ .');
         $this->writeln('Cleaning up...');
         $this->call('rm -Rf ' . $this->conf->paths->temp . '/' . $this->appname);
         $this->call('mv ' . $this->conf->paths->temp . '/' . $filename . ' ' . $this->conf->paths->backups . '/' . $filename);
