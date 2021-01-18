@@ -617,7 +617,7 @@ class Conductor extends CliApplication
         }
         file_put_contents($cron_file, $cron_config);
         $this->call('chown -R root:root ' . $cron_file);
-        $this->call('chmod 744 ', $cron_file);
+        $this->call('chmod 744 ' . $cron_file);
 
         // Load  the application environment configuration in to the application configuration (which will create the initial ENV configuration)...
         //$this->updateEnvVars();
