@@ -38,6 +38,9 @@ if (isset($commands[1])) {
         case "edit":
             $conductor->editApplicationConfig();
             break;
+        case "cron":
+            $conductor->editApplicationCron();
+            break;
         case "destroy":
             $conductor->destroy();
             break;
@@ -97,6 +100,8 @@ function displayHelp($conductor)
     $conductor->writeln('  list                List all currently hosted applications');
     $conductor->writeln('  new {name}          Prepares and deploys a new application');
     $conductor->writeln('  edit {name}         Open a text editor to update the vhost config.');
+    $conductor->writeln('  cron {name}         Open a text editor to update the application crontab.');
+    $conductor->writeln('  letsencrypt {name}  Provisions (or renews) a LetsEncrypt SSL cert.');
     $conductor->writeln('  destroy {name}      Removes an application from the server');
     $conductor->writeln('  update {name}       Upgrades an application via. Git');
     $conductor->writeln('  rollback {name}     Rolls back the most recent upgrade');
@@ -105,7 +110,7 @@ function displayHelp($conductor)
     $conductor->writeln('  restore {name}      Restores an application and dependent DB\'s');
     $conductor->writeln('  start {name}        Starts a specific application (Laravel Apps only!)');
     $conductor->writeln('  stop {name}         Stops a specific application (Laravel Apps only!)');
-    $conductor->writeln('  letsencrypt {name}  Provisions (or renews) a LetsEncrypt SSL cert.');
+    $conductor->writeln();
     $conductor->writeln('  genkey {name}       Generates an SSH deployment key for an application');
     $conductor->writeln('  delkey {name}       Deletes the SSH deployment key for an application.');
     $conductor->writeln('');
