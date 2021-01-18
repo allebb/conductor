@@ -526,12 +526,13 @@ class Conductor extends CliApplication
 
         $option_yes_no_set = [self::OPTION_YES, self::OPTION_NO];
 
-        $vhost_template = $this->getOption('template', 'laravel');
+        $vhost_template = $this->getOption('template', $this->conf->admin->default_template);
         if(!file_exists($tmpl = $this->conf->paths->templates.'/templates/vhost_' . strtolower($vhost_template).'.tpl')){
             $this->writeln('The configuration template was not found!');
             $this->endWithError();
         }
 
+        $gitbranch = $this->getOption('git-branch', 'master');
         if (!$this->getOption('fqdn')) {
             // Entering interactive mode...
             $domain = $this->input('Domains (FQDN\'s) to map this application to:');
@@ -571,7 +572,8 @@ class Conductor extends CliApplication
         if (strtolower($deploy_git) == self::OPTION_YES) {
             if (!isset($gitrepo)) {
                 $this->writeln();
-                $gitrepo = $this->input('Git repository URL:');
+                $gitrepo = $this->input('Git repository URI (eg. git@github.com:user/repo.git):');
+                $gitbranch = $this->input('Git branch [master]: ');
                 $this->writeln();
             }
         }
@@ -628,6 +630,7 @@ class Conductor extends CliApplication
             $this->writeln('We\'ll now deploy your application using Git...');
             $this->call('rm -Rf ' . $this->appname);
             $this->call($this->conf->binaries->git . ' clone ' . $gitrepo . ' ' . $this->appdir);
+            $this->call($this->conf->binaries->git . ' checkout ' . $gitbranch);
             if (file_exists($this->appdir . '/vendor')) {
                 $this->writeln('Skipping dependencies are the \'vendor\' directory exists!');
             } else {

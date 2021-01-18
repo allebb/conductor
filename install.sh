@@ -7,9 +7,9 @@
 
 # Check to see if there are is a "BRANCH_INSTALL" environment variable set.
 if [[ -z "${BRANCH_INSTALL}" ]]; then
-  BRANCH_INSTALL="stable"
+  export BRANCH_INSTALL="stable"
 else
-  BRANCH_INSTALL="${BRANCH_INSTALL}"
+  export BRANCH_INSTALL="${BRANCH_INSTALL}"
 fi
 
 # The installation script repository
@@ -27,7 +27,4 @@ then
 fi
 sudo wget $SITE'/'$INSTALLER -P /tmp
 sudo chmod +x /tmp/$INSTALLER
-
-export BRANCH_INSTALL="${BRANCH_INSTALL}"
-
 sudo bash /tmp/$INSTALLER

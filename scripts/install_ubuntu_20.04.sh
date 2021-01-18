@@ -72,7 +72,7 @@ sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
 sudo git clone https://github.com/allebb/conductor.git /etc/conductor
 export CURRENTDIR=`pwd`
 cd /etc/conductor
-sudo git checkout ${BRANCH_INSTALL}
+git checkout ${BRANCH_INSTALL}
 cd $CURRENTDIR
 
 # Create some required directories

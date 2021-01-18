@@ -35,4 +35,66 @@
 
 server {
 
+	# Comment this line out if you wish to switch to HTTPS (but then enable the next code block!).
+	listen                   80;
+
+	# Uncomment to enable default LetsEncrypt certificates.
+	#listen                  443 ssl;
+	#ssl_certificate         /etc/letsencrypt/live/@@APPNAME@@/fullchain.pem;
+	#ssl_certificate_key     /etc/letsencrypt/live/@@APPNAME@@/privkey.pem;
+	#ssl_trusted_certificate /etc/letsencrypt/live/@@APPNAME@@/chain.pem;
+	#include /etc/nginx/snippets/ssl-params.conf;
+
+	server_name     @@DOMAIN@@;
+	server_tokens   off;
+
+	# Application path and index file settings.
+	root            /var/conductor/applications/@@APPPATH@@;
+	index           index.html index.htm;
+
+	# Logging settings
+	access_log      @@HLOGS@@access.log;
+	error_log       @@HLOGS@@error.log;
+	rewrite_log     off;
+
+	# Recommended security headers
+	add_header      X-Frame-Options         "SAMEORIGIN";
+	add_header      X-XSS-Protection        "1; mode=block";
+	add_header      X-Content-Type-Options  "nosniff";
+
+	# Additional per-application optimisations.
+	charset utf-8;
+	client_max_body_size 2m;
+
+	# Enable GZip by default for common files.
+	include /etc/conductor/configs/common/gzip.conf;
+
+	# Optional but sensible defaults for caching assets (eg. images, CSS) files etc.
+	location ~* \.(png|jpg|jpeg|gif|js|css|ico|html|htm)$ {
+		expires 30d;
+		log_not_found off;
+	}
+
+	# LetsEncrypt verification block
+	include /etc/conductor/configs/common/wellknown.conf;
+
+	# Disable access and error logs for requests to these common files.
+	location = /favicon.ico { allow_all; access_log off; log_not_found off; }
+	location = /robots.txt  { allow_all; access_log off; log_not_found off; }
+
+	# LetsEncrypt verification block
+	include /etc/conductor/configs/common/wellknown.conf;
+
+	# Disable access and error logs for requests to these common files.
+	location = /favicon.ico { access_log off; log_not_found off; }
+	location = /robots.txt  { access_log off; log_not_found off; }
+
+	# Deny access to .htaccess, .git and other hidden files by default.
+	location ~ /\.(?!well-known).* {
+		deny all;
+		access_log off;
+		log_not_found off;
+		return 404;
+	}
+
 }

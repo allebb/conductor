@@ -1,6 +1,7 @@
 {
   "admin": {
-    "email": "update_this_now@localhost.com"
+    "email": "update_this_now@localhost.com",
+    "default_template": "laravel"
   },
   "paths": {
     "apps": "/var/conductor/applications",

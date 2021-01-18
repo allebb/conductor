@@ -54,15 +54,32 @@ A simple command that displays the names of the currently deployed applications 
 
 #### ```conductor new {app name}```
 
-When you first want to deploy a new instance of a Laravel 4.x/5.x application on to your server, you are required to SSH in (or you could write a web-based application to speak to the **conductor(( behind if you wanted too) to your server and then execute the following command:-
+When you first want to deploy a new instance of a Laravel application on to your server, you are required to SSH in (or you could write a web-based application to speak to the **conductor(( behind if you wanted too) to your server and then execute the following command:-
 
  ```sudo conductor new {app name}```
+
+There are other application configurations you can use but by default Conductor will use the default Nginx virtualhost "template" (laravel) but this default can be changed in ``/etc/conductor.conf`` if, for example you only really setup and deploy Wordpress sites. You can however set the required template this when creating an application from the CLI by specifying the ``--template={template}`` option, the current templates that are available are:
+
+* ``wordpress`` - Wordpress "single site" configuration.
+* ``laravel`` - Laravel sites/applications.
+* ``proxy`` - A generic reverse proxy configuration (great for proxying traffic to backend applications such as a Docker container, a .NET Core, Python or Go application - the possibilities are endless ;))
+* ``html`` - A simple HTML configuration (great for static websites or when using Static site generator such as [Gatsby](https://github.com/gatsbyjs/gatsby/), [Jekyll](https://jekyllrb.com/) or [Sculpin](https://sculpin.io/)).
+
+As an example, if you wanted to use a generic proxy template for your application you should use the following command:
+
+```shell
+sudo conductor new {app name} --template=proxy
+```
+
+Then you can edit the configuration file (to set the correct backend proxy target port) by running ``conductor edit {app name}``.
 
 This command will prompt you for the 'FQDN' (or you can add multiple addresses of which the Virtualhost will serve requests for, these should be separated by spaces!). After entering the FQDN(s) for the new application you will then be asked for your application's environment type (this basically sets the ``APP_ENV`` environment variable for Nginx of which can then be used by your PHP application like so ``$_SERVER['APP_ENV']``), if your application requires a MySQL database and as you would expect if you decide you do need a MySQL database Conductor will automatically create a database and MySQL user with permissions to only that database (to keep things secure!). The last part of the deployment you are asked how you would like to deploy your application, you have three options of which are as follows:-
 
 * Git - Keep things automated and use Git to clone and keep your application up to date, this is highly recommended as it's so simple to do... This is what Conductor does best ;-)
 * Restore from a backup - You can restore from an application back-up taken from either on your current server of if you're migrating from another server; when restoring from a backup Conductor will automatically extract the contents of the specified backup archive and will also automatically import any MySQL databases if found in the backup archive.
-* Manual - You are responsible to SSH/FTP to the server and manually upload the files to the ```/var/conductor/applications/{app name}/``` directory.
+* Manual - You are responsible to manually upload the files using SCP/FTP to the ```/var/conductor/applications/{app name}/``` directory or manually clone your into this directory using a VCS client (such as ``git`` or ``hg``).
+
+The templates are just that, a template! Once your application has provisioned on the server you can then run ``conductor edit {appname}`` which will open up your virtual host configuration template and you can tweak it as you need.
 
 That it, once you have passed through all the prompts your application will then be live and accessible!
 
@@ -129,14 +146,16 @@ Generating and updating LetsEncrypt Certificates
 You can generate and update LetsEncrypt certificates by running the following command:
 
 ```shell
-sudo service nginx stop
-sudo certbot certonly --standalone -d {domain} -d {sub-domain} --agree-tos --no-eff-email --email={your_email_address}
-sudo service nginx start
+sudo conductor letsencrypt {appname}
 ```
 
-Once you have generated the SSL certificate you will need to edit and comment out/uncomment the required configuration for the required Nginx vhost file that can be found under ``/var/conductor/configs/{app-name}.conf`` and then restart Nginx for the changes to take affect.
+Once you have generated the SSL certificate you will need to edit and comment out/uncomment the required configuration for the required Nginx virtual host file. Run the command ``conductor edit {appname}`` to edit the configuration file.
 
-Unless you enable the automatic renewals (see below), you will need to periodically renew your SSL certificates by running ``sudo certbot renew`` at the console.
+Your SSL certificates will automatically be renewed as required.
+
+If you want to remove an SSL certificate from your server you should use ``sudo conductor letsencrypt {appname} --delete``.
+
+If you wish to force a renewal of the SSL certificate you can use ``sudo conductor letsencrypt {appname} --force-renew``.
 
 Automating application backups
 ------------------------------
@@ -159,23 +178,6 @@ As conductor is designed to be a 'set and forget' system, we've now implemented 
 ```shell
 0 3 1 * * /etc/conductor/utils/update_composer.sh
 ```
-
-Automating LetsEncrypt renewal
-------------------------------
-
-A renewal script has been provided in this version of Conductor, you can enable the automatic renewal of LetsEncrypt certificates by adding the following to your CRONtab:
-
-This example will attempt to renew all LetsEcrypt SSL certificates configured on this server that are nearing expiry, this task will run on the 3rd day of every month at 04:05 in the morning.
-
-```shell
-5 4 3 * * /etc/conductor/utils/certbot_renew.sh
-```
-
-This will only renew SSL certificates that are nearing their expiry, if you need to force an SSL certificate you should ensure that you run ``certbot renew`` interactively where you can then choose if you wish to force renewals or not. 
-
-You can periodically check the status of this automatic LetsEncrypt renewal script by checking the log file that is located ``/var/log/letsencrypt/letsencrypt.log``.
-
-**Be aware:** If you remove a site from your server and/or move the site to another server (the DNS has been updated) you should remove the SSL certificate from your server using ``sudo certbot delete --cert-name {cert-name}`` (if the certificate path is, for example ``/etc/letsencrypt/live/test.mydomain.com/fullchain.pem`` then the _{cert-name}_ you should enter is ``test.mydomain.com`` (which is essentially the first domain you specified on the ``-d`` options and without any of the "alternate" domains that you specified when creating the SSL certificate) in order to prevent it attempting to auto-renew and thus failing due to DNS resolution issues. Remember - you can always open and check which certificate files/paths are set for an application under ``/etc/conductor/configs/{name}.conf`` if you are unsure.
 
 The use of PHP 8.0 and 7.4
 ---------------------------
