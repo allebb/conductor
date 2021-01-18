@@ -27,4 +27,7 @@ then
 fi
 sudo wget $SITE'/'$INSTALLER -P /tmp
 sudo chmod +x /tmp/$INSTALLER
+
+export BRANCH_INSTALL="${BRANCH_INSTALL}"
+
 sudo bash /tmp/$INSTALLER
