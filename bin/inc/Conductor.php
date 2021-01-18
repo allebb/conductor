@@ -527,7 +527,7 @@ class Conductor extends CliApplication
         $option_yes_no_set = [self::OPTION_YES, self::OPTION_NO];
 
         $vhost_template = $this->getOption('template', 'laravel');
-        if(!file_exists($tmpl = $this->conf->paths->templates.'/vhost_' . strtolower($vhost_template).'.tpl')){
+        if(!file_exists($tmpl = $this->conf->paths->templates.'/templates/vhost_' . strtolower($vhost_template).'.tpl')){
             $this->writeln('The configuration template was not found!');
             $this->endWithError();
         }

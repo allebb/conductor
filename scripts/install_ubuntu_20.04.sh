@@ -5,13 +5,6 @@
 # Written by Bobby Allen <ballen@bobbyallen.me>, 16/09/2019                    # 
 ################################################################################
 
-# Check to see if there are is a "BRANCH_INSTALL" environment variable set.
-if [[ -z "${BRANCH_INSTALL}" ]]; then
-  BRANCH_INSTALL="stable"
-else
-  BRANCH_INSTALL="${BRANCH_INSTALL}"
-fi
-
 # A random password generation function to generate MySQL passwords.
 passwordgen() {
     l=$1
@@ -100,7 +93,7 @@ sudo mkdir /var/www/.ssh
 # Disable Host Key checking (will look at improving in future!)
 echo "Host *" > /var/www/.ssh/config
 echo "    StrictHostKeyChecking no" >> /var/www/.ssh/config
-echo "    #UserKnownHostsFile /dev/null" >> /var/www.ssh/config
+echo "    #UserKnownHostsFile /dev/null" >> /var/www/.ssh/config
 
 # Set the ownership for /var/www/.ssh
 sudo chown -R www-data:www-data /var/www/.ssh
