@@ -79,8 +79,8 @@ server {
 	include /etc/conductor/configs/common/wellknown.conf;
 
 	# Disable access and error logs for requests to these common files.
-	location = /favicon.ico { allow_all; access_log off; log_not_found off; }
-	location = /robots.txt  { allow_all; access_log off; log_not_found off; }
+	location = /favicon.ico { allow all; access_log off; log_not_found off; }
+	location = /robots.txt  { allow all; access_log off; log_not_found off; }
 
 	# Root location handler configuration.
 	location / {

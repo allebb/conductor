@@ -83,10 +83,10 @@ server {
 	location = /robots.txt  { access_log off; log_not_found off; }
 
 	location / {
-		#***********************************************************************************#
-		# Update the port ({port}) below to the required port for your backend application! #
-		#***********************************************************************************#
-		proxy_pass         http://127.0.0.1:{port};
+		#**************************************************************************************#
+		# Update the temp port (9000) below to the required port for your backend application! #
+		#**************************************************************************************#
+		proxy_pass         http://127.0.0.1:9000;
 		proxy_redirect     off;
 		proxy_set_header   Host              $host;
 		proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;

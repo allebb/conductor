@@ -79,11 +79,8 @@ server {
 	include /etc/conductor/configs/common/wellknown.conf;
 
 	# Disable access and error logs for requests to these common files.
-	location = /favicon.ico { allow_all; access_log off; log_not_found off; }
-	location = /robots.txt  { allow_all; access_log off; log_not_found off; }
-
-	# LetsEncrypt verification block
-	include /etc/conductor/configs/common/wellknown.conf;
+	location = /favicon.ico { allow all; access_log off; log_not_found off; }
+	location = /robots.txt  { allow all; access_log off; log_not_found off; }
 
 	# Deny access to .htaccess, .git and other hidden files by default.
 	location ~ /\.(?!well-known).* {
