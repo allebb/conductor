@@ -34,7 +34,7 @@ What does this install
 Out of the box this script will install and configure the following packages using aptitude:-
 
 * Nginx
-* PHP 8.0 (and 7.4 - you can set your applications/sites to use this version if you need!)
+* PHP 8.1 (8.0 and 7.4 are also included - you can set your applications/sites to use this version if you need!)
 * Git Client
 * MariaDB
 * Redis
@@ -179,21 +179,27 @@ As conductor is designed to be a 'set and forget' system, we've now implemented 
 0 3 1 * * /etc/conductor/utils/update_composer.sh
 ```
 
-The use of PHP 8.0 and 7.4
+The use of different PHP versions (8.1, 8.0 and 7.4)
 ---------------------------
 
-By default, Conductor installs both PHP 8.0 and PHP 7.4 onto your server and will configure new applications/sites to use PHP 8.0 out of the box.
+By default, Conductor installs PHP 8.1, PHP 8.0 and PHP 7.4 onto your server and will configure new applications/sites to use PHP 8.1 out of the box.
 
-If however you need to set a specific application or site to use PHP 7.4 you can edit the virtual host configuration in ``/etc/conductor/configs/{sitename}.conf`` and change the socket that PHP-FPM is running on, for example you should change:
+If however you need to set a specific application or site to use PHP 8.0 or PHP 7.4 you can edit the virtual host configuration in ``/etc/conductor/configs/{sitename}.conf`` and change the socket that PHP-FPM is running on, for example you should change:
 
 ```shell
-fastcgi_pass                    unix:/var/run/php/php8.0-fpm.sock;
+fastcgi_pass                    unix:/var/run/php/php8.1-fpm.sock;
 ```
 
 to...
 
 ```shell
 fastcgi_pass                    unix:/var/run/php/php7.4-fpm.sock;
+```
+
+alternatively, if you want to use PHP 8.0 you can ofcourse use:
+
+```shell
+fastcgi_pass                    unix:/var/run/php/php8.0-fpm.sock;
 ```
 
 You should then reload nginx by running ``sudo service nginx reload`` or by using the ``sudo conductor services reload`` command.
@@ -210,12 +216,12 @@ Should be changed to...
 * * * * * cd /var/conductor/application/{appname} && php7.4 artisan schedule:run >> /dev/null 2>&1
 ```
 
-**Notice the replacement of the ``php`` binary with the ``php7.4`` specific binary! If you fail to do this, your scheduled tasks will run using default PHP 8.0 runtime!
+**Notice the replacement of the ``php`` binary with the ``php7.4`` specific binary! If you fail to do this, your scheduled tasks will run using default PHP 8.1 runtime!
 
 If you want your server to use PHP 7.4 by default, you can update the default socket path that will be used when provisioning new virtual host configuration, to do this you should edit the main Conductor configuration settings file here: ``/etc/conductor.conf``, change this line:
 
 ```text
-        "fpmsocket": "/var/run/php/php8.0-fpm.sock",
+        "fpmsocket": "/var/run/php/php8.1-fpm.sock",
 ```
 
 to...

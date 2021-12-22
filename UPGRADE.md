@@ -6,7 +6,7 @@ Upgrading your version of Conductor is as easy as running the automated upgrade 
 /etc/conductor/upgrade.sh
 ```
 
-Conductor should now be fully up to date, remember that the web server components are updated using 'apt-get upgrade' and is not covered in the above instructions.
+Conductor should now be fully up-to-date, remember that the web server components are updated using 'apt-get upgrade' and is not covered in the above instructions.
 
 ## Upgrading to major versions
 

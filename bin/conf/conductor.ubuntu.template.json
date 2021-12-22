@@ -10,7 +10,7 @@
     "appconfs": "/etc/conductor/configs",
     "applogs": "/var/conductor/logs",
     "templates": "/etc/conductor/configs/common",
-    "fpmsocket": "/var/run/php/php8.0-fpm.sock",
+    "fpmsocket": "/var/run/php/php8.1-fpm.sock",
     "fastcgiparams": "/etc/nginx/fastcgi_params",
     "crontabs": "/etc/cron.d",
     "deploykeys": "/var/www/.ssh"
@@ -45,11 +45,11 @@
       "reload": "service nginx reload"
     },
     "php_fpm": {
-      "start": "/etc/init.d/php8.0-fpm start",
-      "stop": "/etc/init.d/php8.0-fpm stop",
-      "status": "/etc/init.d/php8.0-fpm status",
-      "restart": "/etc/init.d/php8.0-fpm restart",
-      "reload": "/etc/init.d/php8.0-fpm reload"
+      "start": "/etc/init.d/php8.1-fpm start",
+      "stop": "/etc/init.d/php8.1-fpm stop",
+      "status": "/etc/init.d/php8.1-fpm status",
+      "restart": "/etc/init.d/php8.1-fpm restart",
+      "reload": "/etc/init.d/php8.1-fpm reload"
     },
     "cron": {
       "reload": "service cron reload"
