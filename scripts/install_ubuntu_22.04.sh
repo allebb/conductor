@@ -56,8 +56,8 @@ sed -i 's/jammy/focal/' /etc/apt/sources.list.d/ondrej-ubuntu-php-jammy.list
 # Resync system packages to the latest versions.
 sudo apt-get update
 
-# Lets add PHP 7.4 (using the ondrej/php PPA)
-sudo apt-get -y install php7.4-common php7.4-cli php7.4-fpm php7.4-curl php7.4-gd php7.4-intl php7.4-mbstring php7.4-sqlite3 php7.4-mysql php7.4-json php7.4-bcmath php7.4-xml php7.4-memcache php7.4-apcu
+# Lets add PHP 7.4 (using the ondrej/php PPA) // Not working at present, waiting for final release of 22.04 before I finalise the dependencies.
+#sudo apt-get -y install php7.4-common php7.4-cli php7.4-fpm php7.4-curl php7.4-gd php7.4-intl php7.4-mbstring php7.4-sqlite3 php7.4-mysql php7.4-json php7.4-bcmath php7.4-xml php7.4-memcache php7.4-apcu
 
 # Add PHP 8.0 (using the ondrej/php PPA)
 sudo apt-get -y install php8.0-common php8.0-cli php8.0-fpm php8.0-curl php8.0-gd php8.0-intl php8.0-mbstring php8.0-sqlite3 php8.0-mysql php8.0-bcmath php8.0-xml php8.0-memcache php8.0-apcu
@@ -66,7 +66,8 @@ sudo apt-get -y install php8.0-common php8.0-cli php8.0-fpm php8.0-curl php8.0-g
 sudo apt-get -y install php8.1-common php8.1-cli php8.1-fpm php8.1-curl php8.1-gd php8.1-intl php8.1-mbstring php8.1-sqlite3 php8.1-mysql php8.1-bcmath php8.1-xml php8.1-memcache php8.1-apcu
 
 # Now we will install the ZIP extension for PHP...
-sudo apt-get install -y php7.4-zip php8.0-zip php8.1-zip
+#sudo apt-get install -y php7.4-zip php8.0-zip php8.1-zip
+sudo apt-get install -y php8.0-zip php8.1-zip
 
 # We install the Git Client to enable auto deployments etc.
 sudo apt-get -y install git
@@ -163,7 +164,7 @@ sudo systemctl enable supervisor.service
 sudo /etc/init.d/supervisor start
 
 #Lets now restart PHP-FPM and Nginx!
-sudo /etc/init.d/php7.4-fpm restart
+#sudo /etc/init.d/php7.4-fpm restart
 sudo /etc/init.d/php8.0-fpm restart
 sudo /etc/init.d/php8.1-fpm restart
 sudo /etc/init.d/nginx restart
@@ -172,7 +173,7 @@ sudo /etc/init.d/nginx restart
 sudo cp /etc/conductor/bin/conf/conductor.ubuntu.template.json /etc/conductor.conf
 
 # Ubuntu 16.04 specific replacements in the Ubuntu Server configuration.
-sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php7.4-pfm/g" /etc/php/7.4/fpm/pool.d/www.conf
+#sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php7.4-pfm/g" /etc/php/7.4/fpm/pool.d/www.conf
 sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php8.0-pfm/g" /etc/php/8.0/fpm/pool.d/www.conf
 sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php8.1-pfm/g" /etc/php/8.1/fpm/pool.d/www.conf
 

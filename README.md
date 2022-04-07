@@ -33,7 +33,7 @@ What does this install
 Out of the box this script will install and configure the following packages using aptitude:-
 
 * Nginx
-* PHP 8.1 (8.0 and 7.4 are also included - you can set your applications/sites to use this version if you need!)
+* PHP 8.1 (and 8.0 - you can set your applications/sites to use this version if you need!)
 * Git Client
 * MariaDB
 * Redis
