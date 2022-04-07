@@ -5,6 +5,8 @@
 # Written by Bobby Allen <ballen@bobbyallen.me>, 07/04/2022                    #
 ################################################################################
 
+set -e
+
 # A random password generation function to generate MySQL passwords.
 passwordgen() {
     l=$1
