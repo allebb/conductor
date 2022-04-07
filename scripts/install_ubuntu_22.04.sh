@@ -46,10 +46,15 @@ sudo add-apt-repository universe
 sudo apt-get install -y zip unzip
 
 # Add the ondrej/php PPA (so we get the latest PHP versions...)
-sudo add-apt-repository ppa:ondrej/php -y
+sudo add-apt-repository ppa:ondrej/php -y &> /dev/null
+
+# There are no official PHP 7.4 or 8.0 for Ubuntu 22.04 so instead we'll add the 20.04 repository to enable us to install all three versions...
+sed -i 's/jammy/focal/' /etc/apt/sources.list.d/ondrej-ubuntu-php-jammy.list
+
+# Resync system packages to the latest versions.
 sudo apt-get update
 
-# Lets add PHP 7.4 (using the default distro packages)
+# Lets add PHP 7.4 (using the ondrej/php PPA)
 sudo apt-get -y install php7.4-common php7.4-cli php7.4-fpm php7.4-curl php7.4-gd php7.4-intl php7.4-mbstring php7.4-sqlite3 php7.4-mysql php7.4-json php7.4-bcmath php7.4-xml php7.4-memcache php7.4-apcu
 
 # Add PHP 8.0 (using the ondrej/php PPA)
