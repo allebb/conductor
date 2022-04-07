@@ -1,11 +1,11 @@
 Conductor
 =========
 
-Conductor is a CLI utility to automate the installation of Laravel 4.x, 5.x, 6.x, 7.x and 8.x application servers complete with some scripts and CLI commands to help deploy and manage multiple web applications on the server with ease.
+Conductor is a CLI utility to automate the installation of Laravel application servers complete with some scripts and CLI commands to help deploy and manage multiple web applications on the server with ease.
 
 Requirements
 ------------
-Conductor is developed, tested and supported on the Ubuntu Server LTS releases (20.04, 18.04, 16.04, 14.04 and 12.04) in future I may support other distributions too and I always welcome PR's from other members of the community too if they wish to contribute configuration changes/updates to the existing project source code!
+Conductor is developed, tested and supported on the Ubuntu Server LTS releases (22.04, 20.04, 18.04, 16.04, 14.04 and 12.04) in future I may support other distributions too, and I always welcome PR's from other members of the community too if they wish to contribute configuration changes/updates to the existing project source code!
 
 Installation
 ------------
@@ -17,7 +17,6 @@ bash -c "$(curl -fsSL https://raw.github.com/allebb/conductor/stable/install.sh)
 ```
 
 If you would like to automate the deployments of your applications using Git and/or standalone webhooks, you should check out [Hooker](https://github.com/allebb/hooker) - Another tool that I've built ;)
-
 
 If you wish to install on Ubuntu Server 16.04, 14.04 or 12.04 please use the instructions found on the PHP 5.6 branch instead: https://github.com/allebb/conductor/tree/ubuntu1404_php56
 
