@@ -161,7 +161,7 @@ sudo systemctl enable supervisor.service
 sudo /etc/init.d/supervisor start
 
 #Lets now restart PHP-FPM and Nginx!
-#sudo /etc/init.d/php7.4-fpm restart
+sudo /etc/init.d/php7.4-fpm restart
 sudo /etc/init.d/php8.0-fpm restart
 sudo /etc/init.d/php8.1-fpm restart
 sudo /etc/init.d/nginx restart

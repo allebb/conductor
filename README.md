@@ -22,6 +22,13 @@ If you wish to install on Ubuntu Server 16.04, 14.04 or 12.04 please use the ins
 
 If installing on FreeBSD, a slightly different approach is required at present (given that it needs some initial packages installed and OpenSSL needs some attention). If you wish to install on FreeBSD please follow the [FreeBSD Installation](INSTALL-FREEBSD.md) instructions.
 
+If you wish to install Conductor from a specific branch, you can set the ``BRANCH_INSTALL`` environment variable before running the installer like so:
+
+```shell
+export BRANCH_INSTALL="ubuntu2204-beta" # Set the name of the Git Branch you want to install from.
+bash -c "$(curl -fsSL https://raw.github.com/allebb/conductor/stable/install.sh)" # Then, when we run the installer, it'll clone and install from the required branch!
+```
+
 Upgrading Conductor
 -------------------
 
@@ -33,7 +40,7 @@ What does this install
 Out of the box this script will install and configure the following packages using aptitude:-
 
 * Nginx
-* PHP 8.1 (and 8.0 - you can set your applications/sites to use this version if you need!)
+* PHP 8.1 (in addition to older versions including PHP 7.4 and 8.0 - you can set your applications/sites to use this version if you need!)
 * Git Client
 * MariaDB
 * Redis
