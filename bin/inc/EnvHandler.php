@@ -16,13 +16,13 @@ class EnvHandler
 
     /**
      * The configuration file name and path.
-     * @var type 
+     * @var string
      */
     private $file;
 
     /**
      * Object storage for environmental variables.
-     * @var type 
+     * @var array
      */
     private $vars = [];
 
@@ -58,7 +58,7 @@ class EnvHandler
     public function save()
     {
         if (!file_put_contents($this->file, json_encode($this->vars))) {
-            throw new RuntimeException(sprinf('The configuration file could not be saved in %s', $this->file));
+            throw new RuntimeException(sprintf('The configuration file could not be saved in %s', $this->file));
         }
     }
 

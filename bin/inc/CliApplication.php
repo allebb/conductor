@@ -109,7 +109,7 @@ class CliApplication
     /**
      * Retrieve the value of an option
      * @param string $name The name of the option to return
-     * @param type $default An optional default value if its not set.
+     * @param mixed $default An optional default value if it's not set.
      * @return mixed
      */
     public function getOption($name, $default = false)

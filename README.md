@@ -44,9 +44,9 @@ Out of the box this script will install and configure the following packages usi
 * Git Client
 * MariaDB
 * Redis
-* Beanstalkd
 * Supervisor
 * CertBot (LetsEncrypt)
+* ~~Beanstalkd~~ _(Removed as of v3.3.1 but can be installed manually if desired - not many people used this message queue!)_
 
 How to use it
 -------------

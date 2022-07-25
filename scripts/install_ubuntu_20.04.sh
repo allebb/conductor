@@ -146,9 +146,9 @@ sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/8.1/fpm/php.ini
 sudo apt-get -y install redis-server
 sudo /etc/init.d/redis-server restart
 
-# Now we'll install Beanstalkd
-sudo apt-get -y install beanstalkd
-sudo /etc/init.d/beanstalkd start
+# Now we'll install Beanstalkd (Removed as of v3.3.1 but can be installed manually if desired)
+#sudo apt-get -y install beanstalkd
+#sudo /etc/init.d/beanstalkd start
 
 # Install Supervisord (if requested at installation)
 sudo apt-get -y install supervisor

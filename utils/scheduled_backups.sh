@@ -2,7 +2,7 @@
 
 #############################################################
 # Conductor Automated Backup Script                         #
-# https://github.com/bobsta63/conductor                     #
+# https://github.com/allebb/conductor                       #
 # Created by: Bobby Allen (ballen@bobbyallen.me) 20/01/2014 #
 #############################################################
 

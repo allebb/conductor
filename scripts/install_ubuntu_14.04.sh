@@ -95,10 +95,10 @@ echo "Configuring PHP-FPM for Nginx..."
 sudo apt-get -y install redis-server
 sudo /etc/init.d/redis-server restart
 
-# Now we'll install Beanstalkd
-sudo apt-get -y install beanstalkd
-sudo sed -i "s/\#START=yes/START=yes/g" /etc/default/beanstalkd
-sudo /etc/init.d/beanstalkd start
+# Now we'll install Beanstalkd (Removed as of v3.3.1 but can be installed manually if desired)
+#sudo apt-get -y install beanstalkd
+#sudo sed -i "s/\#START=yes/START=yes/g" /etc/default/beanstalkd
+#sudo /etc/init.d/beanstalkd start
 
 # A good idea that we get Supervisord installed here too!
 
