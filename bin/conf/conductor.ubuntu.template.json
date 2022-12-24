@@ -10,7 +10,7 @@
     "appconfs": "/etc/conductor/configs",
     "applogs": "/var/conductor/logs",
     "templates": "/etc/conductor/configs/common",
-    "fpmsocket": "/var/run/php/php8.1-fpm.sock",
+    "fpmsocket": "/var/run/php/php8.2-fpm.sock",
     "fastcgiparams": "/etc/nginx/fastcgi_params",
     "crontabs": "/etc/cron.d",
     "deploykeys": "/var/www/.ssh"
