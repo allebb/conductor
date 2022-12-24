@@ -25,7 +25,7 @@ If installing on FreeBSD, a slightly different approach is required at present (
 If you wish to install Conductor from a specific branch, you can set the ``BRANCH_INSTALL`` environment variable before running the installer like so:
 
 ```shell
-export BRANCH_INSTALL="ubuntu2204-beta" # Set the name of the Git Branch you want to install from.
+export BRANCH_INSTALL="ubuntu2204_php82" # Set the name of the Git Branch you want to install from.
 bash -c "$(curl -fsSL https://raw.github.com/allebb/conductor/ubuntu2204_php82/install.sh)" # Then, when we run the installer, it'll clone and install from the required branch!
 ```
 
@@ -40,7 +40,7 @@ What does this install
 Out of the box this script will install and configure the following packages using aptitude:-
 
 * Nginx
-* PHP 8.1 (in addition to older versions including PHP 7.4 and 8.0 - you can set your applications/sites to use this version if you need!)
+* PHP 8.2 (in addition to older versions including PHP 7.4, 8.0 and 8.1 - you can set your applications/sites to use this version if you need!)
 * Git Client
 * MariaDB
 * Redis
