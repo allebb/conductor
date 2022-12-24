@@ -2,7 +2,7 @@
 
 ################################################################################
 # Conductor Installation Script for Ubuntu Server 22.04 LTS                    #
-# Written by Bobby Allen <ballen@bobbyallen.me>, 07/04/2022                    #
+# Written by Bobby Allen <ballen@bobbyallen.me>, 24/12/2022                    #
 ################################################################################
 
 set -e
@@ -50,6 +50,9 @@ sudo apt-get install -y zip unzip
 # Add the ondrej/php PPA (so we get the latest PHP versions...)
 sudo add-apt-repository ppa:ondrej/php -y &> /dev/null
 
+# Add the redis/redis PPA (so we get the latest Redis version...)
+sudo add-apt-repository ppa:redislabs/redis -y &> /dev/null
+
 # Resync system packages to the latest versions.
 sudo apt-get update
 
@@ -62,8 +65,11 @@ sudo apt-get -y install php8.0-common php8.0-cli php8.0-fpm php8.0-curl php8.0-g
 # Add PHP 8.1 (using the ondrej/php PPA)
 sudo apt-get -y install php8.1-common php8.1-cli php8.1-fpm php8.1-curl php8.1-gd php8.1-intl php8.1-mbstring php8.1-sqlite3 php8.1-mysql php8.1-bcmath php8.1-xml php8.1-memcache php8.1-apcu
 
+# Add PHP 8.2 (using the ondrej/php PPA)
+sudo apt-get -y install php8.2-common php8.2-cli php8.2-fpm php8.2-curl php8.2-gd php8.2-intl php8.2-mbstring php8.2-sqlite3 php8.2-mysql php8.2-bcmath php8.2-xml php8.2-memcache php8.2-apcu
+
 # Now we will install the ZIP extension for PHP...
-sudo apt-get install -y php7.4-zip php8.0-zip php8.1-zip
+sudo apt-get install -y php7.4-zip php8.0-zip php8.1-zip php8.2-zip
 #sudo apt-get install -y php8.0-zip php8.1-zip
 
 # We install the Git Client to enable auto deployments etc.
@@ -146,6 +152,7 @@ echo "Securing cgi.fix_pathinfo..."
 sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/7.4/fpm/php.ini
 sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/8.0/fpm/php.ini
 sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/8.1/fpm/php.ini
+sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/8.2/fpm/php.ini
 
 # We'll now install Redis Server
 sudo apt-get -y install redis-server
@@ -173,6 +180,7 @@ sudo cp /etc/conductor/bin/conf/conductor.ubuntu.template.json /etc/conductor.co
 sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php7.4-pfm/g" /etc/php/7.4/fpm/pool.d/www.conf
 sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php8.0-pfm/g" /etc/php/8.0/fpm/pool.d/www.conf
 sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php8.1-pfm/g" /etc/php/8.1/fpm/pool.d/www.conf
+sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php8.2-pfm/g" /etc/php/8.2/fpm/pool.d/www.conf
 
 # Set the root password on our configuration script.
 sudo sed -i "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;

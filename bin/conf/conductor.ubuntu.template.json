@@ -45,11 +45,11 @@
       "reload": "service nginx reload"
     },
     "php_fpm": {
-      "start": "/etc/init.d/php8.1-fpm start",
-      "stop": "/etc/init.d/php8.1-fpm stop",
-      "status": "/etc/init.d/php8.1-fpm status",
-      "restart": "/etc/init.d/php8.1-fpm restart",
-      "reload": "/etc/init.d/php8.1-fpm reload"
+      "start": "/etc/init.d/php8.2-fpm start",
+      "stop": "/etc/init.d/php8.2-fpm stop",
+      "status": "/etc/init.d/php8.2-fpm status",
+      "restart": "/etc/init.d/php8.2-fpm restart",
+      "reload": "/etc/init.d/php8.2-fpm reload"
     },
     "cron": {
       "reload": "service cron reload"
