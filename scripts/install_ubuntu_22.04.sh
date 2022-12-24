@@ -57,16 +57,16 @@ sudo add-apt-repository ppa:redislabs/redis -y &> /dev/null
 sudo apt-get update
 
 # Lets add PHP 7.4 (using the ondrej/php PPA) // Not working at present, waiting for final release of 22.04 before I finalise the dependencies.
-sudo apt-get -y install php7.4-common php7.4-cli php7.4-fpm php7.4-curl php7.4-gd php7.4-intl php7.4-mbstring php7.4-sqlite3 php7.4-mysql php7.4-json php7.4-bcmath php7.4-xml php7.4-memcache php7.4-apcu
+sudo apt-get -y install php7.4-common php7.4-cli php7.4-fpm php7.4-curl php7.4-gd php7.4-intl php7.4-mbstring php7.4-sqlite3 php7.4-mysql php7.4-json php7.4-bcmath php7.4-xml php7.4-memcache php7.4-apcu php7.4-redis
 
 # Add PHP 8.0 (using the ondrej/php PPA)
-sudo apt-get -y install php8.0-common php8.0-cli php8.0-fpm php8.0-curl php8.0-gd php8.0-intl php8.0-mbstring php8.0-sqlite3 php8.0-mysql php8.0-bcmath php8.0-xml php8.0-memcache php8.0-apcu
+sudo apt-get -y install php8.0-common php8.0-cli php8.0-fpm php8.0-curl php8.0-gd php8.0-intl php8.0-mbstring php8.0-sqlite3 php8.0-mysql php8.0-bcmath php8.0-xml php8.0-memcache php8.0-apcu php8.0-redis
 
 # Add PHP 8.1 (using the ondrej/php PPA)
-sudo apt-get -y install php8.1-common php8.1-cli php8.1-fpm php8.1-curl php8.1-gd php8.1-intl php8.1-mbstring php8.1-sqlite3 php8.1-mysql php8.1-bcmath php8.1-xml php8.1-memcache php8.1-apcu
+sudo apt-get -y install php8.1-common php8.1-cli php8.1-fpm php8.1-curl php8.1-gd php8.1-intl php8.1-mbstring php8.1-sqlite3 php8.1-mysql php8.1-bcmath php8.1-xml php8.1-memcache php8.1-apcu php8.1-redis
 
 # Add PHP 8.2 (using the ondrej/php PPA)
-sudo apt-get -y install php8.2-common php8.2-cli php8.2-fpm php8.2-curl php8.2-gd php8.2-intl php8.2-mbstring php8.2-sqlite3 php8.2-mysql php8.2-bcmath php8.2-xml php8.2-memcache php8.2-apcu
+sudo apt-get -y install php8.2-common php8.2-cli php8.2-fpm php8.2-curl php8.2-gd php8.2-intl php8.2-mbstring php8.2-sqlite3 php8.2-mysql php8.2-bcmath php8.2-xml php8.2-memcache php8.2-apcu php8.2-redis
 
 # Now we will install the ZIP extension for PHP...
 sudo apt-get install -y php7.4-zip php8.0-zip php8.1-zip php8.2-zip
@@ -157,6 +157,7 @@ sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/8.2/fpm/php.ini
 # We'll now install Redis Server
 sudo apt-get -y install redis-server
 sudo /etc/init.d/redis-server restart
+redis-cli -v
 
 # Now we'll install Beanstalkd (Removed as of v3.3.1 but can be installed manually if desired)
 #sudo apt-get -y install beanstalkd
@@ -171,6 +172,7 @@ sudo /etc/init.d/supervisor start
 sudo /etc/init.d/php7.4-fpm restart
 sudo /etc/init.d/php8.0-fpm restart
 sudo /etc/init.d/php8.1-fpm restart
+sudo /etc/init.d/php8.2-fpm restart
 sudo /etc/init.d/nginx restart
 
 # Lets copy the configuration file template to /etc/conductor.conf for simplified administration.

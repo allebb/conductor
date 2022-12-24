@@ -26,7 +26,7 @@ If you wish to install Conductor from a specific branch, you can set the ``BRANC
 
 ```shell
 export BRANCH_INSTALL="ubuntu2204-beta" # Set the name of the Git Branch you want to install from.
-bash -c "$(curl -fsSL https://raw.github.com/allebb/conductor/stable/install.sh)" # Then, when we run the installer, it'll clone and install from the required branch!
+bash -c "$(curl -fsSL https://raw.github.com/allebb/conductor/ubuntu2204_php82/install.sh)" # Then, when we run the installer, it'll clone and install from the required branch!
 ```
 
 Upgrading Conductor
