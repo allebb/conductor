@@ -6,7 +6,7 @@
 # * * * * * www-data cd @@APPPATH@@ && /usr/bin/php artisan schedule:run >> /dev/null 2>&1
 #
 # Remember that you can use different PHP versions if you need support for older PHP versions, simpy change the `php` binary
-# path (eg. /usr/bin/php7.4, /usr/bin/php8.0 or /usr/bin/php8.1).
+# path (eg. /usr/bin/php7.4, /usr/bin/php8.0, /usr/bin/php8.1 or /usr/bin/php8.2).
 #
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin

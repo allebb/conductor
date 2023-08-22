@@ -5,12 +5,14 @@ Conductor is a CLI utility to automate the installation of Laravel application s
 
 Requirements
 ------------
-Conductor is developed, tested and supported on the Ubuntu Server LTS releases (22.04, 20.04, 18.04, 16.04, 14.04 and 12.04) in future I may support other distributions too, and I always welcome PR's from other members of the community too if they wish to contribute configuration changes/updates to the existing project source code!
+Conductor is developed, tested and supported on the Ubuntu Server LTS releases (22.04, 20.04, 18.04, 16.04, 14.04 and 12.04) and Debian 12 (Bookworm) in future I may support other distributions too, I as always welcome PR's from other members of the community too if they wish to contribute configuration changes/updates to the existing project source code!
 
 Installation
 ------------
 
-Installation on Ubuntu servers can be done effortlessly by simply running this command from the console!
+Installation on Ubuntu or Debian-based servers can be done effortlessly by simply running this command from the console!
+
+> If installing on Debian, please ensure you install the ``sudo`` package BEFORE attempting to run the installer. You can do this by running ``apt install -y sudo``.
 
 ```shell
 bash -c "$(curl -fsSL https://raw.github.com/allebb/conductor/stable/install.sh)"
