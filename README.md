@@ -12,7 +12,7 @@ Installation
 
 Installation on Ubuntu or Debian-based servers can be done effortlessly by simply running this command from the console!
 
-> If installing on Debian, please ensure you install the ``sudo`` package BEFORE attempting to run the installer. You can do this by running ``apt install -y sudo``.
+> If installing on Debian, please ensure you install the ``sudo`` and ``curl`` packages **BEFORE** attempting to run the installer. You can do this by running ``apt install -y sudo curl``.
 
 ```shell
 bash -c "$(curl -fsSL https://raw.github.com/allebb/conductor/stable/install.sh)"
