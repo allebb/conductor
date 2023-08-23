@@ -5,6 +5,7 @@
 # Written by Bobby Allen <ballen@bobbyallen.me>, 24/12/2022                    #
 ################################################################################
 
+# Exit early if there was an issue with the installation.
 set -e
 
 # A random password generation function to generate MySQL passwords.
@@ -41,10 +42,12 @@ randpassword=$(passwordgen);
 
 # Set a random MariaDB root password...
 mysqladmin -u root -proot password "$randpassword"
-mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host != 'localhost'";
 mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
-mysql -u root -p"$randpassword" -e "FLUSH PRIVILEGES";
+mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');"
+mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
 mysql -u root -p"$randpassword" -e "DROP DATABASE IF EXISTS test";
+mysql -u root -p"$randpassword" -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';"
+mysql -u root -p"$randpassword" -e "FLUSH PRIVILEGES";
 
 # Enable the Universe repository (since Ubuntu 18.04 various packages are supplied in the universe repo eg. libzip4.0, beanstalkd, supervisor and letsencrypt)...
 sudo NEEDRESTART_MODE=a add-apt-repository universe -y
