@@ -21,7 +21,7 @@
 #       return         301 https://$server_name$request_uri;
 #}
 
-# If you wish to redirect HTTPS traffic too, such as from a `www.` sub-domain to your TLD, you should enable this configuration block.
+# If you wish to redirect HTTPS traffic too, such as from a `www.` subdomain to your TLD, you should enable this configuration block.
 # Be sure to replace the two occurrences of `{yourdomain}` in this configuration block with your TLD.
 #server {
 #        listen                  443 ssl;
@@ -96,6 +96,11 @@ server {
 		fastcgi_split_path_info         ^(.+\.php)(.*)$;
 		include                         @@FASTCGIPARAMS@@;
 		fastcgi_param                   SCRIPT_FILENAME $document_root$fastcgi_script_name;
+
+		# Optionally you can override any (default) PHP configuration (php.ini) values:
+		#fastcgi_param  PHP_VALUE  upload_max_filesize=32M;
+		#fastcgi_param  PHP_VALUE  post_max_size=38M;
+
 		# START APPLICATION ENV VARIABLES
 		fastcgi_param                   APP_ENV @@ENVIROMENT@@;
 		# END APPLICATION ENV VARIABLES
@@ -110,7 +115,7 @@ server {
 	}
 
 	# Deny access to any files with a .php extension in the uploads directory
-	# Works in sub-directory installs and also in multisite network
+	# Works in subdirectory installs and also in multisite network
 	# Keep logging the requests to parse later (or to pass to firewall utilities such as fail2ban)
 	location ~* /(?:uploads|files)/.*\.php$ {
 		deny all;

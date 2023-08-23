@@ -14,6 +14,11 @@ passwordgen() {
 
 # Ask the user here if they wish to install MySQL locally or not, if they choose
 # not we need to prompt the user for their remote DB server and user credentials.
+# @todo
+
+# Ask the user if they would like us to auto-configure a firewall with suggested
+# ports being opened by default (80, 443, 22).
+# @todo
 
 sudo apt-get update
 sudo apt-get -y install software-properties-common debconf-i18n curl
@@ -148,20 +153,13 @@ sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/8.0/fpm/php.ini
 sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/8.1/fpm/php.ini
 sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/8.2/fpm/php.ini
 
-# We'll now install Redis Server
-#sudo apt-get -y install redis-server
-#sudo /etc/init.d/redis-server restart
-
 # From the official Redis APT repository (ensure we get the latest version)
 sudo curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
 echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/redis.list
 sudo apt-get update
 sudo apt-get install redis-server -y
+sudo systemctl enable redis-server.service
 sudo /etc/init.d/redis-server restart
-
-# Now we'll install Beanstalkd (Removed as of v3.3.1 but can be installed manually if desired)
-#sudo apt-get -y install beanstalkd
-#sudo /etc/init.d/beanstalkd start
 
 # Install Supervisord (if requested at installation)
 sudo apt-get -y install supervisor
@@ -178,12 +176,6 @@ sudo /etc/init.d/nginx restart
 # Lets copy the configuration file template to /etc/conductor.conf for simplified administration.
 sudo cp /etc/conductor/bin/conf/conductor.ubuntu.template.json /etc/conductor.conf
 
-# Ubuntu 16.04 specific replacements in the Ubuntu Server configuration.
-#sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php7.4-fpm/g" /etc/php/7.4/fpm/pool.d/www.conf
-#sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php8.0-fpm/g" /etc/php/8.0/fpm/pool.d/www.conf
-#sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php8.1-fpm/g" /etc/php/8.1/fpm/pool.d/www.conf
-#sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php8.2-fpm/g" /etc/php/8.2/fpm/pool.d/www.conf
-
 # Set the root password on our configuration script.
 sudo sed -i "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;
 echo ""
@@ -191,4 +183,7 @@ echo "MySQL server root password has been set to: ${randpassword}"
 echo ""
 echo "Congratulations! Conductor is now successfully installed you are running: "
 sudo conductor -v
+echo ""
+echo "It is recommended that you edit the /etc/conductor.conf file and set the"
+echo "admin.email property to configure an email address for LetsEncrypt (Certbot)!"
 echo ""

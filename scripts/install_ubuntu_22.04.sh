@@ -16,6 +16,11 @@ passwordgen() {
 
 # Ask the user here if they wish to install MySQL locally or not, if they choose
 # not we need to prompt the user for their remote DB server and user credentials.
+# @todo
+
+# Ask the user if they would like us to auto-configure a firewall with suggested
+# ports being opened by default (80, 443, 22).
+# @todo
 
 sudo NEEDRESTART_MODE=a apt-get update
 sudo NEEDRESTART_MODE=a apt-get -y install software-properties-common apt-transport-https debconf-i18n
@@ -79,7 +84,7 @@ sudo apt-get -y install git
 sudo apt-get -y install letsencrypt
 
 # Create a strong Diffie-Hellman Group
-sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
+sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 4096 # Increased from 2048 in previous version!
 
 # Lets now create a default folder structure to hold all of our applications.
 # Now we need to pull 'conductor' from GitHub and we'll now deploy the application ready for it to be used.
@@ -191,4 +196,7 @@ echo "MySQL server root password has been set to: ${randpassword}"
 echo ""
 echo "Congratulations! Conductor is now successfully installed you are running: "
 sudo conductor -v
+echo ""
+echo "It is recommended that you edit the /etc/conductor.conf file and set the"
+echo "admin.email property to configure an email address for LetsEncrypt (Certbot)!"
 echo ""

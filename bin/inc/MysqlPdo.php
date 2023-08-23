@@ -17,7 +17,7 @@ class MysqlPdo
     protected static $db;
 
     /**
-     * Singleton constuctor
+     * Singleton constructor
      * @param string $host The database servers address (IP or hostname), defaults to 'localhost'
      * @param string $database The MySQL database name.
      * @param string $user The MySQL database name.
@@ -26,7 +26,7 @@ class MysqlPdo
     private function __construct($host, $database, $user, $pass)
     {
         try {
-            self::$db = new PDO('mysql:host=' . $host . ';dbname=' . $database . '', $user, $pass);
+            self::$db = new PDO('mysql:host=' . $host . ';dbname=' . $database, $user, $pass);
             self::$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         } catch (PDOException $e) {
             echo "Connection Error: " . $e->getMessage();
