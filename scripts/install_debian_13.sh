@@ -73,8 +73,8 @@ sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 4096
 ################################################################################
 # Conductor Deployment
 ################################################################################
+BRANCH_INSTALL="${BRANCH_INSTALL:-stable}"
 echo "Installer requested branch checkout: ${BRANCH_INSTALL}"
-BRANCH_INSTALL="${BRANCH_INSTALL:-main}"
 
 sudo git clone https://github.com/allebb/conductor.git /etc/conductor
 cd /etc/conductor
