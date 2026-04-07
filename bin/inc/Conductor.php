@@ -5,7 +5,7 @@ require_once 'MysqlPdo.php';
 /**
  * Conductor
  *
- * Conductor is a CLI tool to aid provisioning and maintenance of PHP based sites and applications.
+ * Conductor is a CLI tool to aid provisioning and maintenance of PHP-based sites and applications.
  *
  * @author Bobby Allen <ballen@bobbyallen.me>
  * @license http://opensource.org/licenses/MIT
@@ -19,7 +19,7 @@ class Conductor extends CliApplication
     /**
      * The main Conductor application version.
      */
-    const CONDUCTOR_VERSION = "3.3.3";
+    const CONDUCTOR_VERSION = "3.4.0";
 
     /**
      * The path to the core application configuration file.
