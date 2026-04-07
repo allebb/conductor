@@ -3,7 +3,6 @@ set -e
 
 ################################################################################
 # Conductor Installation Script for Debian 13 (Trixie)
-# Updated by Copilot for Bobby Allen
 ################################################################################
 
 passwordgen() {
@@ -14,7 +13,7 @@ passwordgen() {
 
 echo "Updating system..."
 sudo apt-get update
-sudo apt-get -y install software-properties-common debconf-i18n curl gnupg2 ca-certificates lsb-release
+sudo apt-get -y install curl gnupg ca-certificates lsb-release zip unzip git
 
 ################################################################################
 # NGINX
@@ -24,14 +23,14 @@ sudo apt-get -y install nginx
 ################################################################################
 # MariaDB 10.11 (Debian 13 default)
 ################################################################################
-export DEBIAN_FRONTEND="noninteractive"
-
+echo "Installing MariaDB..."
 sudo apt-get -y install mariadb-server mariadb-client
 
+echo "Configuring MariaDB root user..."
 randpassword=$(passwordgen)
 
-sudo mysql -u root <<EOF
-ALTER USER 'root'@'localhost' IDENTIFIED BY '${randpassword}';
+sudo mysql <<EOF
+ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('${randpassword}');
 DELETE FROM mysql.user WHERE User='';
 DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
 DROP DATABASE IF EXISTS test;
@@ -40,21 +39,19 @@ FLUSH PRIVILEGES;
 EOF
 
 ################################################################################
-# ZIP tools
-################################################################################
-sudo apt-get install -y zip unzip
-
-################################################################################
 # PHP (Sury repo)
 ################################################################################
+echo "Adding Sury PHP repository..."
 sudo curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg
 echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" \
     | sudo tee /etc/apt/sources.list.d/php.list
 
 sudo apt-get update
 
-# Debian 13 supports PHP 8.1, 8.2, 8.3
-PHP_VERSIONS=("8.1" "8.2" "8.3")
+# Supported PHP versions on Debian 13 via Sury
+PHP_VERSIONS=("8.1" "8.2" "8.3" "8.4")
+
+echo "Installing PHP versions: ${PHP_VERSIONS[*]}"
 
 for v in "${PHP_VERSIONS[@]}"; do
     sudo apt-get -y install \
@@ -64,12 +61,7 @@ for v in "${PHP_VERSIONS[@]}"; do
 done
 
 ################################################################################
-# Git
-################################################################################
-sudo apt-get -y install git
-
-################################################################################
-# Certbot (replaces deprecated letsencrypt package)
+# Certbot (replaces deprecated letsencrypt)
 ################################################################################
 sudo apt-get -y install certbot python3-certbot-nginx
 
@@ -82,12 +74,12 @@ sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 4096
 # Conductor Deployment
 ################################################################################
 echo "Installer requested branch checkout: ${BRANCH_INSTALL}"
-CURRENTDIR=$(pwd)
+BRANCH_INSTALL="${BRANCH_INSTALL:-main}"
 
 sudo git clone https://github.com/allebb/conductor.git /etc/conductor
 cd /etc/conductor
 sudo git checkout "${BRANCH_INSTALL}"
-cd "$CURRENTDIR"
+cd -
 
 sudo mkdir -p /var/conductor/{applications,certificates,logs,backups,tmp}
 
