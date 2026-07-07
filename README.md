@@ -5,7 +5,7 @@ Conductor is a CLI utility to automate the installation of Laravel application s
 
 Requirements
 ------------
-Conductor is developed, tested and supported on the Ubuntu Server LTS releases (22.04, 20.04, 18.04, 16.04, 14.04 and 12.04) and Debian 12 (Bookworm) in future I may support other distributions too, I as always welcome PR's from other members of the community too if they wish to contribute configuration changes/updates to the existing project source code!
+Conductor is developed, tested and supported on the Ubuntu Server LTS releases (22.04, 20.04, 18.04, 16.04, 14.04 and 12.04), Debian 12 (Bookworm) and Debian 13 (Trixie) in future I may support other distributions too, I as always welcome PR's from other members of the community too if they wish to contribute configuration changes/updates to the existing project source code!
 
 Installation
 ------------
@@ -224,12 +224,12 @@ Should be changed to...
 * * * * * cd /var/conductor/application/{appname} && php7.4 artisan schedule:run >> /dev/null 2>&1
 ```
 
-**Notice the replacement of the ``php`` binary with the ``php7.4`` specific binary! If you fail to do this, your scheduled tasks will run using default PHP 8.1 runtime!
+**Notice the replacement of the ``php`` binary with the ``php7.4`` specific binary! If you fail to do this, your scheduled tasks will run using default PHP 8.5 runtime!
 
 If you want your server to use PHP 7.4 by default, you can update the default socket path that will be used when provisioning new virtual host configuration, to do this you should edit the main Conductor configuration settings file here: ``/etc/conductor.conf``, change this line:
 
 ```text
-        "fpmsocket": "/var/run/php/php8.1-fpm.sock",
+        "fpmsocket": "/var/run/php/php8.5-fpm.sock",
 ```
 
 to...

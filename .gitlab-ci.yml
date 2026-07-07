@@ -1,0 +1,28 @@
+# Requires a GitLab Runner configured with the Docker executor.
+stages:
+  - test
+
+test:
+  stage: test
+  image: "php:${PHP_VERSION}-cli"
+  parallel:
+    matrix:
+      - PHP_VERSION: ["8.3", "8.4", "8.5"]
+  before_script:
+    - apt-get update -yqq
+    - apt-get install -yqq --no-install-recommends git unzip libzip-dev
+    - docker-php-ext-install pdo_mysql zip
+    - php -m | grep -qi '^posix$' || (echo "Missing required extension: posix" && exit 1)
+    - php -m | grep -qi '^json$' || (echo "Missing required extension: json" && exit 1)
+    - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+    - php -v
+    - composer --version
+    - composer validate --strict
+    - composer install --prefer-dist --no-progress
+  script:
+    - for file in $(find bin -name "*.php"); do php -l "$file"; done
+    - vendor/bin/phpunit
+  cache:
+    key: "$CI_COMMIT_REF_SLUG-php-$PHP_VERSION"
+    paths:
+      - vendor/

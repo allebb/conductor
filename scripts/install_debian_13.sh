@@ -13,7 +13,7 @@ passwordgen() {
 
 echo "Updating system..."
 sudo apt-get update
-sudo apt-get -y install curl gnupg ca-certificates lsb-release zip unzip git
+sudo apt-get -y install curl wget gnupg ca-certificates lsb-release zip unzip git
 
 ################################################################################
 # NGINX
@@ -21,16 +21,31 @@ sudo apt-get -y install curl gnupg ca-certificates lsb-release zip unzip git
 sudo apt-get -y install nginx
 
 ################################################################################
-# MariaDB 10.11 (Debian 13 default)
+# MySQL (official Oracle MySQL APT repository)
 ################################################################################
-echo "Installing MariaDB..."
-sudo apt-get -y install mariadb-server mariadb-client
+# Change this to eg. "mysql-8.4-lts" if you need the previous LTS series instead.
+MYSQL_SERVER_SERIES="mysql-9.7-lts"
 
-echo "Configuring MariaDB root user..."
+echo "Installing the official MySQL APT repository (${MYSQL_SERVER_SERIES})..."
+curl -fsSL https://repo.mysql.com/mysql-apt-config.deb -o /tmp/mysql-apt-config.deb
+
+# mysql-apt-config's own postinst reads these environment variables when
+# DEBIAN_FRONTEND=noninteractive, so this configures + installs the repo (and its
+# signing key, to /usr/share/keyrings/mysql-apt-config.gpg) without any prompts.
+sudo env DEBIAN_FRONTEND=noninteractive MYSQL_SERVER_VERSION="${MYSQL_SERVER_SERIES}" \
+    dpkg -i /tmp/mysql-apt-config.deb
+rm -f /tmp/mysql-apt-config.deb
+
+sudo apt-get update
+sudo DEBIAN_FRONTEND=noninteractive apt-get -y install mysql-server mysql-client
+
+echo "Configuring MySQL root user..."
 randpassword=$(passwordgen)
 
+# A blank root password during install leaves root@localhost on the auth_socket
+# plugin (passwordless, OS-user-matched login) - switch it to a real password here.
 sudo mysql <<EOF
-ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('${randpassword}');
+ALTER USER 'root'@'localhost' IDENTIFIED WITH caching_sha2_password BY '${randpassword}';
 DELETE FROM mysql.user WHERE User='';
 DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
 DROP DATABASE IF EXISTS test;
@@ -48,8 +63,9 @@ echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.
 
 sudo apt-get update
 
-# Supported PHP versions on Debian 13 via Sury
-PHP_VERSIONS=("8.1" "8.2" "8.3" "8.4")
+# Supported PHP versions on Debian 13 via Sury. PHP 8.5 is the default/active version (see below).
+PHP_VERSIONS=("7.4" "8.1" "8.4" "8.5")
+PHP_DEFAULT_VERSION="8.5"
 
 echo "Installing PHP versions: ${PHP_VERSIONS[*]}"
 
@@ -57,8 +73,16 @@ for v in "${PHP_VERSIONS[@]}"; do
     sudo apt-get -y install \
         php${v}-common php${v}-cli php${v}-fpm php${v}-curl php${v}-gd php${v}-intl \
         php${v}-mbstring php${v}-sqlite3 php${v}-mysql php${v}-bcmath php${v}-xml \
-        php${v}-zip php${v}-apcu php${v}-memcache || true
+        php${v}-zip php${v}-apcu
+
+    # The legacy `memcache` PECL extension isn't packaged for every PHP release
+    # (eg. missing for 8.5 at the time of writing), so install it best-effort and
+    # on its own, rather than letting a missing package block the whole set above.
+    sudo apt-get -y install php${v}-memcache || true
 done
+
+echo "Setting PHP ${PHP_DEFAULT_VERSION} as the default 'php' CLI binary..."
+sudo update-alternatives --set php /usr/bin/php${PHP_DEFAULT_VERSION}
 
 ################################################################################
 # Certbot (replaces deprecated letsencrypt)
