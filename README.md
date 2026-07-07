@@ -12,7 +12,7 @@ Installation
 
 Installation on Ubuntu or Debian-based servers can be done effortlessly by simply running this command from the console!
 
-> If installing on Debian, please ensure you install the ``sudo`` and ``curl`` packages **BEFORE** attempting to run the installer. You can do this by running ``apt install -y sudo curl``.
+> If installing on Debian, please ensure you install the ``sudo``, ``lsb-release``, and ``curl`` packages **BEFORE** attempting to run the installer. You can do this by running ``apt install -y sudo curl``.
 
 ```shell
 bash -c "$(curl -fsSL https://raw.github.com/allebb/conductor/stable/install.sh)"
@@ -29,6 +29,22 @@ If you wish to install Conductor from a specific branch, you can set the ``BRANC
 ```shell
 export BRANCH_INSTALL="ubuntu2204_php82" # Set the name of the Git Branch you want to install from.
 bash -c "$(curl -fsSL https://raw.github.com/allebb/conductor/ubuntu2204_php82/install.sh)" # Then, when we run the installer, it'll clone and install from the required branch!
+```
+
+By default, on Debian 13, this installs multiple PHP versions, and each of the FPM pools are started automatically! If you don't intend on using specific versions you can disable them (freeing resources) as follows:
+
+```shell
+# List all existing/installed PHP-FPM units:
+systemctl list-units --type=service | grep fpm
+
+# You can individually disable them like so:
+sudo systemctl disable php7.4-fpm && sudo systemctl stop php7.4-fpm 
+sudo systemctl disable php8.1-fpm && sudo systemctl stop php8.1-fpm 
+sudo systemctl disable php8.4-fpm && sudo systemctl stop php8.4-fpm 
+sudo systemctl disable php8.5-fpm && sudo systemctl stop php8.5-fpm 
+
+# Want to re-enable them (to use with web applications requiring specific PHP versions), simply run:
+sudo systemctl enable php7.4-fpm && sudo systemctl start php7.4-fpm 
 ```
 
 Upgrading Conductor

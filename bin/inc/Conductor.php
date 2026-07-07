@@ -208,8 +208,12 @@ class Conductor extends CliApplication
     {
         $this->appNameRequired();
 
+        // Creating the user and granting privileges in separate statements (rather than the legacy
+        // combined `GRANT ... IDENTIFIED BY`) is required since MySQL 8.0 removed that syntax entirely;
+        // this form still works fine on MariaDB too.
         $this->mysql->exec('CREATE DATABASE if NOT EXISTS `db_' . $this->appname . '`;');
-        $this->mysql->exec('GRANT ALL ON `db_' . $this->appname . '` .* TO \'' . $this->appname . '\'@\'' . $this->conf->mysql->confrom . '\' IDENTIFIED BY \'' . $db_pass . '\';');
+        $this->mysql->exec('CREATE USER IF NOT EXISTS \'' . $this->appname . '\'@\'' . $this->conf->mysql->confrom . '\' IDENTIFIED BY \'' . $db_pass . '\';');
+        $this->mysql->exec('GRANT ALL ON `db_' . $this->appname . '`.* TO \'' . $this->appname . '\'@\'' . $this->conf->mysql->confrom . '\';');
         $this->mysql->exec('FLUSH PRIVILEGES;');
 
         $this->writeln();
