@@ -65,6 +65,11 @@ Out of the box this script will install and configure the following packages usi
 * Supervisor
 * CertBot (LetsEncrypt)
 
+Optional post-install hardening:
+
+* Fail2Ban
+* iptables
+
 How to use it
 -------------
 It's pretty straight forward to use, I'll go over briefly the main features (CLI options) and what they do.
@@ -109,6 +114,39 @@ This command will prompt you for the 'FQDN' (or you can add multiple addresses o
 The templates are just that, a template! Once your application has provisioned on the server you can then run ``conductor edit {appname}`` which will open up your virtual host configuration template and you can tweak it as you need.
 
 That it, once you have passed through all the prompts your application will then be live and accessible!
+
+### Optional Fail2Ban and iptables protection
+
+Conductor includes an optional installer for Fail2Ban and iptables. It is not run by the main installer, so you can add it after Conductor is installed:
+
+```shell
+sudo bash /etc/conductor/utils/install_fail2ban_iptables.sh
+```
+
+Each Nginx vhost template includes a commented security log line:
+
+```nginx
+#access_log /tmp/conductor_{appname}.seclog conductor_security;
+```
+
+Uncomment that line in any application vhost you want Fail2Ban to monitor, then run ``sudo nginx -t`` and reload Nginx. The Fail2Ban templates watch ``/tmp/conductor_*.seclog`` and install three automatic jails:
+
+* excessive 4xx responses: 80 hits in 10 minutes, banned for 30 minutes.
+* scanner probes for common sensitive paths: 5 hits in 10 minutes, banned for 1 hour.
+* high total request rate: 600 hits in 1 minute, banned for 24 hours.
+
+The security log format records only the timestamp, client IP, status code, request line, and user agent. ``/tmp`` is often memory-backed on modern Linux systems, but not always; check ``findmnt /tmp`` if this matters for your server. A logrotate rule is installed to rotate matching security logs at 10MB and keep three compressed rotations.
+
+Once Fail2Ban support is installed, Conductor can manage bans directly:
+
+```shell
+sudo conductor ban list
+sudo conductor ban purge
+sudo conductor ban 203.0.113.10
+sudo conductor unban 203.0.113.10
+```
+
+Manual bans are added to the ``conductor-manual`` jail and remain in place until explicitly unbanned or purged. ``ban purge`` clears all IP addresses currently banned by Fail2Ban, including bans created by non-Conductor jails.
 
 #### ```conductor destroy {app name}```
 

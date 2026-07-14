@@ -1,0 +1,10 @@
+/tmp/conductor_*.seclog {
+    size 10M
+    rotate 3
+    missingok
+    notifempty
+    copytruncate
+    compress
+    delaycompress
+    su www-data adm
+}

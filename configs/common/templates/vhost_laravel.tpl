@@ -1,5 +1,7 @@
 # Conductor managed Nginx Virtual Host File
 #
+# Auto-created by Conductor (v@@VERSION@@) at: @@CREATED_AT@@
+#
 # IMPORTANT:
 # If you manually edit this file you must ensure that the list of managed domains below are updated if you
 # add or remove domains to this virtualhost configuration as Conductor will use this list to provision and
@@ -64,6 +66,9 @@ server {
     access_log      @@HLOGS@@access.log;
     error_log       @@HLOGS@@error.log;
     rewrite_log     on;
+
+    # Fail2Ban (optional) protection, uncomment to enable!
+	#access_log     /tmp/conductor_@@APPNAME@@.seclog conductor_security;
 
     # Recommended security headers
     add_header      X-Frame-Options         "SAMEORIGIN";

@@ -80,6 +80,22 @@ if (isset($commands[1])) {
             $conductor->serviceControl($commands[2]);
             $conductor->endWithSuccess();
             break;
+        case "ban":
+            if (!isset($commands[2])) {
+                displayHelp($conductor);
+                break;
+            }
+            $conductor->banControl($commands[2]);
+            $conductor->endWithSuccess();
+            break;
+        case "unban":
+            if (!isset($commands[2])) {
+                displayHelp($conductor);
+                break;
+            }
+            $conductor->unbanIpAddress($commands[2]);
+            $conductor->endWithSuccess();
+            break;
 
         default:
             displayHelp($conductor);
@@ -110,6 +126,10 @@ function displayHelp($conductor)
     $conductor->writeln('  restore {name}      Restores an application and dependent DB\'s');
     $conductor->writeln('  start {name}        Starts a specific application (Laravel Apps only!)');
     $conductor->writeln('  stop {name}         Stops a specific application (Laravel Apps only!)');
+    $conductor->writeln('  ban list            Lists all IP addresses banned by Fail2Ban');
+    $conductor->writeln('  ban purge           Clears all IP addresses banned by Fail2Ban');
+    $conductor->writeln('  ban {ip_address}    Manually bans an IP address');
+    $conductor->writeln('  unban {ip_address}  Unbans an IP address from all Fail2Ban jails');
     $conductor->writeln();
     $conductor->writeln('  genkey {name}       Generates an SSH deployment key for an application');
     $conductor->writeln('  delkey {name}       Deletes the SSH deployment key for an application.');

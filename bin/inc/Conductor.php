@@ -162,6 +162,249 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Action Fail2Ban IP ban management commands.
+     * @param string $actionOrIp
+     */
+    public function banControl($actionOrIp)
+    {
+        $this->ensureFail2BanClient();
+
+        if ($actionOrIp == 'list') {
+            $this->listBannedIps();
+            return;
+        }
+
+        if ($actionOrIp == 'purge') {
+            $this->purgeBannedIps();
+            return;
+        }
+
+        $this->banIpAddress($actionOrIp);
+    }
+
+    /**
+     * Unban an IP address from every active Fail2Ban jail.
+     * @param string $ip_address
+     */
+    public function unbanIpAddress($ip_address)
+    {
+        $this->ensureFail2BanClient();
+        $this->validateIpAddress($ip_address);
+
+        $removed = 0;
+        foreach ($this->fail2BanJails() as $jail) {
+            $output = [];
+            $this->runFail2BanClient(['get', $jail, 'banip'], $output);
+            if (!in_array($ip_address, $this->extractIpAddresses(implode(' ', $output)))) {
+                continue;
+            }
+
+            $unban_output = [];
+            if ($this->runFail2BanClient(['set', $jail, 'unbanip', $ip_address], $unban_output) === 0) {
+                $removed++;
+            }
+        }
+
+        if ($removed === 0) {
+            $this->writeln('The IP address was not banned in any active Fail2Ban jail.');
+            return;
+        }
+
+        $this->writeln('Unbanned ' . $ip_address . ' from ' . $removed . ' Fail2Ban jail(s).');
+    }
+
+    /**
+     * Validate that Fail2Ban is available.
+     */
+    private function ensureFail2BanClient()
+    {
+        $output = [];
+        exec('command -v fail2ban-client 2>/dev/null', $output, $exit_code);
+        if ($exit_code !== 0) {
+            $this->writeln('Fail2Ban is not installed, run: utils/install_fail2ban_iptables.sh to enable these features!');
+            $this->endWithError();
+        }
+    }
+
+    /**
+     * Ban an IP address manually until it is explicitly unbanned or purged.
+     * @param string $ip_address
+     */
+    private function banIpAddress($ip_address)
+    {
+        $this->validateIpAddress($ip_address);
+
+        $jail = 'conductor-manual';
+        if (!in_array($jail, $this->fail2BanJails())) {
+            $this->writeln('The conductor-manual Fail2Ban jail is not active. Re-run the optional installer and restart Fail2Ban.');
+            $this->endWithError();
+        }
+
+        $output = [];
+        if ($this->runFail2BanClient(['set', $jail, 'banip', $ip_address], $output) !== 0) {
+            $this->writeln('Unable to ban ' . $ip_address . ': ' . implode(' ', $output));
+            $this->endWithError();
+        }
+
+        $this->writeln('Banned ' . $ip_address . ' in the ' . $jail . ' jail.');
+    }
+
+    /**
+     * Show all IP addresses currently banned by Fail2Ban.
+     */
+    private function listBannedIps()
+    {
+        $rows = [];
+        foreach ($this->fail2BanJails() as $jail) {
+            $output = [];
+            if ($this->runFail2BanClient(['get', $jail, 'banip', '--with-time'], $output) !== 0) {
+                $output = [];
+                $this->runFail2BanClient(['get', $jail, 'banip'], $output);
+            }
+
+            $ips = $this->extractIpAddresses(implode(' ', $output));
+            if (empty($ips)) {
+                continue;
+            }
+
+            $ban_time = $this->fail2BanJailBanTime($jail);
+            foreach ($ips as $ip_address) {
+                $rows[] = [$ip_address, $jail, $ban_time];
+            }
+        }
+
+        if (empty($rows)) {
+            $this->writeln('No IP addresses are currently banned by Fail2Ban.');
+            return;
+        }
+
+        $this->writeln(str_pad('IP address', 40) . str_pad('Jail', 30) . 'Ban time');
+        $this->writeln(str_repeat('-', 80));
+        foreach ($rows as $row) {
+            $this->writeln(str_pad($row[0], 40) . str_pad($row[1], 30) . $row[2]);
+        }
+    }
+
+    /**
+     * Clear every IP address currently banned by Fail2Ban.
+     */
+    private function purgeBannedIps()
+    {
+        $removed = 0;
+        foreach ($this->fail2BanJails() as $jail) {
+            $output = [];
+            $this->runFail2BanClient(['get', $jail, 'banip'], $output);
+            foreach ($this->extractIpAddresses(implode(' ', $output)) as $ip_address) {
+                $unban_output = [];
+                if ($this->runFail2BanClient(['set', $jail, 'unbanip', $ip_address], $unban_output) === 0) {
+                    $removed++;
+                }
+            }
+        }
+
+        $this->writeln('Purged ' . $removed . ' banned IP address entr' . ($removed === 1 ? 'y.' : 'ies.'));
+    }
+
+    /**
+     * Get all active Fail2Ban jails.
+     * @return array
+     */
+    private function fail2BanJails()
+    {
+        $output = [];
+        if ($this->runFail2BanClient(['status'], $output) !== 0) {
+            $this->writeln('Unable to read Fail2Ban status.');
+            $this->endWithError();
+        }
+
+        if (!preg_match('/Jail list:\s*(.+)$/m', implode(PHP_EOL, $output), $matches)) {
+            return [];
+        }
+
+        return array_filter(array_map('trim', explode(',', $matches[1])));
+    }
+
+    /**
+     * Get a human-readable configured ban time for a jail.
+     * @param string $jail
+     * @return string
+     */
+    private function fail2BanJailBanTime($jail)
+    {
+        $output = [];
+        if ($this->runFail2BanClient(['get', $jail, 'bantime'], $output) !== 0 || empty($output)) {
+            return 'unknown';
+        }
+
+        $seconds = (int) trim($output[0]);
+        if ($seconds < 0) {
+            return 'permanent';
+        }
+
+        if ($seconds >= 86400 && $seconds % 86400 === 0) {
+            return ($seconds / 86400) . ' day(s)';
+        }
+
+        if ($seconds >= 3600 && $seconds % 3600 === 0) {
+            return ($seconds / 3600) . ' hour(s)';
+        }
+
+        if ($seconds >= 60 && $seconds % 60 === 0) {
+            return ($seconds / 60) . ' minute(s)';
+        }
+
+        return $seconds . ' second(s)';
+    }
+
+    /**
+     * Execute fail2ban-client safely.
+     * @param array $arguments
+     * @param array $output
+     * @return int
+     */
+    private function runFail2BanClient($arguments, &$output)
+    {
+        $command = 'fail2ban-client';
+        foreach ($arguments as $argument) {
+            $command .= ' ' . escapeshellarg($argument);
+        }
+
+        exec($command . ' 2>&1', $output, $exit_code);
+        return $exit_code;
+    }
+
+    /**
+     * Extract valid IPv4 and IPv6 addresses from command output.
+     * @param string $text
+     * @return array
+     */
+    private function extractIpAddresses($text)
+    {
+        preg_match_all('/(?:\d{1,3}\.){3}\d{1,3}|(?:[a-f0-9]{0,4}:){2,}[a-f0-9]{0,4}/i', $text, $matches);
+
+        $ips = [];
+        foreach ($matches[0] as $candidate) {
+            if (filter_var($candidate, FILTER_VALIDATE_IP)) {
+                $ips[] = $candidate;
+            }
+        }
+
+        return array_values(array_unique($ips));
+    }
+
+    /**
+     * Validate a CLI-provided IP address.
+     * @param string $ip_address
+     */
+    private function validateIpAddress($ip_address)
+    {
+        if (!filter_var($ip_address, FILTER_VALIDATE_IP)) {
+            $this->writeln('Invalid IP address: ' . $ip_address);
+            $this->endWithError();
+        }
+    }
+
+    /**
      * Reloadsof the Nginx configuration for environment variables to take affect.
      */
     public function reloadEnvVars()
@@ -826,6 +1069,8 @@ class Conductor extends CliApplication
             '@@ENVIROMENT@@' => $environment,
             '@@SOCKET@@' => $this->conf->paths->fpmsocket,
             '@@FASTCGIPARAMS@@' => $this->conf->paths->fastcgiparams,
+            '@@VERSION@@' => $this->version(),
+            '@@CREATED_AT@@' => date('c'),
         ];
         $config = file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf');
         foreach ($placeholders as $placeholder => $value) {
