@@ -12,6 +12,48 @@ passwordgen() {
     tr -dc A-Za-z0-9 < /dev/urandom | head -c ${l} | xargs
 }
 
+required_tcp_port_label() {
+    case "$1" in
+        80) echo "HTTP web server" ;;
+        443) echo "HTTPS web server" ;;
+        3306) echo "MySQL database" ;;
+        6379) echo "Redis" ;;
+        11300) echo "Beanstalkd" ;;
+        *) echo "unknown service" ;;
+    esac
+}
+
+is_tcp_port_listening() {
+    local port="$1"
+
+    sockstat -4 -6 -l -P tcp 2>/dev/null | awk -v port=":${port}" '
+        NR > 1 && $6 ~ port "$" {
+            found = 1
+        }
+        END { exit found ? 0 : 1 }
+    '
+}
+
+check_required_tcp_ports() {
+    local port
+    local busy=0
+
+    echo "Checking required TCP ports..."
+    for port in 80 443 3306 6379 11300; do
+        if is_tcp_port_listening "$port"; then
+            echo "Port ${port} ($(required_tcp_port_label "$port")) is already in use."
+            busy=1
+        fi
+    done
+
+    if [ "$busy" -ne 0 ]; then
+        echo "Please stop (and REMOVE) the conflicting service(s) and run the installer again."
+        exit 1
+    fi
+}
+
+check_required_tcp_ports
+
 # Lets grab the latest software packages that are available.
 echo "Updating pkg package repository..."
 pkg update

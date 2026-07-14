@@ -12,6 +12,66 @@ passwordgen() {
     tr -dc A-Za-z0-9 < /dev/urandom | head -c ${l} | xargs
 }
 
+prompt_letsencrypt_email() {
+    local email=""
+    local email_regex='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+
+    while true; do
+        read -r -p "LetsEncrypt notification email address: " email
+        if [[ "$email" =~ $email_regex ]]; then
+            sudo sed -i "s|update_this_now@localhost.com|$email|" /etc/conductor.conf
+            echo "LetsEncrypt email address set to: ${email}"
+            break
+        fi
+        echo "Please enter a valid email address (eg. admin@example.com)."
+    done
+}
+
+required_tcp_port_label() {
+    case "$1" in
+        80) echo "HTTP web server" ;;
+        443) echo "HTTPS web server" ;;
+        3306) echo "MySQL/MariaDB database" ;;
+        6379) echo "Redis" ;;
+        *) echo "unknown service" ;;
+    esac
+}
+
+is_tcp_port_listening() {
+    local port_hex
+    port_hex=$(printf '%04X' "$1")
+
+    awk -v port="$port_hex" '
+        $4 == "0A" {
+            split($2, local_address, ":")
+            if (toupper(local_address[2]) == port) {
+                found = 1
+            }
+        }
+        END { exit found ? 0 : 1 }
+    ' /proc/net/tcp /proc/net/tcp6 2>/dev/null
+}
+
+check_required_tcp_ports() {
+    local port
+    local busy=0
+
+    echo "Checking required TCP ports..."
+    for port in 80 443 3306 6379; do
+        if is_tcp_port_listening "$port"; then
+            echo "Port ${port} ($(required_tcp_port_label "$port")) is already in use."
+            busy=1
+        fi
+    done
+
+    if [ "$busy" -ne 0 ]; then
+        echo "Please stop (and REMOVE) the conflicting service(s) and run the installer again."
+        exit 1
+    fi
+}
+
+check_required_tcp_ports
+
 # Ask the user here if they wish to install MySQL locally or not, if they choose
 # not we need to prompt the user for their remote DB server and user credentials.
 
@@ -171,6 +231,7 @@ sudo sed -i "s/\/etc\/init.d\/php5-pfm/\/etc\/init.d\/php8.1-pfm/g" /etc/php/8.1
 
 # Set the root password on our configuration script.
 sudo sed -i "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;
+prompt_letsencrypt_email
 echo ""
 echo "MySQL server root password has been set to: ${randpassword}"
 echo ""
