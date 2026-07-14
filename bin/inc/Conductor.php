@@ -224,7 +224,18 @@ class Conductor extends CliApplication
         }
 
         if ($removed === 0) {
-            $this->writeln('The IP address was not banned in any active Fail2Ban jail.');
+            $crowdsec_removed = $this->unbanLocalCrowdSecIpAddress($ip_address);
+            if ($crowdsec_removed === null) {
+                $this->writeln('The IP address was not banned in any active Fail2Ban jail.');
+                return;
+            }
+
+            if ($crowdsec_removed === 0) {
+                $this->writeln('The IP address was not banned in any active Fail2Ban jail or local CrowdSec decision.');
+                return;
+            }
+
+            $this->writeln('Unbanned ' . $ip_address . ' from ' . $crowdsec_removed . ' local CrowdSec decision(s).');
             return;
         }
 
@@ -239,7 +250,7 @@ class Conductor extends CliApplication
         $output = [];
         exec('command -v fail2ban-client 2>/dev/null', $output, $exit_code);
         if ($exit_code !== 0) {
-            $this->writeln('Fail2Ban is not installed, run: utils/install_fail2ban_iptables.sh to enable these features!');
+            $this->writeln('Fail2Ban is not installed, run: utils/install_fail2ban_nftables.sh to enable these features!');
             $this->endWithError();
         }
     }
@@ -273,6 +284,8 @@ class Conductor extends CliApplication
     private function listBannedIps()
     {
         $rows = [];
+        $crowdsec_count = $this->localCrowdSecBanCount();
+
         foreach ($this->fail2BanJails() as $jail) {
             $output = [];
             if ($this->runFail2BanClient(['get', $jail, 'banip', '--with-time'], $output) !== 0) {
@@ -293,13 +306,18 @@ class Conductor extends CliApplication
 
         if (empty($rows)) {
             $this->writeln('No IP addresses are currently banned by Fail2Ban.');
-            return;
+        } else {
+            $this->writeln(str_pad('IP address', 40) . str_pad('Jail', 30) . 'Ban time');
+            $this->writeln(str_repeat('-', 80));
+            foreach ($rows as $row) {
+                $this->writeln(str_pad($row[0], 40) . str_pad($row[1], 30) . $row[2]);
+            }
         }
 
-        $this->writeln(str_pad('IP address', 40) . str_pad('Jail', 30) . 'Ban time');
-        $this->writeln(str_repeat('-', 80));
-        foreach ($rows as $row) {
-            $this->writeln(str_pad($row[0], 40) . str_pad($row[1], 30) . $row[2]);
+        if ($crowdsec_count !== null) {
+            $this->writeln('');
+            $this->writeln('+' . $crowdsec_count . ' local CrowdSec IP ban' . ($crowdsec_count === 1 ? '' : 's') . ' enforced.');
+            $this->writeln('CrowdSec global/community decisions are not shown here.');
         }
     }
 
@@ -383,6 +401,145 @@ class Conductor extends CliApplication
     private function runFail2BanClient($arguments, &$output)
     {
         $command = 'fail2ban-client';
+        foreach ($arguments as $argument) {
+            $command .= ' ' . escapeshellarg($argument);
+        }
+
+        exec($command . ' 2>&1', $output, $exit_code);
+        return $exit_code;
+    }
+
+    /**
+     * Count locally-generated CrowdSec IP bans without listing global/community decisions.
+     * @return int|null
+     */
+    private function localCrowdSecBanCount()
+    {
+        $decisions = $this->crowdSecDecisions();
+        if ($decisions === null) {
+            return null;
+        }
+
+        $count = 0;
+        foreach ($decisions as $decision) {
+            if ($this->isLocalCrowdSecIpBan($decision, ['ip', 'range'])) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Remove local CrowdSec bans for an exact IP address.
+     * @param string $ip_address
+     * @return int|null
+     */
+    private function unbanLocalCrowdSecIpAddress($ip_address)
+    {
+        $decisions = $this->crowdSecDecisions();
+        if ($decisions === null) {
+            return null;
+        }
+
+        $removed = 0;
+        foreach ($decisions as $decision) {
+            if (!$this->isLocalCrowdSecIpBan($decision, ['ip'])) {
+                continue;
+            }
+
+            $value = isset($decision->value) ? $decision->value : '';
+            if ($value !== $ip_address) {
+                continue;
+            }
+
+            $output = [];
+            if (isset($decision->id) && $this->runCscli(['decisions', 'delete', '--id', $decision->id], $output) === 0) {
+                $removed++;
+                continue;
+            }
+
+            $output = [];
+            if ($this->runCscli(['decisions', 'delete', '--ip', $ip_address], $output) === 0) {
+                $removed++;
+            }
+        }
+
+        return $removed;
+    }
+
+    /**
+     * Return all CrowdSec decisions, or null if cscli is unavailable.
+     * @return array|null
+     */
+    private function crowdSecDecisions()
+    {
+        if (!$this->crowdSecAvailable()) {
+            return null;
+        }
+
+        $output = [];
+        if ($this->runCscli(['decisions', 'list', '-o', 'json'], $output) !== 0 || empty($output)) {
+            return null;
+        }
+
+        $decisions = json_decode(implode(PHP_EOL, $output));
+        if (isset($decisions->decisions) && is_array($decisions->decisions)) {
+            $decisions = $decisions->decisions;
+        }
+
+        return is_array($decisions) ? $decisions : null;
+    }
+
+    /**
+     * Check whether CrowdSec and its CLI are available.
+     * @return bool
+     */
+    private function crowdSecAvailable()
+    {
+        $output = [];
+        exec('command -v crowdsec 2>/dev/null', $output, $exit_code);
+        if ($exit_code !== 0) {
+            return false;
+        }
+
+        $output = [];
+        exec('command -v cscli 2>/dev/null', $output, $exit_code);
+        return $exit_code === 0;
+    }
+
+    /**
+     * Check whether a CrowdSec decision is a local IP/range ban.
+     * @param object $decision
+     * @param array $allowed_scopes
+     * @return bool
+     */
+    private function isLocalCrowdSecIpBan($decision, $allowed_scopes)
+    {
+        $origin = isset($decision->origin) ? strtolower($decision->origin) : '';
+        $scope = isset($decision->scope) ? strtolower($decision->scope) : '';
+        $type = isset($decision->type) ? strtolower($decision->type) : '';
+
+        if ($origin !== 'crowdsec') {
+            return false;
+        }
+
+        if ($type !== '' && $type !== 'ban') {
+            return false;
+        }
+
+        return in_array($scope, $allowed_scopes);
+    }
+
+    /**
+     * Execute cscli safely.
+     * @param array $arguments
+     * @param array $output
+     * @return int
+     */
+    private function runCscli($arguments, &$output)
+    {
+        $command = 'cscli';
         foreach ($arguments as $argument) {
             $command .= ' ' . escapeshellarg($argument);
         }
@@ -1482,6 +1639,8 @@ class Conductor extends CliApplication
             $this->call('chmod 744 ' . $crontab);
             $this->call('chown root:root ' . $crontab);
             $this->writeln('Finished importing the application crontab!');
+            $this->call($this->conf->services->cron->reload);
+            $this->writeln('Reloaded the system crons.');
         } else {
             $this->writeln('No Conductor crontab was found, skipping cron import!');
         }
@@ -1541,6 +1700,8 @@ class Conductor extends CliApplication
             $this->call('chmod 744 ' .$crontab);
             $this->call('chown root:root ' . $crontab);
             $this->writeln('Finished importing the application crontab!');
+            $this->call($this->conf->services->cron->reload);
+            $this->writeln('Reloaded the system crons.');
         } else {
             $this->writeln('No Conductor crontab was found, skipping cron import!');
         }

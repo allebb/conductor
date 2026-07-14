@@ -2,11 +2,11 @@
 set -e
 
 ################################################################################
-# Optional Conductor Fail2Ban + iptables installer
+# Optional Conductor Fail2Ban + nftables installer
 ################################################################################
 
 if [ "$(id -u)" -ne 0 ]; then
-    echo "Please run this script as root, for example: sudo bash /etc/conductor/utils/install_fail2ban_iptables.sh"
+    echo "Please run this script as root, for example: sudo bash /etc/conductor/utils/install_fail2ban_nftables.sh"
     exit 1
 fi
 
@@ -21,10 +21,10 @@ fi
 
 if command -v apt-get >/dev/null 2>&1; then
     apt-get update
-    DEBIAN_FRONTEND=noninteractive apt-get install -y fail2ban iptables logrotate
+    DEBIAN_FRONTEND=noninteractive apt-get install -y fail2ban nftables logrotate
 elif command -v apt >/dev/null 2>&1; then
     apt update
-    DEBIAN_FRONTEND=noninteractive apt install -y fail2ban iptables logrotate
+    DEBIAN_FRONTEND=noninteractive apt install -y fail2ban nftables logrotate
 else
     echo "This installer currently supports Debian/Ubuntu systems with apt-get."
     exit 1
@@ -40,15 +40,17 @@ if [ -f "${LOGROTATE_SOURCE}" ]; then
 fi
 
 if command -v systemctl >/dev/null 2>&1; then
+    systemctl enable --now nftables
     systemctl enable --now fail2ban
     systemctl restart fail2ban
 else
+    service nftables start || true
     service fail2ban restart
 fi
 
 cat <<'EOF'
 
-Conductor Fail2Ban support has been installed.
+Conductor Fail2Ban support has been installed using nftables.
 
 To enable it for an application, edit the app's Nginx vhost and uncomment:
 

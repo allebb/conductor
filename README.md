@@ -74,7 +74,8 @@ If you choose not to install MySQL/MariaDB locally, Conductor records this in ``
 Optional post-install hardening:
 
 * Fail2Ban
-* iptables
+* nftables
+* CrowdSec
 
 How to use it
 -------------
@@ -131,12 +132,12 @@ The installer enables a top-level Nginx include for custom TCP/UDP stream config
 
 Conductor copies commented ``.conf.example`` files into that directory during installation. Rename an example to ``.conf`` to enable it, or add your own as required. Each enabled stream file should include its own top-level ``stream { ... }`` block. Whilst this is optional and the conductor CLI doesn't provide any management of these (you have to manage them manually), this has been added for those that use Conductor more as a reverse-proxy/load-balancer and can be extremely useful especially when you are using split DNS and proxying internal and external traffic and need a common gateway address. The directory configuration (auto-loading of ``.conf`` files) works in the same way that the other Conductor http/virtual hosts files work and therefore adds commonality and eases administration.
 
-### Optional Fail2Ban and iptables protection
+### Optional Fail2Ban and nftables protection
 
-Conductor includes an optional installer for Fail2Ban and iptables (software firewall) and will monitor for suspitious activity and block bad actos. It is not run by the main installer, so you can add it after Conductor is installed, if you wish by running:
+Conductor includes an optional installer for Fail2Ban and nftables (software firewall) and will monitor for suspitious activity and block bad actos. It is not run by the main installer, so you can add it after Conductor is installed, if you wish by running:
 
 ```shell
-sudo bash /etc/conductor/utils/install_fail2ban_iptables.sh
+sudo bash /etc/conductor/utils/install_fail2ban_nftables.sh
 ```
 
 Each Nginx vhost template includes a commented security log line:
@@ -169,6 +170,43 @@ sudo conductor unban 203.0.113.10
 ```
 
 Manual bans are added to the ``conductor-manual`` jail and remain in place until explicitly unbanned or purged. ``ban purge`` clears all IP addresses currently banned by Fail2Ban, including bans created by non-Conductor jails.
+
+### Optional CrowdSec protection
+
+Conductor also includes an optional post-install script for [CrowdSec](https://www.crowdsec.net/). It is not run by the main installer, so you can add it after Conductor is installed, if you wish by running:
+
+```shell
+sudo bash /etc/conductor/utils/install_crowdsec.sh
+```
+
+CrowdSec's firewall bouncer uses nftables. If nftables is not already installed, run the optional Fail2Ban+nftables installer first:
+
+```shell
+sudo bash /etc/conductor/utils/install_fail2ban_nftables.sh
+```
+
+The script installs CrowdSec, installs a firewall bouncer, adds common http collections, and configures CrowdSec to monitor Conductor's optional lean security logs:
+
+```shell
+/tmp/conductor_*.seclog
+```
+
+This is the same optional log file path used by Conductor's Fail2Ban support, so you do not need CrowdSec to read the normal disk-based Nginx access logs. Uncomment the ``access_log /tmp/conductor_{appname}.seclog conductor_security;`` line in each vhost you want CrowdSec and/or Fail2Ban to monitor, then test and reload Nginx.
+
+You can choose a specific firewall bouncer if required:
+
+```shell
+sudo bash /etc/conductor/utils/install_crowdsec.sh --bouncer=nftables
+sudo bash /etc/conductor/utils/install_crowdsec.sh --bouncer=none
+```
+
+If ``crowdsec`` is not already available from apt, the script will add the official CrowdSec package repository. Use ``--skip-repo-bootstrap`` if you prefer to add and audit package repositories manually.
+
+CrowdSec and Fail2Ban can be used together. If CrowdSec is installed, CrowdSec will handle the automatic bans instead of Fail2Ban. The CrowdSec installer will offer to disable Conductor's automatic Fail2Ban jails and keep only the ``conductor-manual`` jail enabled for ``conductor ban`` and ``conductor unban`` commands.
+
+When CrowdSec is installed, ``conductor ban list`` also shows a summary count of local CrowdSec IP bans at the bottom. It does not print all global/community CrowdSec decisions.
+
+The ``conductor unban {ip_address}`` command checks Fail2Ban first. If the IP address is not currently banned by Fail2Ban, Conductor will also remove matching local CrowdSec IP bans. Global/community CrowdSec decisions are left alone.
 
 #### ```conductor destroy {app name}```
 
