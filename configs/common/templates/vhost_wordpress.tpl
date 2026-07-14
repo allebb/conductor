@@ -22,6 +22,7 @@
 # -- C:Start Default HTTP to HTTPS Redirect Block -- #
 #server {
 #       listen         80;
+#       listen         [::]:80;
 #       server_name    @@DOMAIN@@;
 #       include        /etc/conductor/configs/common/wellknown.conf;
 #       return         301 https://$server_name$request_uri;
@@ -32,6 +33,7 @@
 # Be sure to replace the two occurrences of `{yourdomain}` in this configuration block with your TLD.
 #server {
 #        listen                  443 ssl;
+#        listen                  [::]:443 ssl;
 #        ssl_certificate         /etc/letsencrypt/live/@@APPNAME@@/fullchain.pem;
 #        ssl_certificate_key     /etc/letsencrypt/live/@@APPNAME@@/privkey.pem;
 #        ssl_trusted_certificate /etc/letsencrypt/live/@@APPNAME@@/chain.pem;
@@ -45,10 +47,12 @@ server {
 	# Comment this line out if you wish to switch to HTTPS (but then enable the next code block!).
 	# -- C:Start Default (HTTP) Main Block -- #
 	listen                   80;
+	listen                   [::]:80;
 	# -- C:End Default (HTTP) Main Block -- #
 
 	# -- C:Start Auto-LetsEncrypt Main Block -- #
 	#listen                  443 ssl;
+	#listen                  [::]:443 ssl;
 	#ssl_certificate         /etc/letsencrypt/live/@@APPNAME@@/fullchain.pem;
 	#ssl_certificate_key     /etc/letsencrypt/live/@@APPNAME@@/privkey.pem;
 	#ssl_trusted_certificate /etc/letsencrypt/live/@@APPNAME@@/chain.pem;
@@ -109,7 +113,8 @@ server {
 	}
 
 	# Deny access to .htaccess, .git and other hidden files by default.
-	location ~ /\.(?!well-known).* {
+	# LetsEncrypt ACME challenges are handled by Conductor; other /.well-known/ paths may be served by the app.
+	location ~ /\.(?!well-known(?:/|$)).* {
 		deny all;
 		access_log off;
 		log_not_found off;
