@@ -65,8 +65,6 @@ class Conductor extends CliApplication
     {
         parent::__construct($argv);
 
-        $this->checkDependencies();
-
         $this->enforceCli();
 
         if (!$this->isSuperUser()) {
@@ -75,9 +73,12 @@ class Conductor extends CliApplication
         }
 
         $this->conf = $this->conductorConfiguration();
+        $this->checkDependencies();
 
-        $this->mysql = MysqlPdo::connect('information_schema', $this->conf->mysql->username,
-            $this->conf->mysql->password, $this->conf->mysql->host);
+        if ($this->mysqlEnabled()) {
+            $this->mysql = MysqlPdo::connect('information_schema', $this->conf->mysql->username,
+                $this->conf->mysql->password, $this->conf->mysql->host);
+        }
     }
 
     /**
@@ -111,16 +112,33 @@ class Conductor extends CliApplication
     {
         $depends = [
             'PDO' => 'The PHP PDO extention is required but is missing',
-            'pdo_mysql' => 'The PHP MySQL PDO extension is required but is missing',
             'posix' => 'The PHP POSIX extention is required but is missing',
             'json' => 'The PHP JSON extention is required but is missing',
         ];
+
+        if ($this->mysqlEnabled()) {
+            $depends['pdo_mysql'] = 'The PHP MySQL PDO extension is required but is missing';
+        }
+
         foreach ($depends as $function => $dependency) {
             if (!extension_loaded($function)) {
                 $this->writeln($dependency);
                 $this->endWithError();
             }
         }
+    }
+
+    /**
+     * Checks whether Conductor should manage local MySQL databases.
+     * @return boolean
+     */
+    private function mysqlEnabled()
+    {
+        if (!isset($this->conf->mysql->enabled)) {
+            return true;
+        }
+
+        return (bool) $this->conf->mysql->enabled;
     }
 
     /**
@@ -413,6 +431,29 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Validate Nginx and optionally reload it gracefully.
+     * @param string $change_description
+     */
+    private function promptGracefulNginxReload($change_description = 'change')
+    {
+        $this->writeln('Checking Nginx configuration...');
+        if ($this->callWithExitCode($this->conf->binaries->nginx . ' -t') !== 0) {
+            $this->writeln('Nginx configuration test failed. Please fix the configuration before reloading Nginx.');
+            $this->endWithError();
+        }
+
+        $reload_nginx = $this->input('Gracefully restart (reload) Nginx now for the ' . $change_description . ' to take effect?',
+            self::OPTION_YES, [self::OPTION_YES, self::OPTION_NO]);
+
+        if (strtolower($reload_nginx) == self::OPTION_YES) {
+            $this->writeln('Gracefully restarting (reloading) Nginx...');
+            $this->call($this->conf->services->nginx->reload);
+        } else {
+            $this->writeln('Remember to gracefully restart (reload) Nginx before the ' . $change_description . ' will take effect.');
+        }
+    }
+
+    /**
      * Executes a backup the entire web application including it's database.
      * @param string $filename The filename to use when creating the backup.
      * @return void
@@ -421,7 +462,7 @@ class Conductor extends CliApplication
     {
         $this->appNameRequired();
         $this->call('cp -R ' . $this->appdir . ' ' . $this->conf->paths->temp . '/' . $this->appname);
-        if ($this->mysql->query('SHOW DATABASES LIKE \'db_' . $this->appname . '\';')->fetchObject()) {
+        if ($this->mysqlEnabled() && $this->mysql->query('SHOW DATABASES LIKE \'db_' . $this->appname . '\';')->fetchObject()) {
             $this->writeln('Detected a MySQL database, backing it up...');
             $this->call($this->conf->binaries->mysqldump . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' --no-create-db db_' . $this->appname . ' | ' . $this->conf->binaries->gzip . ' -c | cat > ' . $this->conf->paths->temp . '/' . $this->appname . '/appdb.sql.gz');
         }
@@ -450,6 +491,10 @@ class Conductor extends CliApplication
     private function createMySQL($db_pass)
     {
         $this->appNameRequired();
+        if (!$this->mysqlEnabled()) {
+            $this->writeln('MySQL management is disabled in /etc/conductor.conf; skipping database provisioning.');
+            return;
+        }
 
         // Creating the user and granting privileges in separate statements (rather than the legacy
         // combined `GRANT ... IDENTIFIED BY`) is required since MySQL 8.0 removed that syntax entirely;
@@ -479,6 +524,10 @@ class Conductor extends CliApplication
     private function destroyMySQL()
     {
         $this->appNameRequired();
+        if (!$this->mysqlEnabled()) {
+            return;
+        }
+
         if ($this->mysql->query('SHOW DATABASES LIKE \'db_' . $this->appname . '\';')->fetchObject()) {
             $this->writeln('Detected a Application MySQL user and database...');
             $this->mysql->exec('DROP DATABASE IF EXISTS `db_' . $this->appname . '`;');
@@ -789,14 +838,14 @@ class Conductor extends CliApplication
             $this->writeln('SSL configuration has been reset.');
         }
 
-        $restart_nginx = $this->input('Nginx configuration test passed. Restart Nginx now?', self::OPTION_YES,
+        $reload_nginx = $this->input('Nginx configuration test passed. Gracefully restart (reload) Nginx now?', self::OPTION_YES,
             [self::OPTION_YES, self::OPTION_NO]);
 
-        if (strtolower($restart_nginx) == self::OPTION_YES) {
-            $this->writeln('Restarting Nginx...');
-            $this->call($this->conf->services->nginx->restart);
+        if (strtolower($reload_nginx) == self::OPTION_YES) {
+            $this->writeln('Gracefully restarting (reloading) Nginx...');
+            $this->call($this->conf->services->nginx->reload);
         } else {
-            $this->writeln('Remember to restart or reload Nginx before the SSL configuration change will take effect.');
+            $this->writeln('Remember to gracefully restart (reload) Nginx before the SSL configuration change will take effect.');
         }
     }
 
@@ -1015,7 +1064,9 @@ class Conductor extends CliApplication
             $domain = $this->input('Domains (FQDN\'s) to map this application to:');
             $apppath = $is_proxy_template ? '' : $this->input('Hosted directory:', '/public');
             $environment = $this->input('Environment type:', 'production');
-            $mysql_req = $this->input('Provision a MySQL database?', self::OPTION_NO, $option_yes_no_set);
+            $mysql_req = $this->mysqlEnabled()
+                ? $this->input('Provision a MySQL database?', self::OPTION_NO, $option_yes_no_set)
+                : self::OPTION_NO;
             $deploy_git = $this->input('Deploy application with Git now?', self::OPTION_NO, $option_yes_no_set);
             $generate_keys = $this->input('Create an SSH deployment key pair now?', self::OPTION_YES,
                 $option_yes_no_set);
@@ -1028,7 +1079,7 @@ class Conductor extends CliApplication
             $deploy_git = self::OPTION_NO; // Disable this by default.
             $generate_keys = self::OPTION_NO; // Disable this by default.
 
-            if ($this->getOption('mysql-pass')) {
+            if ($this->mysqlEnabled() && $this->getOption('mysql-pass')) {
                 $mysql_req = self::OPTION_YES;
                 $password = $this->getOption('mysql-pass');
             }
@@ -1174,6 +1225,7 @@ class Conductor extends CliApplication
         }
 
         $this->migrateLaravel($environment);
+        $this->promptGracefulNginxReload('new application');
     }
 
     /**
@@ -1190,10 +1242,77 @@ class Conductor extends CliApplication
         system($this->conf->binaries->editor . ' ' . $config_path . ' > `tty`');
         $this->writeln('Checking file updates for Nginx configuration issues...');
         $this->writeln();
-        $this->call($this->conf->binaries->nginx . ' -t');
+        $this->promptGracefulNginxReload('configuration change');
         $this->writeln();
-        $this->writeln('** Remember to restart/reload Nginx for any changes to take affect! ** ');
-        $this->writeln();
+    }
+
+    /**
+     * Enables the Nginx virtualhost configuration for a specific application.
+     */
+    public function enableApplication()
+    {
+        $this->appNameRequired();
+        $this->toggleApplicationConfig(true);
+    }
+
+    /**
+     * Disables the Nginx virtualhost configuration for a specific application.
+     */
+    public function disableApplication()
+    {
+        $this->appNameRequired();
+        $this->toggleApplicationConfig(false);
+    }
+
+    /**
+     * Rename an application config between active and disabled states.
+     * @param bool $enable
+     */
+    private function toggleApplicationConfig($enable)
+    {
+        $enabled_path = $this->conf->paths->appconfs . '/' . $this->appname . '.conf';
+        $disabled_path = $this->conf->paths->appconfs . '/' . $this->appname . '.disabled';
+        $from = $enable ? $disabled_path : $enabled_path;
+        $to = $enable ? $enabled_path : $disabled_path;
+
+        if (!file_exists($this->appdir)) {
+            $this->writeln('Application was not found on this server!');
+            $this->endWithError();
+        }
+
+        if (file_exists($to)) {
+            $this->writeln('Application is already ' . ($enable ? 'enabled.' : 'disabled.'));
+            return;
+        }
+
+        if (!file_exists($from)) {
+            $this->writeln('Virtual host configuration not found at: ' . $from);
+            $this->endWithError();
+        }
+
+        if (!rename($from, $to)) {
+            $this->writeln('Unable to rename virtual host configuration.');
+            $this->endWithError();
+        }
+
+        $this->writeln('Application ' . $this->appname . ' has been ' . ($enable ? 'enabled.' : 'disabled.'));
+
+        $this->writeln('Checking Nginx configuration...');
+        if ($this->callWithExitCode($this->conf->binaries->nginx . ' -t') !== 0) {
+            rename($to, $from);
+            $this->writeln('Nginx configuration test failed. The application has been returned to its previous state.');
+            $this->endWithError();
+        }
+
+        $reload_nginx = $this->input('Gracefully restart (reload) Nginx now for the change to take effect?', self::OPTION_YES,
+            [self::OPTION_YES, self::OPTION_NO]);
+
+        if (strtolower($reload_nginx) == self::OPTION_YES) {
+            $this->writeln('Gracefully restarting (reloading) Nginx...');
+            $this->call($this->conf->services->nginx->reload);
+        } else {
+            $this->writeln('Remember to gracefully restart (reload) Nginx before the change will take effect.');
+        }
     }
 
     /**
@@ -1274,13 +1393,43 @@ class Conductor extends CliApplication
     {
         $applications = new DirectoryIterator($this->conf->paths->apps);
         $this->writeln();
+        $this->writeln(str_pad('Status', 8) . 'Application');
+        $this->writeln(str_repeat('-', 32));
+
+        $application_names = [];
         foreach ($applications as $application) {
-            $lav = "";
             if ($application->isDir() and ($application->getBasename()[0] != '.')) {
-                $this->writeln(' - ' . $application->getBasename());
+                $application_names[] = $application->getBasename();
             }
         }
+
+        sort($application_names);
+        foreach ($application_names as $application_name) {
+            $this->writeln(str_pad($this->applicationEnabledMarker($application_name), 8) . $application_name);
+        }
+
         $this->writeln();
+    }
+
+    /**
+     * Return an enabled/disabled marker for listApplications().
+     * @param string $application_name
+     * @return string
+     */
+    private function applicationEnabledMarker($application_name)
+    {
+        $enabled_path = $this->conf->paths->appconfs . '/' . $application_name . '.conf';
+        $disabled_path = $this->conf->paths->appconfs . '/' . $application_name . '.disabled';
+
+        if (file_exists($enabled_path)) {
+            return '[/]';
+        }
+
+        if (file_exists($disabled_path)) {
+            return '[x]';
+        }
+
+        return '[?]';
     }
 
     /**
@@ -1337,11 +1486,13 @@ class Conductor extends CliApplication
             $this->writeln('No Conductor crontab was found, skipping cron import!');
         }
 
-        if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/appdb.sql.gz')) {
+        if ($this->mysqlEnabled() && file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/appdb.sql.gz')) {
             $this->writeln('Importing application MySQL database...');
             $this->call('gunzip < ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/appdb.sql.gz | mysql -h' . $this->conf->mysql->host . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' db_' . $this->appname . '');
             $this->writeln('Finished importing the MySQL database!');
             @unlink($this->conf->paths->temp . '/restore_' . $this->appname . '/appdb.sql.gz');
+        } elseif (!$this->mysqlEnabled()) {
+            $this->writeln('MySQL management is disabled, skipping DB import!');
         } else {
             $this->writeln('No Conductor database archive was found, skipping DB import!');
         }
@@ -1394,11 +1545,13 @@ class Conductor extends CliApplication
             $this->writeln('No Conductor crontab was found, skipping cron import!');
         }
 
-        if (file_exists($this->conf->paths->temp . '/rollback_' . $this->appname . '/appdb.sql.gz')) {
+        if ($this->mysqlEnabled() && file_exists($this->conf->paths->temp . '/rollback_' . $this->appname . '/appdb.sql.gz')) {
             $this->writeln('Importing application MySQL database...');
             $this->call('gunzip < ' . $this->conf->paths->temp . '/rollback_' . $this->appname . '/appdb.sql.gz | mysql -h' . $this->conf->mysql->host . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' db_' . $this->appname . '');
             $this->writeln('Finished importing the MySQL database!');
             unlink($this->conf->paths->temp . '/rollback_' . $this->appname . '/appdb.sql.gz');
+        } elseif (!$this->mysqlEnabled()) {
+            $this->writeln('MySQL management is disabled, skipping DB import!');
         } else {
             $this->writeln('No Conductor database archive was found, skipping DB import!');
         }
@@ -1437,10 +1590,11 @@ class Conductor extends CliApplication
             $this->call('rm ' . $this->conf->paths->crontabs . '/conductor_' . $this->appname);
             $this->writeln('Destroying application...');
             $this->call('rm ' . $this->conf->paths->appconfs . '/' . $this->appname . '*');
-            $this->writeln('Reloading Nginx configuration...');
-            $this->call($this->conf->services->nginx->reload);
-            $this->writeln('Destroying MySQL database and associated users...');
-            $this->destroyMySQL();
+            $this->promptGracefulNginxReload('deleted application');
+            if ($this->mysqlEnabled()) {
+                $this->writeln('Destroying MySQL database and associated users...');
+                $this->destroyMySQL();
+            }
             $this->writeln('Destroying app directory and log files...');
             $this->call('rm -Rf ' . $this->appdir);
             $this->call('rm -Rf ' . $this->conf->paths->applogs . '/' . $this->appname);

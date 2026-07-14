@@ -26,6 +26,27 @@ prompt_letsencrypt_email() {
     done
 }
 
+prompt_yes_no() {
+    local prompt="$1"
+    local default="${2:-y}"
+    local answer=""
+    local suffix="[Y/n]"
+
+    if [ "$default" = "n" ]; then
+        suffix="[y/N]"
+    fi
+
+    while true; do
+        read -r -p "${prompt} ${suffix} " answer
+        answer="${answer:-$default}"
+        case "${answer,,}" in
+            y|yes) return 0 ;;
+            n|no) return 1 ;;
+            *) echo "Please answer yes or no." ;;
+        esac
+    done
+}
+
 required_tcp_port_label() {
     case "$1" in
         80) echo "HTTP web server" ;;
@@ -56,7 +77,7 @@ check_required_tcp_ports() {
     local busy=0
 
     echo "Checking required TCP ports..."
-    for port in 80 443 3306 6379; do
+    for port in "$@"; do
         if is_tcp_port_listening "$port"; then
             echo "Port ${port} ($(required_tcp_port_label "$port")) is already in use."
             busy=1
@@ -69,7 +90,37 @@ check_required_tcp_ports() {
     fi
 }
 
-check_required_tcp_ports
+INSTALL_MYSQL=0
+INSTALL_REDIS=0
+INSTALL_SUPERVISOR=0
+INSTALL_EXTRA_PHP=0
+MYSQL_ROOT_PASSWORD="NOT_INSTALLED"
+
+if prompt_yes_no "Install MySQL locally?" "y"; then
+    INSTALL_MYSQL=1
+fi
+
+if prompt_yes_no "Install Redis?" "y"; then
+    INSTALL_REDIS=1
+fi
+
+if prompt_yes_no "Install SupervisorD?" "y"; then
+    INSTALL_SUPERVISOR=1
+fi
+
+if prompt_yes_no "Install additional PHP versions (7.4, 8.1, 8.4) alongside required PHP 8.5?" "y"; then
+    INSTALL_EXTRA_PHP=1
+fi
+
+REQUIRED_PORTS=(80 443)
+if [ "$INSTALL_MYSQL" -eq 1 ]; then
+    REQUIRED_PORTS+=(3306)
+fi
+if [ "$INSTALL_REDIS" -eq 1 ]; then
+    REQUIRED_PORTS+=(6379)
+fi
+
+check_required_tcp_ports "${REQUIRED_PORTS[@]}"
 
 echo "Updating system..."
 sudo apt-get update
@@ -80,38 +131,42 @@ sudo apt-get -y install curl wget gnupg ca-certificates lsb-release zip unzip gi
 ################################################################################
 sudo apt-get -y install nginx
 
-################################################################################
-# MySQL (official Oracle MySQL APT repository)
-################################################################################
-# Change this to eg. "mysql-8.4-lts" if you need the previous LTS series instead.
-MYSQL_SERVER_SERIES="mysql-9.7-lts"
+if [ "$INSTALL_MYSQL" -eq 1 ]; then
+    ################################################################################
+    # MySQL (official Oracle MySQL APT repository)
+    ################################################################################
+    # Change this to eg. "mysql-8.4-lts" if you need the previous LTS series instead.
+    MYSQL_SERVER_SERIES="mysql-9.7-lts"
 
-echo "Installing the official MySQL APT repository (${MYSQL_SERVER_SERIES})..."
-curl -fsSL https://repo.mysql.com/mysql-apt-config.deb -o /tmp/mysql-apt-config.deb
+    echo "Installing the official MySQL APT repository (${MYSQL_SERVER_SERIES})..."
+    curl -fsSL https://repo.mysql.com/mysql-apt-config.deb -o /tmp/mysql-apt-config.deb
 
-# mysql-apt-config's own postinst reads these environment variables when
-# DEBIAN_FRONTEND=noninteractive, so this configures + installs the repo (and its
-# signing key, to /usr/share/keyrings/mysql-apt-config.gpg) without any prompts.
-sudo env DEBIAN_FRONTEND=noninteractive MYSQL_SERVER_VERSION="${MYSQL_SERVER_SERIES}" \
-    dpkg -i /tmp/mysql-apt-config.deb
-rm -f /tmp/mysql-apt-config.deb
+    # mysql-apt-config's own postinst reads these environment variables when
+    # DEBIAN_FRONTEND=noninteractive, so this configures + installs the repo (and its
+    # signing key, to /usr/share/keyrings/mysql-apt-config.gpg) without any prompts.
+    sudo env DEBIAN_FRONTEND=noninteractive MYSQL_SERVER_VERSION="${MYSQL_SERVER_SERIES}" \
+        dpkg -i /tmp/mysql-apt-config.deb
+    rm -f /tmp/mysql-apt-config.deb
 
-sudo apt-get update
-sudo DEBIAN_FRONTEND=noninteractive apt-get -y install mysql-server mysql-client
+    sudo apt-get update
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -y install mysql-server mysql-client
 
-echo "Configuring MySQL root user..."
-randpassword=$(passwordgen)
+    echo "Configuring MySQL root user..."
+    MYSQL_ROOT_PASSWORD=$(passwordgen)
 
-# A blank root password during install leaves root@localhost on the auth_socket
-# plugin (passwordless, OS-user-matched login) - switch it to a real password here.
-sudo mysql <<EOF
-ALTER USER 'root'@'localhost' IDENTIFIED WITH caching_sha2_password BY '${randpassword}';
+    # A blank root password during install leaves root@localhost on the auth_socket
+    # plugin (passwordless, OS-user-matched login) - switch it to a real password here.
+    sudo mysql <<EOF
+ALTER USER 'root'@'localhost' IDENTIFIED WITH caching_sha2_password BY '${MYSQL_ROOT_PASSWORD}';
 DELETE FROM mysql.user WHERE User='';
 DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
 DROP DATABASE IF EXISTS test;
 DELETE FROM mysql.db WHERE Db='test' OR Db LIKE 'test\_%';
 FLUSH PRIVILEGES;
 EOF
+else
+    echo "Skipping local MySQL installation."
+fi
 
 ################################################################################
 # PHP (Sury repo)
@@ -123,9 +178,12 @@ echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.
 
 sudo apt-get update
 
-# Supported PHP versions on Debian 13 via Sury. PHP 8.5 is the default/active version (see below).
-PHP_VERSIONS=("7.4" "8.1" "8.4" "8.5")
+# Supported PHP versions on Debian 13 via Sury. PHP 8.5 is required and always installed.
 PHP_DEFAULT_VERSION="8.5"
+PHP_VERSIONS=("8.5")
+if [ "$INSTALL_EXTRA_PHP" -eq 1 ]; then
+    PHP_VERSIONS=("7.4" "8.1" "8.4" "8.5")
+fi
 
 echo "Installing PHP versions: ${PHP_VERSIONS[*]}"
 
@@ -189,6 +247,7 @@ sudo chmod +x /usr/bin/composer
 
 sudo chmod +x /etc/conductor/bin/*
 sudo chmod +x /etc/conductor/utils/*
+sudo /etc/conductor/utils/install_nginx_streams.sh
 
 sudo ln -sf /etc/conductor/bin/conductor.php /usr/bin/conductor
 sudo chmod +x /usr/bin/conductor
@@ -208,22 +267,30 @@ for v in "${PHP_VERSIONS[@]}"; do
     sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/${v}/fpm/php.ini
 done
 
-################################################################################
-# Redis
-################################################################################
-sudo curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" \
-    | sudo tee /etc/apt/sources.list.d/redis.list
+if [ "$INSTALL_REDIS" -eq 1 ]; then
+    ################################################################################
+    # Redis
+    ################################################################################
+    sudo curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
+    echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" \
+        | sudo tee /etc/apt/sources.list.d/redis.list
 
-sudo apt-get update
-sudo apt-get install -y redis-server
-sudo systemctl enable --now redis-server
+    sudo apt-get update
+    sudo apt-get install -y redis-server
+    sudo systemctl enable --now redis-server
+else
+    echo "Skipping Redis installation."
+fi
 
-################################################################################
-# Supervisor
-################################################################################
-sudo apt-get -y install supervisor
-sudo systemctl enable --now supervisor
+if [ "$INSTALL_SUPERVISOR" -eq 1 ]; then
+    ################################################################################
+    # Supervisor
+    ################################################################################
+    sudo apt-get -y install supervisor
+    sudo systemctl enable --now supervisor
+else
+    echo "Skipping SupervisorD installation."
+fi
 
 ################################################################################
 # Restart services
@@ -238,11 +305,18 @@ sudo systemctl restart nginx
 # Conductor Config
 ################################################################################
 sudo cp /etc/conductor/bin/conf/conductor.ubuntu.template.json /etc/conductor.conf
-sudo sed -i "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf
+sudo sed -i "s|ROOT_PASSWORD_HERE|$MYSQL_ROOT_PASSWORD|" /etc/conductor.conf
+if [ "$INSTALL_MYSQL" -eq 0 ]; then
+    sudo sed -i '0,/"enabled": true/s//"enabled": false/' /etc/conductor.conf
+fi
 prompt_letsencrypt_email
 
 echo ""
-echo "MySQL server root password has been set to: ${randpassword}"
+if [ "$INSTALL_MYSQL" -eq 1 ]; then
+    echo "MySQL server root password has been set to: ${MYSQL_ROOT_PASSWORD}"
+else
+    echo "MySQL was not installed; Conductor MySQL management has been disabled."
+fi
 echo ""
 sudo conductor -v
 echo ""

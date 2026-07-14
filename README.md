@@ -1,7 +1,7 @@
 Conductor
 =========
 
-Conductor is a CLI utility to automate the installation of Laravel application servers complete with some scripts and CLI commands to help deploy and manage multiple web applications on the server with ease.
+Conductor is a CLI utility to automate the installation of Laravel application servers complete with some scripts and CLI commands to help deploy and manage multiple web applications on the server with ease. Conductor can also be used as a reverse proxy/load-balancer and the installation process allows you to install a minimal set of components if you don't plan to host sites or applications directly.
 
 Requirements
 ------------
@@ -58,12 +58,18 @@ What does this install
 Out of the box this script will install and configure the following packages using aptitude:-
 
 * Nginx
-* PHP 8.5 (in addition to older versions including PHP 7.4, 8.1 and 8.4 - you can set your applications/sites to use this version if you need!)
+* PHP 8.5 (required by Conductor)
 * Git Client
-* MariaDB
-* Redis
-* Supervisor
 * CertBot (LetsEncrypt)
+
+The current Debian installers will also ask whether you want to install:
+
+* MySQL/MariaDB
+* Redis
+* SupervisorD
+* Additional PHP versions for hosted applications
+
+If you choose not to install MySQL/MariaDB locally, Conductor records this in ``/etc/conductor.conf`` and will not ask database provisioning questions when creating or deleting applications.
 
 Optional post-install hardening:
 
@@ -115,9 +121,19 @@ The templates are just that, a template! Once your application has provisioned o
 
 That it, once you have passed through all the prompts your application will then be live and accessible!
 
+### Optional Nginx stream proxies
+
+The installer enables a top-level Nginx include for custom TCP/UDP stream configs when the Nginx stream module is available. Custom stream configs can be placed in:
+
+```shell
+/etc/conductor/streams/
+```
+
+Conductor copies commented ``.conf.example`` files into that directory during installation. Rename an example to ``.conf`` to enable it, or add your own as required. Each enabled stream file should include its own top-level ``stream { ... }`` block. Whilst this is optional and the conductor CLI doesn't provide any management of these (you have to manage them manually), this has been added for those that use Conductor more as a reverse-proxy/load-balancer and can be extremely useful especially when you are using split DNS and proxying internal and external traffic and need a common gateway address. The directory configuration (auto-loading of ``.conf`` files) works in the same way that the other Conductor http/virtual hosts files work and therefore adds commonality and eases administration.
+
 ### Optional Fail2Ban and iptables protection
 
-Conductor includes an optional installer for Fail2Ban and iptables. It is not run by the main installer, so you can add it after Conductor is installed:
+Conductor includes an optional installer for Fail2Ban and iptables (software firewall) and will monitor for suspitious activity and block bad actos. It is not run by the main installer, so you can add it after Conductor is installed, if you wish by running:
 
 ```shell
 sudo bash /etc/conductor/utils/install_fail2ban_iptables.sh
@@ -129,20 +145,26 @@ Each Nginx vhost template includes a commented security log line:
 #access_log /tmp/conductor_{appname}.seclog conductor_security;
 ```
 
-Uncomment that line in any application vhost you want Fail2Ban to monitor, then run ``sudo nginx -t`` and reload Nginx. The Fail2Ban templates watch ``/tmp/conductor_*.seclog`` and install three automatic jails:
+Uncomment that line in any application/website vhost you want Fail2Ban to monitor, then run ``sudo nginx -t`` and reload Nginx. The Fail2Ban templates watch ``/tmp/conductor_*.seclog`` and install three automatic jails:
 
 * excessive 4xx responses: 80 hits in 10 minutes, banned for 30 minutes.
 * scanner probes for common sensitive paths: 5 hits in 10 minutes, banned for 1 hour.
 * high total request rate: 600 hits in 1 minute, banned for 24 hours.
 
-The security log format records only the timestamp, client IP, status code, request line, and user agent. ``/tmp`` is often memory-backed on modern Linux systems, but not always; check ``findmnt /tmp`` if this matters for your server. A logrotate rule is installed to rotate matching security logs at 10MB and keep three compressed rotations.
+> These values can be manually adjusted to fit your personal requirements by editting the default configurations that are installed to ``/etc/conductor/configs/common/fail2ban/``.
+
+The security log format records only the timestamp, client IP, status code, request line, and user agent to keep things "lean". The ``/tmp`` path is often memory-backed on modern Linux systems, but not always; check ``findmnt /tmp`` if this matters for your server. A logrotate rule is installed to rotate matching security logs at 10MB and keep three compressed rotations.
 
 Once Fail2Ban support is installed, Conductor can manage bans directly:
 
 ```shell
+# List all current IP bans:
 sudo conductor ban list
+# Delete all current IP bans (allowing those users access, again):
 sudo conductor ban purge
+# Manually add an IP address ban:
 sudo conductor ban 203.0.113.10
+# Manually remove an IP address ban:
 sudo conductor unban 203.0.113.10
 ```
 
@@ -151,6 +173,12 @@ Manual bans are added to the ``conductor-manual`` jail and remain in place until
 #### ```conductor destroy {app name}```
 
 Will remove the application from the server, removes the Nginx configuration for this application and will also drop the MySQL database and MySQL user (if present), this command basically removes the named application and immediately stops serving the content.
+
+#### ```conductor enable {app name}``` / ```conductor disable {app name}```
+
+Enables or disables an application's Nginx virtual host by renaming its configuration between ``{app name}.conf`` and ``{app name}.disabled``. Conductor will test the Nginx configuration and ask whether to reload Nginx so the change takes effect.
+
+The ``conductor list`` command shows the current virtual host status: ``[/]`` for enabled, ``[x]`` for disabled, and ``[?]`` if no matching virtual host configuration was found.
 
 #### ```conductor update {app name}```
 The upgrade command does three things, firstly it gives you the option of putting your application into 'offline mode' of which is up to you (you're prompted for your decision here), before it upgrades anything an automatic 'snapshot' is taken and stored separately to enable you to 'roll-back' later if required.. So next if Conductor finds that the application was previously deployed by Git or has a ```.git``` directory it will attempt to do a ```git fetch --all``` and then a ```git reset --hard origin/master``` to pull in the latest changes. If no git directory is found, Conductor assumes you're doing a 'manual upgrade' and prompts you at this point to upload the new files into your application's root directory... once this is complete you should confirm that the files have all been uploaded... Next Conductor will now execute any database migrations and then clear the application cache as well as dump the autoloader and finally (if you choose to 'take the application offline' during the upgrade process) it will now be automatically put back on-line!
@@ -192,11 +220,11 @@ A very simple and quick method to display the current status of ALL dependent/bu
 
 #### ```conductor services restart```
 
-A very simple and quick method to restart ALL dependent/bundled Conductor managed daemons in the recommended order.
+A very simple and quick method to restart ALL dependent/bundled Conductor managed daemons in the recommended order. This performs a service restart; use ``reload`` instead when you only need to apply Nginx configuration or certificate changes gracefully.
 
 #### ```conductor services reload```
 
-When manually changing configuration of one or more of the dependent/bundled daemons this command will attempt to safely 'reload' the configuration of the daemons without the need to disconnect existing sessions. - Please not this is NOT required when using the ```conductor``` command to manage configuration files but is recommended if you make manual changes!
+When manually changing configuration of one or more of the dependent/bundled daemons this command will attempt to safely reload the configuration without dropping existing connections. For Nginx this gracefully applies new virtual host config, stream config, SSL certificate paths, and renewed SSL certificate contents as long as the configuration test passes. Existing Nginx workers continue serving current connections while new workers start with the updated configuration. If the new Nginx configuration is invalid, the reload should fail and the existing workers should continue serving the previous configuration.
 
 #### ```conductor --version```
 

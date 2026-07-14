@@ -30,6 +30,27 @@ prompt_letsencrypt_email() {
     done
 }
 
+prompt_yes_no() {
+    local prompt="$1"
+    local default="${2:-y}"
+    local answer=""
+    local suffix="[Y/n]"
+
+    if [ "$default" = "n" ]; then
+        suffix="[y/N]"
+    fi
+
+    while true; do
+        read -r -p "${prompt} ${suffix} " answer
+        answer="${answer:-$default}"
+        case "${answer,,}" in
+            y|yes) return 0 ;;
+            n|no) return 1 ;;
+            *) echo "Please answer yes or no." ;;
+        esac
+    done
+}
+
 required_tcp_port_label() {
     case "$1" in
         80) echo "HTTP web server" ;;
@@ -60,7 +81,7 @@ check_required_tcp_ports() {
     local busy=0
 
     echo "Checking required TCP ports..."
-    for port in 80 443 3306 6379; do
+    for port in "$@"; do
         if is_tcp_port_listening "$port"; then
             echo "Port ${port} ($(required_tcp_port_label "$port")) is already in use."
             busy=1
@@ -73,11 +94,37 @@ check_required_tcp_ports() {
     fi
 }
 
-check_required_tcp_ports
+INSTALL_MYSQL=0
+INSTALL_REDIS=0
+INSTALL_SUPERVISOR=0
+INSTALL_EXTRA_PHP=0
+MYSQL_ROOT_PASSWORD="NOT_INSTALLED"
 
-# Ask the user here if they wish to install MySQL locally or not, if they choose
-# not we need to prompt the user for their remote DB server and user credentials.
-# @todo
+if prompt_yes_no "Install MySQL locally?" "y"; then
+    INSTALL_MYSQL=1
+fi
+
+if prompt_yes_no "Install Redis?" "y"; then
+    INSTALL_REDIS=1
+fi
+
+if prompt_yes_no "Install SupervisorD?" "y"; then
+    INSTALL_SUPERVISOR=1
+fi
+
+if prompt_yes_no "Install additional PHP versions (7.4, 8.0, 8.1, 8.2) alongside required PHP 8.5?" "y"; then
+    INSTALL_EXTRA_PHP=1
+fi
+
+REQUIRED_PORTS=(80 443)
+if [ "$INSTALL_MYSQL" -eq 1 ]; then
+    REQUIRED_PORTS+=(3306)
+fi
+if [ "$INSTALL_REDIS" -eq 1 ]; then
+    REQUIRED_PORTS+=(6379)
+fi
+
+check_required_tcp_ports "${REQUIRED_PORTS[@]}"
 
 # Ask the user if they would like us to auto-configure a firewall with suggested
 # ports being opened by default (80, 443, 22).
@@ -89,25 +136,29 @@ sudo apt-get -y install software-properties-common debconf-i18n curl
 # We now install Nginx
 sudo apt-get -y install nginx
 
-# Now we'll install MariaDB Server and set a default 'root' password, in future we'll generate a random one!
-export DEBIAN_FRONTEND="noninteractive"
-sudo debconf-set-selections <<< "mariadb-server-10.3 mysql-server/root_password password root"
-sudo debconf-set-selections <<< "mariadb-server-10.3 mysql-server/root_password_again password root"
+if [ "$INSTALL_MYSQL" -eq 1 ]; then
+    # Now we'll install MariaDB Server and set a default 'root' password, in future we'll generate a random one!
+    export DEBIAN_FRONTEND="noninteractive"
+    sudo debconf-set-selections <<< "mariadb-server-10.3 mysql-server/root_password password root"
+    sudo debconf-set-selections <<< "mariadb-server-10.3 mysql-server/root_password_again password root"
 
-sudo apt update
-sudo apt-get -y install mariadb-server
+    sudo apt update
+    sudo apt-get -y install mariadb-server
 
-# Set the new random password and do some system clean-up of the default MySQL tables.
-randpassword=$(passwordgen);
+    # Set the new random password and do some system clean-up of the default MySQL tables.
+    MYSQL_ROOT_PASSWORD=$(passwordgen)
 
-# Set a random MariaDB root password...
-mysqladmin -u root -proot password "$randpassword"
-mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
-mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');"
-mysql -u root -p"$randpassword" -e "DELETE FROM mysql.user WHERE User=''";
-mysql -u root -p"$randpassword" -e "DROP DATABASE IF EXISTS test";
-mysql -u root -p"$randpassword" -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';"
-mysql -u root -p"$randpassword" -e "FLUSH PRIVILEGES";
+    # Set a random MariaDB root password...
+    mysqladmin -u root -proot password "$MYSQL_ROOT_PASSWORD"
+    mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "DELETE FROM mysql.user WHERE User=''";
+    mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');"
+    mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "DELETE FROM mysql.user WHERE User=''";
+    mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "DROP DATABASE IF EXISTS test";
+    mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';"
+    mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "FLUSH PRIVILEGES";
+else
+    echo "Skipping local MySQL installation."
+fi
 
 # Enable the Universe repository (since Ubuntu 18.04 various packages are supplied in the universe repo eg. libzip4.0, beanstalkd, supervisor and letsencrypt)...
 #sudo add-apt-repository universe # NEEDS TO BE REFACTORED OR REMOVED, DOESN'T SEEM TO BE INCLUDED IN DEBIAN!
@@ -121,20 +172,25 @@ sudo sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https
 
 sudo apt-get update
 
-# Lets add PHP 7.4
-sudo apt-get -y install php7.4-common php7.4-cli php7.4-fpm php7.4-curl php7.4-gd php7.4-intl php7.4-mbstring php7.4-sqlite3 php7.4-mysql php7.4-json php7.4-bcmath php7.4-xml php7.4-memcache php7.4-apcu
+PHP_DEFAULT_VERSION="8.5"
+PHP_VERSIONS=("8.5")
+if [ "$INSTALL_EXTRA_PHP" -eq 1 ]; then
+    PHP_VERSIONS=("7.4" "8.0" "8.1" "8.2" "8.5")
+fi
 
-# Add PHP 8.0
-sudo apt-get -y install php8.0-common php8.0-cli php8.0-fpm php8.0-curl php8.0-gd php8.0-intl php8.0-mbstring php8.0-sqlite3 php8.0-mysql php8.0-bcmath php8.0-xml php8.0-memcache php8.0-apcu
+echo "Installing PHP versions: ${PHP_VERSIONS[*]}"
 
-# Add PHP 8.1
-sudo apt-get -y install php8.1-common php8.1-cli php8.1-fpm php8.1-curl php8.1-gd php8.1-intl php8.1-mbstring php8.1-sqlite3 php8.1-mysql php8.1-bcmath php8.1-xml php8.1-memcache php8.1-apcu
+for v in "${PHP_VERSIONS[@]}"; do
+    sudo apt-get -y install \
+        php${v}-common php${v}-cli php${v}-fpm php${v}-curl php${v}-gd php${v}-intl \
+        php${v}-mbstring php${v}-sqlite3 php${v}-mysql php${v}-bcmath php${v}-xml \
+        php${v}-zip php${v}-apcu
 
-# Add PHP 8.2
-sudo apt-get -y install php8.2-common php8.2-cli php8.2-fpm php8.2-curl php8.2-gd php8.2-intl php8.2-mbstring php8.2-sqlite3 php8.2-mysql php8.2-bcmath php8.2-xml php8.2-memcache php8.2-apcu
+    sudo apt-get -y install php${v}-memcache || true
+done
 
-# Now we will install the ZIP extension for PHP...
-sudo apt-get install -y php7.4-zip php8.0-zip php8.1-zip php8.2-zip
+echo "Setting PHP ${PHP_DEFAULT_VERSION} as the default 'php' CLI binary..."
+sudo update-alternatives --set php /usr/bin/php${PHP_DEFAULT_VERSION}
 
 # We install the Git Client to enable auto deployments etc.
 sudo apt-get -y install git
@@ -193,6 +249,7 @@ sudo chmod +x /usr/bin/composer
 # Lets now set some permissions...
 sudo chmod +x /etc/conductor/bin/*
 sudo chmod +x /etc/conductor/utils/*
+sudo /etc/conductor/utils/install_nginx_streams.sh
 
 # Lets symlink the main conductor script...
 sudo ln -s /etc/conductor/bin/conductor.php /usr/bin/conductor
@@ -213,39 +270,52 @@ echo "Configuring PHP-FPM for Nginx..."
 # Change cgi.fix_pathinfo=1 to cgi.fix_pathinfo=0
 
 echo "Securing cgi.fix_pathinfo..."
-sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/7.4/fpm/php.ini
-sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/8.0/fpm/php.ini
-sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/8.1/fpm/php.ini
-sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/8.2/fpm/php.ini
+for v in "${PHP_VERSIONS[@]}"; do
+    sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/${v}/fpm/php.ini
+done
 
-# From the official Redis APT repository (ensure we get the latest version)
-sudo curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/redis.list
-sudo apt-get update
-sudo apt-get install redis-server -y
-sudo systemctl enable redis-server.service
-sudo /etc/init.d/redis-server restart
+if [ "$INSTALL_REDIS" -eq 1 ]; then
+    # From the official Redis APT repository (ensure we get the latest version)
+    sudo curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
+    echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/redis.list
+    sudo apt-get update
+    sudo apt-get install redis-server -y
+    sudo systemctl enable redis-server.service
+    sudo /etc/init.d/redis-server restart
+else
+    echo "Skipping Redis installation."
+fi
 
-# Install Supervisord (if requested at installation)
-sudo apt-get -y install supervisor
-sudo systemctl enable supervisor.service
-sudo /etc/init.d/supervisor start
+if [ "$INSTALL_SUPERVISOR" -eq 1 ]; then
+    # Install Supervisord (if requested at installation)
+    sudo apt-get -y install supervisor
+    sudo systemctl enable supervisor.service
+    sudo /etc/init.d/supervisor start
+else
+    echo "Skipping SupervisorD installation."
+fi
 
 #Lets now restart PHP-FPM and Nginx!
-sudo /etc/init.d/php7.4-fpm restart
-sudo /etc/init.d/php8.0-fpm restart
-sudo /etc/init.d/php8.1-fpm restart
-sudo /etc/init.d/php8.2-fpm restart
+for v in "${PHP_VERSIONS[@]}"; do
+    sudo /etc/init.d/php${v}-fpm restart
+done
 sudo /etc/init.d/nginx restart
 
 # Lets copy the configuration file template to /etc/conductor.conf for simplified administration.
 sudo cp /etc/conductor/bin/conf/conductor.ubuntu.template.json /etc/conductor.conf
 
 # Set the root password on our configuration script.
-sudo sed -i "s|ROOT_PASSWORD_HERE|$randpassword|" /etc/conductor.conf;
+sudo sed -i "s|ROOT_PASSWORD_HERE|$MYSQL_ROOT_PASSWORD|" /etc/conductor.conf;
+if [ "$INSTALL_MYSQL" -eq 0 ]; then
+    sudo sed -i '0,/"enabled": true/s//"enabled": false/' /etc/conductor.conf
+fi
 prompt_letsencrypt_email
 echo ""
-echo "MySQL server root password has been set to: ${randpassword}"
+if [ "$INSTALL_MYSQL" -eq 1 ]; then
+    echo "MySQL server root password has been set to: ${MYSQL_ROOT_PASSWORD}"
+else
+    echo "MySQL was not installed; Conductor MySQL management has been disabled."
+fi
 echo ""
 echo "Congratulations! Conductor is now successfully installed you are running: "
 sudo conductor -v

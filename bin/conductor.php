@@ -38,6 +38,12 @@ if (isset($commands[1])) {
         case "edit":
             $conductor->editApplicationConfig();
             break;
+        case "enable":
+            $conductor->enableApplication();
+            break;
+        case "disable":
+            $conductor->disableApplication();
+            break;
         case "cron":
             $conductor->editApplicationCron();
             break;
@@ -116,6 +122,8 @@ function displayHelp($conductor)
     $conductor->writeln('  list                List all currently hosted applications');
     $conductor->writeln('  new {name}          Prepares and deploys a new application');
     $conductor->writeln('  edit {name}         Open a text editor to update the vhost config.');
+    $conductor->writeln('  enable {name}       Enables an application vhost config.');
+    $conductor->writeln('  disable {name}      Disables an application vhost config.');
     $conductor->writeln('  cron {name}         Open a text editor to update the application crontab.');
     $conductor->writeln('  letsencrypt {name}  Provisions (or renews) a LetsEncrypt SSL cert.');
     $conductor->writeln('  destroy {name}      Removes an application from the server');

@@ -1,0 +1,12 @@
+# Example TLS passthrough stream proxy.
+# Rename to tls_passthrough.conf, then adjust to forward raw TLS traffic to a backend service.
+#
+# stream {
+#     server {
+#         listen 8443;
+#         listen [::]:8443;
+#         proxy_pass 127.0.0.1:9443;
+#         proxy_connect_timeout 10s;
+#         proxy_timeout 1h;
+#     }
+# }

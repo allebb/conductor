@@ -1,0 +1,23 @@
+# Example Nextcloud Talk STUN stream proxy.
+# Rename to nextcloud_talk_stun.conf and update the backend IP before enabling.
+#
+# stream {
+#     upstream nextcloud_stun_udp {
+#         hash $remote_addr consistent;
+#         server 172.25.87.62:3478;
+#     }
+#     upstream nextcloud_stun_tcp {
+#         hash $remote_addr consistent;
+#         server 172.25.87.62:3478;
+#     }
+#
+#     server {
+#         listen 3478 udp reuseport;
+#         proxy_pass nextcloud_stun_udp;
+#     }
+#
+#     server {
+#         listen 3478; # TCP
+#         proxy_pass nextcloud_stun_tcp;
+#     }
+# }

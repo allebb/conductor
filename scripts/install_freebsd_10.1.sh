@@ -117,6 +117,7 @@ chmod +x /usr/bin/composer
 # Lets now set some permissions...
 chmod +x /etc/conductor/bin/*
 chmod +x /etc/conductor/utils/*
+/etc/conductor/utils/install_nginx_streams.sh
 
 # Lets symlink the main conductor script...
 ln -s /etc/conductor/bin/conductor.php /usr/bin/conductor
