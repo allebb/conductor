@@ -69,17 +69,25 @@ server {
     add_header      X-Frame-Options         "SAMEORIGIN";
     add_header      X-XSS-Protection        "1; mode=block";
     add_header      X-Content-Type-Options  "nosniff";
+    add_header      Referrer-Policy         "strict-origin-when-cross-origin";
+
+    # Optional security headers. Enable after confirming they do not block required third-party assets or browser APIs.
+    #add_header     Permissions-Policy      "camera=(), microphone=(), geolocation=()";
+    #add_header     Content-Security-Policy "default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline';";
 
     # Additional per-application optimisations.
     charset utf-8;
     client_max_body_size 32m;
+    client_body_timeout 60s;
+    client_header_timeout 30s;
 
     # Enable GZip by default for common files.
     include /etc/conductor/configs/common/gzip.conf;
 
     # Optional but sensible defaults for caching assets (eg. images, CSS) files etc.
-    # location ~* \.(png|jpg|jpeg|gif|js|css|ico)$ {
+    # location ~* \.(?:png|jpg|jpeg|gif|webp|avif|svg|js|css|ico|woff|woff2)$ {
     #    expires 30d;
+    #    add_header Cache-Control "public";
     #    log_not_found off;
     # }
 
@@ -100,6 +108,36 @@ server {
         rewrite ^/(.+)/$ /$1 permanent;
     }
 
+    # Deny direct access to Laravel and backup/runtime files if the document root is broader than /public.
+    location ~* \.(?:env|log|sql|sqlite|bak|conf|ini)$ {
+        deny all;
+        access_log off;
+        log_not_found off;
+        return 404;
+    }
+
+    # Uncomment if this vhost root points at a Laravel project root instead of its public directory.
+    #location ~ ^/(?:app|bootstrap|config|database|resources|routes|storage|tests|vendor)/ {
+    #    deny all;
+    #    return 404;
+    #}
+
+    # Deny access to common project readme files that may disclose implementation details.
+    location ~* (^|/)readme(?:\.(?:txt|md|markdown|html?))?$ {
+        deny all;
+        access_log off;
+        log_not_found off;
+        return 404;
+    }
+
+    # Deny access to .htaccess, .git and other hidden files by default.
+    location ~ /\.(?!well-known).* {
+        deny all;
+        access_log off;
+        log_not_found off;
+        return 404;
+    }
+
     # PHP-FPM handler configuration.
     location ~* \.php$ {
         try_files                       $uri /index.php =404;
@@ -110,22 +148,18 @@ server {
         fastcgi_split_path_info         ^(.+\.php)(.*)$;
         include                         @@FASTCGIPARAMS@@;
         fastcgi_param                   SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param                   HTTP_PROXY "";
 
         # Optionally you can override any (default) PHP configuration (php.ini) values:
-        #fastcgi_param  PHP_VALUE  upload_max_filesize=32M;
-        #fastcgi_param  PHP_VALUE  post_max_size=38M;
+        #fastcgi_param  PHP_VALUE       upload_max_filesize=32M;
+        #fastcgi_param  PHP_VALUE       post_max_size=38M;
+        #fastcgi_read_timeout           120s;
+        #fastcgi_buffers                16 16k;
+        #fastcgi_buffer_size            32k;
 
         # START APPLICATION ENV VARIABLES
         fastcgi_param                   APP_ENV @@ENVIROMENT@@;
         # END APPLICATION ENV VARIABLES
-    }
-
-    # Deny access to .htaccess, .git and other hidden files by default.
-    location ~ /\.(?!well-known).* {
-        deny all;
-        access_log off;
-        log_not_found off;
-        return 404;
     }
 
 }

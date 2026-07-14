@@ -69,10 +69,17 @@ server {
 	#add_header      X-Frame-Options         "SAMEORIGIN";
 	#add_header      X-XSS-Protection        "1; mode=block";
 	#add_header      X-Content-Type-Options  "nosniff";
+	#add_header      Referrer-Policy         "strict-origin-when-cross-origin";
+
+	# Optional security headers. Enable after confirming they do not block required third-party assets or browser APIs.
+	#add_header      Permissions-Policy      "camera=(), microphone=(), geolocation=()";
+	#add_header      Content-Security-Policy "default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline';";
 
 	# Additional per-application optimisations.
 	charset utf-8;
 	client_max_body_size 32m;
+	client_body_timeout 60s;
+	client_header_timeout 30s;
 
 	# Enable GZip by default for common files.
 	#include /etc/conductor/configs/common/gzip.conf;
@@ -90,15 +97,47 @@ server {
 	location = /favicon.ico { access_log off; log_not_found off; }
 	location = /robots.txt  { access_log off; log_not_found off; }
 
+	# Deny access to common project readme files that may disclose implementation details.
+	location ~* (^|/)readme(?:\.(?:txt|md|markdown|html?))?$ {
+		deny all;
+		access_log off;
+		log_not_found off;
+		return 404;
+	}
+
+	# Deny access to .htaccess, .git and other hidden files before proxying to the upstream app.
+	location ~ /\.(?!well-known).* {
+		deny all;
+		access_log off;
+		log_not_found off;
+		return 404;
+	}
+
 	location / {
 		#**************************************************************************************#
 		# Update the temp port (9000) below to the required port for your backend application! #
 		#**************************************************************************************#
 		proxy_pass         http://127.0.0.1:9000;
+		proxy_http_version 1.1;
 		proxy_redirect     off;
 		proxy_set_header   Host              $host;
+		proxy_set_header   X-Real-IP         $remote_addr;
 		proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
 		proxy_set_header   X-Forwarded-Proto $scheme;
+		proxy_set_header   X-Forwarded-Host  $host;
+		proxy_set_header   X-Forwarded-Port  $server_port;
+
+		# Enable these two lines for WebSocket or HTTP upgrade support.
+		#proxy_set_header  Upgrade           $http_upgrade;
+		#proxy_set_header  Connection        "upgrade";
+
+		# Increase these for long-running requests or large upstream responses.
+		#proxy_connect_timeout 60s;
+		#proxy_send_timeout    60s;
+		#proxy_read_timeout    60s;
+
+		# Disable buffering for streaming APIs or server-sent events.
+		#proxy_buffering off;
 	}
 
 }

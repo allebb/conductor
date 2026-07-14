@@ -69,19 +69,33 @@ server {
 	add_header      X-Frame-Options         "SAMEORIGIN";
 	add_header      X-XSS-Protection        "1; mode=block";
 	add_header      X-Content-Type-Options  "nosniff";
+	add_header      Referrer-Policy         "strict-origin-when-cross-origin";
+
+	# Optional security headers. Enable after confirming they do not block required third-party assets or browser APIs.
+	#add_header     Permissions-Policy      "camera=(), microphone=(), geolocation=()";
+	#add_header     Content-Security-Policy "default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline';";
 
 	# Additional per-application optimisations.
 	charset utf-8;
 	client_max_body_size 2m;
+	client_body_timeout 30s;
+	client_header_timeout 30s;
 
 	# Enable GZip by default for common files.
 	include /etc/conductor/configs/common/gzip.conf;
 
 	# Optional but sensible defaults for caching assets (eg. images, CSS) files etc.
-	location ~* \.(png|jpg|jpeg|gif|js|css|ico|html|htm)$ {
+	location ~* \.(?:png|jpg|jpeg|gif|webp|avif|svg|js|css|ico|woff|woff2)$ {
 		expires 30d;
+		add_header Cache-Control "public";
 		log_not_found off;
 	}
+
+	# Uncomment to prevent browsers from caching HTML documents while still caching static assets above.
+	#location ~* \.(?:html|htm)$ {
+	#	expires -1;
+	#	add_header Cache-Control "no-store";
+	#}
 
 	# LetsEncrypt verification block
 	include /etc/conductor/configs/common/wellknown.conf;
@@ -89,6 +103,23 @@ server {
 	# Disable access and error logs for requests to these common files.
 	location = /favicon.ico { allow all; access_log off; log_not_found off; }
 	location = /robots.txt  { allow all; access_log off; log_not_found off; }
+
+	# Root location handler configuration.
+	location / {
+		try_files $uri $uri/ =404;
+	}
+
+	# Optional custom error pages. Create these files before enabling.
+	#error_page 404 /404.html;
+	#error_page 500 502 503 504 /50x.html;
+
+	# Deny access to common project readme files that may disclose implementation details.
+	location ~* (^|/)readme(?:\.(?:txt|md|markdown|html?))?$ {
+		deny all;
+		access_log off;
+		log_not_found off;
+		return 404;
+	}
 
 	# Deny access to .htaccess, .git and other hidden files by default.
 	location ~ /\.(?!well-known).* {
