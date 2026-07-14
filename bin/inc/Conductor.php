@@ -19,7 +19,7 @@ class Conductor extends CliApplication
     /**
      * The main Conductor application version.
      */
-    const CONDUCTOR_VERSION = "4.0.0";
+    const CONDUCTOR_VERSION = "5.0.0";
 
     /**
      * The path to the core application configuration file.
@@ -374,6 +374,206 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Replaces the complete lines between two marker lines, preserving the markers themselves.
+     * @param string $content
+     * @param string $start_marker
+     * @param string $end_marker
+     * @param callable $line_handler
+     * @return string
+     */
+    private function replaceLinesBetweenMarkers($content, $start_marker, $end_marker, $line_handler)
+    {
+        $lines = preg_split('/(\r\n|\n|\r)/', $content, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $in_section = false;
+
+        for ($i = 0; $i < count($lines); $i += 2) {
+            if (strpos($lines[$i], $start_marker) !== false) {
+                $in_section = true;
+                continue;
+            }
+
+            if (strpos($lines[$i], $end_marker) !== false) {
+                $in_section = false;
+                continue;
+            }
+
+            if ($in_section) {
+                $lines[$i] = call_user_func($line_handler, $lines[$i]);
+            }
+        }
+
+        return implode('', $lines);
+    }
+
+    /**
+     * Comments a Nginx configuration line unless it is already commented or blank.
+     * @param string $line
+     * @return string
+     */
+    private function commentNginxConfigLine($line)
+    {
+        if (trim($line) === '' || preg_match('/^\s*#/', $line)) {
+            return $line;
+        }
+
+        return preg_replace('/^(\s*)/', '$1#', $line, 1);
+    }
+
+    /**
+     * Uncomments a Nginx configuration line unless it is a Conductor marker comment.
+     * @param string $line
+     * @return string
+     */
+    private function uncommentNginxConfigLine($line)
+    {
+        if (strpos($line, '# -- C:') !== false) {
+            return $line;
+        }
+
+        return preg_replace('/^(\s*)#\s?/', '$1', $line, 1);
+    }
+
+    /**
+     * Enables the SSL listener/certificate section in an application virtualhost configuration.
+     * @param string $config_path
+     * @return void
+     */
+    private function enableApplicationSslConfig($config_path)
+    {
+        $config = file_get_contents($config_path);
+
+        foreach ([
+            '# -- C:Start Default (HTTP) Main Block -- #',
+            '# -- C:End Default (HTTP) Main Block -- #',
+            '# -- C:Start Auto-LetsEncrypt Main Block -- #',
+            '# -- C:End Auto-LetsEncrypt Main Block -- #',
+        ] as $marker) {
+            if (strpos($config, $marker) === false) {
+                $this->writeln('Could not find required Conductor marker in virtualhost configuration: ' . $marker);
+                $this->endWithError();
+            }
+        }
+
+        $config = $this->replaceLinesBetweenMarkers(
+            $config,
+            '# -- C:Start Default (HTTP) Main Block -- #',
+            '# -- C:End Default (HTTP) Main Block -- #',
+            [$this, 'commentNginxConfigLine']
+        );
+
+        $config = $this->replaceLinesBetweenMarkers(
+            $config,
+            '# -- C:Start Auto-LetsEncrypt Main Block -- #',
+            '# -- C:End Auto-LetsEncrypt Main Block -- #',
+            [$this, 'uncommentNginxConfigLine']
+        );
+
+        file_put_contents($config_path, $config);
+    }
+
+    /**
+     * Disables the SSL listener/certificate section in an application virtualhost configuration.
+     * @param string $config_path
+     * @return void
+     */
+    private function disableApplicationSslConfig($config_path)
+    {
+        $config = file_get_contents($config_path);
+
+        foreach ([
+            '# -- C:Start Default (HTTP) Main Block -- #',
+            '# -- C:End Default (HTTP) Main Block -- #',
+            '# -- C:Start Auto-LetsEncrypt Main Block -- #',
+            '# -- C:End Auto-LetsEncrypt Main Block -- #',
+        ] as $marker) {
+            if (strpos($config, $marker) === false) {
+                $this->writeln('Could not find required Conductor marker in virtualhost configuration: ' . $marker);
+                $this->endWithError();
+            }
+        }
+
+        $config = $this->replaceLinesBetweenMarkers(
+            $config,
+            '# -- C:Start Default (HTTP) Main Block -- #',
+            '# -- C:End Default (HTTP) Main Block -- #',
+            [$this, 'uncommentNginxConfigLine']
+        );
+
+        $config = $this->replaceLinesBetweenMarkers(
+            $config,
+            '# -- C:Start Auto-LetsEncrypt Main Block -- #',
+            '# -- C:End Auto-LetsEncrypt Main Block -- #',
+            [$this, 'commentNginxConfigLine']
+        );
+
+        file_put_contents($config_path, $config);
+    }
+
+    /**
+     * Apply an SSL vhost configuration change, validate Nginx, and optionally restart it.
+     * @param string $config_path
+     * @param string $action
+     * @return void
+     */
+    private function updateApplicationSslConfig($config_path, $action)
+    {
+        $original_conf_content = file_get_contents($config_path);
+
+        if ($action == 'enable') {
+            $this->enableApplicationSslConfig($config_path);
+        } elseif ($action == 'disable') {
+            $this->disableApplicationSslConfig($config_path);
+        } else {
+            $this->writeln('Unknown SSL configuration action: ' . $action);
+            $this->endWithError();
+        }
+
+        $this->writeln('Updated virtualhost configuration: ' . $config_path);
+        $this->writeln('Checking Nginx configuration...');
+        $nginx_test_exit_code = $this->callWithExitCode($this->conf->binaries->nginx . ' -t');
+
+        if ($nginx_test_exit_code !== 0) {
+            file_put_contents($config_path, $original_conf_content);
+            $this->writeln();
+            $this->writeln('Nginx configuration test failed; restored the previous virtualhost configuration.');
+            $this->writeln();
+            $this->endWithError();
+        }
+
+        if ($action == 'enable') {
+            $this->writeln('SSL configuration has been enabled.');
+        } else {
+            $this->writeln('SSL configuration has been reset.');
+        }
+
+        $restart_nginx = $this->input('Nginx configuration test passed. Restart Nginx now?', self::OPTION_YES,
+            [self::OPTION_YES, self::OPTION_NO]);
+
+        if (strtolower($restart_nginx) == self::OPTION_YES) {
+            $this->writeln('Restarting Nginx...');
+            $this->call($this->conf->services->nginx->restart);
+        } else {
+            $this->writeln('Remember to restart or reload Nginx before the SSL configuration change will take effect.');
+        }
+    }
+
+    /**
+     * Returns the virtualhost configuration path for the selected application.
+     * @return string
+     */
+    private function applicationConfigPath()
+    {
+        $conf_path = $this->conf->paths->appconfs . '/' . $this->appname . '.conf';
+
+        if (!file_exists($conf_path)) {
+            $this->writeln('Configuration file not found at: ' . $conf_path);
+            $this->endWithError();
+        }
+
+        return $conf_path;
+    }
+
+    /**
      * Generates an SSH deployment key (PPK) for the specified application.
      */
     public function createDeploymentKey()
@@ -441,15 +641,37 @@ class Conductor extends CliApplication
     {
         $this->appNameRequired();
 
+        if ($this->isFlagSet('enable')) {
+            $this->updateApplicationSslConfig($this->applicationConfigPath(), 'enable');
+            $this->writeln();
+            $this->endWithSuccess();
+        }
+
+        if ($this->isFlagSet('disable')) {
+            $this->updateApplicationSslConfig($this->applicationConfigPath(), 'disable');
+            $this->writeln();
+            $this->endWithSuccess();
+        }
+
         if ($this->isFlagSet('delete')) {
+            $conf_path = $this->applicationConfigPath();
+
             $cmd_replacements = [
                 '__APP__' => $this->appname,
             ];
-            $this->call(str_replace(array_keys($cmd_replacements), array_values($cmd_replacements),
+
+            $exit_code = $this->callWithExitCode(str_replace(array_keys($cmd_replacements), array_values($cmd_replacements),
                 $this->conf->cmdtpls->letsencryptdel));
-            $this->writeln('');
-            $this->writeln('Remember to update your application virtualhost configuration');
-            $this->writeln('to comment out the HTTPS blocks before restarting Nginx!');
+
+            if ($exit_code !== 0) {
+                $this->writeln();
+                $this->writeln('The LetsEncrypt certificate delete request failed; leaving the virtualhost configuration unchanged.');
+                $this->writeln();
+                $this->endWithError();
+            }
+
+            $this->updateApplicationSslConfig($conf_path, 'disable');
+            $this->writeln('SSL configuration has been disabled.');
             $this->writeln();
             $this->endWithSuccess();
         }
@@ -465,11 +687,7 @@ class Conductor extends CliApplication
             $this->endWithSuccess();
         }
 
-        $conf_path = "/etc/conductor/configs/{$this->appname}.conf";
-        if (!file_exists($conf_path)) {
-            $this->writeln('Configuration file not found at: ' . $conf_path);
-            $this->endWithError();
-        }
+        $conf_path = $this->applicationConfigPath();
         $conf_content = file_get_contents($conf_path);
         $managed_domains = null;
         if (preg_match('/:: Managed domains: \[(.*?)\]/', $conf_content, $match) == 1) {
@@ -482,7 +700,6 @@ class Conductor extends CliApplication
         }
         $domains = rtrim(str_replace(' ', ',', $managed_domains), ',');
 
-        $deploy_key_path = $this->conf->paths->deploykeys . '/' . $this->appname . '.deploykey';
         $cmd_replacements = [
             '__APP__' => $this->appname,
             '__NGINX_RELOAD_CMD__' => $this->conf->services->nginx->reload,
@@ -490,14 +707,26 @@ class Conductor extends CliApplication
             '__EMAIL__' => $this->conf->admin->email,
         ];
 
-        $this->call(str_replace(array_keys($cmd_replacements), array_values($cmd_replacements),
+        $exit_code = $this->callWithExitCode(str_replace(array_keys($cmd_replacements), array_values($cmd_replacements),
             $this->conf->cmdtpls->letsencryptgen));
+
+        if ($exit_code !== 0) {
+            $this->writeln();
+            $this->writeln('The LetsEncrypt certificate request failed; leaving the virtualhost configuration unchanged.');
+            $this->writeln();
+            $this->endWithError();
+        }
+
+        $enable_ssl = $this->input('LetsEncrypt certificate request successful. Enable SSL configuration now?', self::OPTION_YES,
+            [self::OPTION_YES, self::OPTION_NO]);
+
+        if (strtolower($enable_ssl) == self::OPTION_YES) {
+            $this->updateApplicationSslConfig($conf_path, 'enable');
+        }
+
         $this->writeln();
         $this->writeln('If you wish to delete this certificate in future you can run:');
         $this->writeln('   conductor letsencrypt ' . $this->appname . ' --delete');
-        $this->writeln();
-        $this->writeln('If required, remember to uncomment and configure your virtualhost configuration file');
-        $this->writeln('in order to use the SSL certificates as required.');
         $this->writeln();
         $this->endWithSuccess();
     }
@@ -531,6 +760,7 @@ class Conductor extends CliApplication
         $option_yes_no_set = [self::OPTION_YES, self::OPTION_NO];
 
         $vhost_template = $this->getOption('template', $this->conf->admin->default_template);
+        $is_proxy_template = strtolower($vhost_template) == 'proxy';
         if(!file_exists($tmpl = $this->conf->paths->templates.'/templates/vhost_' . strtolower($vhost_template).'.tpl')){
             $this->writeln('The configuration template was not found!');
             $this->endWithError();
@@ -540,7 +770,7 @@ class Conductor extends CliApplication
         if (!$this->getOption('fqdn')) {
             // Entering interactive mode...
             $domain = $this->input('Domains (FQDN\'s) to map this application to:');
-            $apppath = $this->input('Hosted directory:', '/public');
+            $apppath = $is_proxy_template ? '' : $this->input('Hosted directory:', '/public');
             $environment = $this->input('Environment type:', 'production');
             $mysql_req = $this->input('Provision a MySQL database?', self::OPTION_NO, $option_yes_no_set);
             $deploy_git = $this->input('Deploy application with Git now?', self::OPTION_NO, $option_yes_no_set);
@@ -550,7 +780,7 @@ class Conductor extends CliApplication
             // FQDN is set, entering non-interactive mode!
             $domain = $this->getOption('fqdn');
             $environment = $this->getOption('environment', 'production');
-            $apppath = $this->getOption('path', '/public');
+            $apppath = $is_proxy_template ? '' : $this->getOption('path', '/public');
             $mysql_req = self::OPTION_NO; // Disable this by default.
             $deploy_git = self::OPTION_NO; // Disable this by default.
             $generate_keys = self::OPTION_NO; // Disable this by default.
@@ -647,6 +877,39 @@ class Conductor extends CliApplication
             $this->writeln($this->appdir . '/');
             $this->writeln();
             $this->writeln('Alternatively if you are migrating from another server, use \'conductor restore ' . $this->appname . '\' to restore now!');
+        }
+
+        if ($is_proxy_template) {
+            foreach ([502, 503, 504] as $status_code) {
+                $proxy_error_template = $this->conf->paths->templates . '/templates/' . $status_code . '.html.tpl';
+                if (!file_exists($proxy_error_template)) {
+                    $this->writeln('The proxy error page template was not found: ' . $proxy_error_template);
+                    $this->endWithError();
+                }
+
+                $error_page_path = $this->appdir . '/.' . $status_code . '.html';
+                copy($proxy_error_template, $error_page_path);
+                $error_page = file_get_contents($error_page_path);
+                $error_page = str_replace('@@APPNAME@@', $this->appname, $error_page);
+                file_put_contents($error_page_path, $error_page);
+            }
+        } else {
+            $conductor_page_template = $this->conf->paths->templates . '/templates/conductor.html.tpl';
+            if (!file_exists($conductor_page_template)) {
+                $this->writeln('The Conductor placeholder page template was not found: ' . $conductor_page_template);
+                $this->endWithError();
+            }
+
+            $document_root = rtrim($this->appdir . $apppath, '/');
+            if (!file_exists($document_root)) {
+                mkdir($document_root, 0755, true);
+            }
+
+            $conductor_page_path = $document_root . '/conductor.html';
+            copy($conductor_page_template, $conductor_page_path);
+            $conductor_page = file_get_contents($conductor_page_path);
+            $conductor_page = str_replace('@@APPNAME@@', $this->appname, $conductor_page);
+            file_put_contents($conductor_page_path, $conductor_page);
         }
 
         $this->writeln('Setting ownership permissions on application files...');

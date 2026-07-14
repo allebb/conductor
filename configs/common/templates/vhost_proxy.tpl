@@ -97,6 +97,15 @@ server {
 	location = /favicon.ico { access_log off; log_not_found off; }
 	location = /robots.txt  { access_log off; log_not_found off; }
 
+	# Serve local, branded error pages when the upstream backend is unavailable.
+	error_page 502 /.502.html;
+	error_page 503 /.503.html;
+	error_page 504 /.504.html;
+	location ~ ^/\.(?:502|503|504)\.html$ {
+		internal;
+		add_header Cache-Control "no-store";
+	}
+
 	# Deny access to common project readme files that may disclose implementation details.
 	location ~* (^|/)readme(?:\.(?:txt|md|markdown|html?))?$ {
 		deny all;
@@ -118,6 +127,7 @@ server {
 		# Update the temp port (9000) below to the required port for your backend application! #
 		#**************************************************************************************#
 		proxy_pass         http://127.0.0.1:9000;
+		proxy_intercept_errors on;
 		proxy_http_version 1.1;
 		proxy_redirect     off;
 		proxy_set_header   Host              $host;

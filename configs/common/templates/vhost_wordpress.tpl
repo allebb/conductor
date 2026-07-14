@@ -58,7 +58,7 @@ server {
 
 	# Application path and index file settings.
 	root            /var/conductor/applications/@@APPPATH@@;
-	index           index.php;
+	index           index.php conductor.html;
 
 	# Logging settings
 	access_log      @@HLOGS@@access.log;

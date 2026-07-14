@@ -58,13 +58,12 @@ What does this install
 Out of the box this script will install and configure the following packages using aptitude:-
 
 * Nginx
-* PHP 8.2 (in addition to older versions including PHP 7.4, 8.0 and 8.1 - you can set your applications/sites to use this version if you need!)
+* PHP 8.5 (in addition to older versions including PHP 7.4, 8.1 and 8.4 - you can set your applications/sites to use this version if you need!)
 * Git Client
 * MariaDB
 * Redis
 * Supervisor
 * CertBot (LetsEncrypt)
-* ~~Beanstalkd~~ _(Removed as of v3.3.1 but can be installed manually if desired - not many people used this message queue!)_
 
 How to use it
 -------------
@@ -96,6 +95,10 @@ sudo conductor new {app name} --template=proxy
 ```
 
 Then you can edit the configuration file (to set the correct backend proxy target port) by running ``conductor edit {app name}``.
+
+Proxy applications do not ask for a hosted directory because the virtual host serves from the application root. Conductor will also create custom ``.502.html``, ``.503.html``, and ``.504.html`` pages in ``/var/conductor/applications/{app name}/`` and configure Nginx to show them if the backend application is unreachable.
+
+For non-proxy applications, Conductor creates a ``conductor.html`` placeholder page in the application's document root and adds it as the last index file. This confirms that the virtual host is ready; you can safely delete ``conductor.html`` after (or before) deploying your own site or application.
 
 This command will prompt you for the 'FQDN' (or you can add multiple addresses of which the Virtualhost will serve requests for, these should be separated by spaces!). After entering the FQDN(s) for the new application you will then be asked for your application's environment type (this basically sets the ``APP_ENV`` environment variable for Nginx of which can then be used by your PHP application like so ``$_SERVER['APP_ENV']``), if your application requires a MySQL database and as you would expect if you decide you do need a MySQL database Conductor will automatically create a database and MySQL user with permissions to only that database (to keep things secure!). The last part of the deployment you are asked how you would like to deploy your application, you have three options of which are as follows:-
 
@@ -173,11 +176,15 @@ You can generate and update LetsEncrypt certificates by running the following co
 sudo conductor letsencrypt {appname}
 ```
 
-Once you have generated the SSL certificate you will need to edit and comment out/uncomment the required configuration for the required Nginx virtual host file. Run the command ``conductor edit {appname}`` to edit the configuration file.
+Once the SSL certificate has been generated, Conductor will ask if you want to enable the SSL virtual host configuration automatically. The default answer is yes.
+
+If you already have a LetsEncrypt certificate and only want to enable the SSL virtual host blocks, without requesting a certificate, run ``sudo conductor letsencrypt {appname} --enable``.
+
+If you want to disable the SSL virtual host blocks and restore the default HTTP block, without deleting a certificate, run ``sudo conductor letsencrypt {appname} --disable``.
 
 Your SSL certificates will automatically be renewed as required.
 
-If you want to remove an SSL certificate from your server you should use ``sudo conductor letsencrypt {appname} --delete``.
+If you want to remove an SSL certificate from your server you should use ``sudo conductor letsencrypt {appname} --delete``. This will also reset the virtual host back to the default HTTP block.
 
 If you wish to force a renewal of the SSL certificate you can use ``sudo conductor letsencrypt {appname} --force-renew``.
 

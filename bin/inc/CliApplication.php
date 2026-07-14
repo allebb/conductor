@@ -107,6 +107,17 @@ class CliApplication
     }
 
     /**
+     * Executes a system command and returns its exit code.
+     * @param string $command
+     * @return int
+     */
+    public function callWithExitCode($command)
+    {
+        system($command, $exit_code);
+        return $exit_code;
+    }
+
+    /**
      * Retrieve the value of an option
      * @param string $name The name of the option to return
      * @param mixed $default An optional default value if it's not set.
