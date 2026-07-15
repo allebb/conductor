@@ -1004,7 +1004,7 @@ class Conductor extends CliApplication
         $output = [];
         exec('command -v fail2ban-client 2>/dev/null', $output, $exit_code);
         if ($exit_code !== 0) {
-            $this->writeln('Fail2Ban is not installed, run: utils/install_fail2ban_nftables.sh to enable these features!');
+            $this->writeln('Fail2Ban is not installed, run: /etc/conductor/utils/install_fail2ban_nftables.sh to enable these features!');
             $this->endWithError();
         }
     }
@@ -1019,7 +1019,7 @@ class Conductor extends CliApplication
 
         $jail = 'conductor-manual';
         if (!in_array($jail, $this->fail2BanJails())) {
-            $this->writeln('The conductor-manual Fail2Ban jail is not active. Re-run the optional installer and restart Fail2Ban.');
+            $this->writeln('The conductor-manual Fail2Ban jail is not active. Re-run /etc/conductor/utils/install_fail2ban_nftables.sh and restart Fail2Ban.');
             $this->endWithError();
         }
 

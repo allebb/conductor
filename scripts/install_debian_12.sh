@@ -36,6 +36,17 @@ passwordgen() {
     tr -dc A-Za-z0-9 < /dev/urandom | head -c ${l} | xargs
 }
 
+print_conductor_banner() {
+    cat <<'EOF'
+   ______                __           __
+  / ____/___  ____  ____/ /_  _______/ /_____  _____
+ / /   / __ \/ __ \/ __  / / / / ___/ __/ __ \/ ___/
+/ /___/ /_/ / / / / /_/ / /_/ / /__/ /_/ /_/ / /
+\____/\____/_/ /_/\__,_/\__,_/\___/\__/\____/_/
+
+EOF
+}
+
 prompt_letsencrypt_email() {
     local email=""
     local email_regex='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
@@ -120,6 +131,8 @@ INSTALL_REDIS=0
 INSTALL_SUPERVISOR=0
 INSTALL_EXTRA_PHP=0
 MYSQL_ROOT_PASSWORD="NOT_INSTALLED"
+
+print_conductor_banner
 
 if [ "$PROXY_ONLY" -eq 1 ]; then
     echo "Proxy-only install requested; skipping MySQL, Redis, SupervisorD, and additional PHP versions."
@@ -351,4 +364,8 @@ fi
 echo ""
 echo "Congratulations! Conductor is now successfully installed you are running: "
 sudo conductor -v
+echo ""
+echo "Bash completion for conductor has been installed."
+echo "Open a new shell to use it, or enable it immediately with:"
+echo "  source /etc/bash_completion.d/conductor"
 echo ""
