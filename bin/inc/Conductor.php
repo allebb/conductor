@@ -859,10 +859,36 @@ class Conductor extends CliApplication
      */
     private function downloadGeoIpDatabaseArchive($url)
     {
+        if (function_exists('curl_init')) {
+            $curl = curl_init($url);
+            curl_setopt_array($curl, [
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 60,
+                CURLOPT_USERAGENT => 'Conductor/' . self::CONDUCTOR_VERSION,
+                CURLOPT_HTTPHEADER => [
+                    'Accept: application/gzip, application/octet-stream, */*',
+                ],
+            ]);
+
+            $body = curl_exec($curl);
+            $status = curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+            $error = curl_error($curl);
+            curl_close($curl);
+
+            if ($body !== false && $status >= 200 && $status < 300) {
+                return $body;
+            }
+
+            $this->writeln('GeoIP download failed with HTTP status ' . ($status ?: 'unknown') . ($error ? ': ' . $error : ''));
+            return false;
+        }
+
         $context = stream_context_create([
             'http' => [
                 'timeout' => 60,
                 'user_agent' => 'Conductor/' . self::CONDUCTOR_VERSION,
+                'header' => "Accept: application/gzip, application/octet-stream, */*\r\n",
             ],
         ]);
 

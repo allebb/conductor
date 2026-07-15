@@ -365,7 +365,7 @@ It is recommended to automate the GeoIP database updates (expecially if you've k
 We recommend adding this line to the crontab so that updates are applied monthly (first day of the month at 00:14):
 
 ```shell
-14 0 1 * * sudo www-data /usr/bin/conductor geoip update
+14 0 1 * * /usr/bin/conductor geoipdb update
 ```
 
 The use of different PHP versions

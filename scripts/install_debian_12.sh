@@ -292,6 +292,21 @@ echo "Configuring Nginx..."
 sudo sed -i "s/include \/etc\/nginx\/sites-enabled\/\*/include \/etc\/conductor\/configs\/common\/conductor_nginx\.conf/g" /etc/nginx/nginx.conf
 sudo sed -i "s/# server_tokens off\;/server_tokens off\;/g" /etc/nginx/nginx.conf
 
+# Lets copy the configuration file template to /etc/conductor.conf for simplified administration.
+sudo cp /etc/conductor/bin/conf/conductor.debian.template.json /etc/conductor.conf
+
+# Set the root password on our configuration script.
+sudo sed -i "s|ROOT_PASSWORD_HERE|$MYSQL_ROOT_PASSWORD|" /etc/conductor.conf;
+if [ "$INSTALL_MYSQL" -eq 0 ]; then
+    sudo sed -i '0,/"enabled": true/s//"enabled": false/' /etc/conductor.conf
+fi
+if [ "$PROXY_ONLY" -eq 1 ]; then
+    sudo sed -i 's|"default_template": "laravel"|"default_template": "proxy"|' /etc/conductor.conf
+fi
+
+echo "Downloading GeoIP country database..."
+sudo conductor geoipdb update
+
 echo "Configuring PHP-FPM for Nginx..."
 # Change cgi.fix_pathinfo=1 to cgi.fix_pathinfo=0
 
@@ -326,18 +341,6 @@ for v in "${PHP_VERSIONS[@]}"; do
     sudo /etc/init.d/php${v}-fpm restart
 done
 sudo /etc/init.d/nginx restart
-
-# Lets copy the configuration file template to /etc/conductor.conf for simplified administration.
-sudo cp /etc/conductor/bin/conf/conductor.debian.template.json /etc/conductor.conf
-
-# Set the root password on our configuration script.
-sudo sed -i "s|ROOT_PASSWORD_HERE|$MYSQL_ROOT_PASSWORD|" /etc/conductor.conf;
-if [ "$INSTALL_MYSQL" -eq 0 ]; then
-    sudo sed -i '0,/"enabled": true/s//"enabled": false/' /etc/conductor.conf
-fi
-if [ "$PROXY_ONLY" -eq 1 ]; then
-    sudo sed -i 's|"default_template": "laravel"|"default_template": "proxy"|' /etc/conductor.conf
-fi
 prompt_letsencrypt_email
 echo ""
 if [ "$INSTALL_MYSQL" -eq 1 ]; then
