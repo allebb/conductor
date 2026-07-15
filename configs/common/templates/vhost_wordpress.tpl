@@ -37,9 +37,9 @@
 #        ssl_certificate         /etc/letsencrypt/live/@@APPNAME@@/fullchain.pem;
 #        ssl_certificate_key     /etc/letsencrypt/live/@@APPNAME@@/privkey.pem;
 #        ssl_trusted_certificate /etc/letsencrypt/live/@@APPNAME@@/chain.pem;
-#        include /etc/nginx/snippets/ssl-params.conf;
-#        server_name   www.{yourdomain};
-#        return        301 https://{yourdomain}$request_uri;
+#        include                 /etc/nginx/snippets/ssl-params.conf;
+#        server_name             www.{yourdomain}; # Replace with your domain name.
+#        return                  301 https://{yourdomain}$request_uri; # Replace with your domain name.
 #}
 
 server {
@@ -56,7 +56,7 @@ server {
     #ssl_certificate         /etc/letsencrypt/live/@@APPNAME@@/fullchain.pem;
     #ssl_certificate_key     /etc/letsencrypt/live/@@APPNAME@@/privkey.pem;
     #ssl_trusted_certificate /etc/letsencrypt/live/@@APPNAME@@/chain.pem;
-    #include /etc/nginx/snippets/ssl-params.conf;
+    #include                 /etc/nginx/snippets/ssl-params.conf;
     # -- C:End Auto-LetsEncrypt Main Block -- #
 
     server_name     @@DOMAIN@@;
@@ -77,10 +77,10 @@ server {
     # -- C:End Fail2Ban Protection Block -- #
 
     # Additional per-application optimisations.
-    charset utf-8;
-    client_max_body_size 32m;
-    client_body_timeout 60s;
-    client_header_timeout 30s;
+    charset                utf-8;
+    client_max_body_size   32m;
+    client_body_timeout    60s;
+    client_header_timeout  30s;
 
     # Optional HTTP Basic authentication managed by `conductor auth`.
     # -- C:Start HTTP Basic Auth Block -- #
@@ -121,13 +121,18 @@ server {
         include                         @@FASTCGIPARAMS@@;
         fastcgi_param                   SCRIPT_FILENAME $document_root$fastcgi_script_name;
         fastcgi_param                   HTTP_PROXY "";
-
-        # Optionally you can override any (default) PHP configuration (php.ini) values:
-        #fastcgi_param  PHP_VALUE       upload_max_filesize=32M;
-        #fastcgi_param  PHP_VALUE       post_max_size=38M;
         #fastcgi_read_timeout           120s;
         #fastcgi_buffers                16 16k;
         #fastcgi_buffer_size            32k;
+
+        # Optionally you can override any (default) PHP configuration (php.ini) values per virtual host:
+        #fastcgi_param  PHP_VALUE       "upload_max_filesize=30M
+        #                               post_max_size=32M
+        #                               memory_limit=256M
+        #                               max_execution_time=120
+        #                               max_input_time=120
+        #                               max_input_vars=3000
+        #                               max_file_uploads=20";
 
         # START APPLICATION ENV VARIABLES
         fastcgi_param                   APP_ENV @@ENVIROMENT@@;

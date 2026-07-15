@@ -1,132 +1,136 @@
 <!doctype html>
 <html lang="en">
 <head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<meta name="robots" content="noindex, nofollow">
-	<title>ERROR 504</title>
-	<style>
-		:root {
-			color-scheme: dark;
-			--bg: #18181b;
-			--panel: #242427;
-			--text: #f4f4f5;
-			--muted: #b8b8bf;
-			--border: #3f3f46;
-			--danger: #f87171;
-			--danger-soft: #3f1d1d;
-			--danger-ring: rgba(248, 113, 113, 0.45);
-		}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>504 Gateway Timeout</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --background: #f4f4f2;
+            --foreground: #222222;
+            --muted: #666666;
+            --border: #d7d2c8;
+            --code: #eeece7;
+            --danger: #c82333;
+            --danger-soft: #fff1f2;
+            --danger-ring: rgba(200, 35, 51, 0.24);
+        }
 
-		* {
-			box-sizing: border-box;
-		}
+        * {
+            box-sizing: border-box;
+        }
 
-		body {
-			margin: 0;
-			min-height: 100vh;
-			display: grid;
-			place-items: center;
-			padding: 32px 16px;
-			background:
-				radial-gradient(circle at top, rgba(63, 63, 70, 0.34), transparent 34rem),
-				var(--bg);
-			color: var(--text);
-			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-			line-height: 1.5;
-		}
+        body {
+            margin: 0;
+            min-height: 100vh;
+            padding: 48px 20px;
+            background: var(--background);
+            color: var(--foreground);
+            font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
 
-		main {
-			width: min(100%, 620px);
-			padding: 36px;
-			background: var(--panel);
-			border: 1px solid var(--border);
-			border-radius: 8px;
-			box-shadow: 0 18px 45px rgba(0, 0, 0, 0.24);
-		}
+        main {
+            max-width: 620px;
+            margin: 0 auto;
+        }
 
-		.status {
-			display: inline-flex;
-			align-items: center;
-			gap: 10px;
-			padding: 6px 10px;
-			border-radius: 999px;
-			background: var(--danger-soft);
-			border: 1px solid var(--danger);
-			color: var(--danger);
-			font-size: 13px;
-			font-weight: 700;
-			letter-spacing: 0.04em;
-			text-transform: uppercase;
-			animation: pulse-border 1.8s ease-in-out infinite;
-		}
+        .heading {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 20px;
+            margin: 0 0 16px;
+        }
 
-		.status::before {
-			content: "";
-			width: 8px;
-			height: 8px;
-			border-radius: 50%;
-			background: currentColor;
-		}
+        .status {
+            display: inline-block;
+            flex: 0 0 auto;
+            margin: 0;
+            padding: 6px 10px;
+            border: 1px solid var(--danger);
+            border-radius: 4px;
+            background: var(--danger-soft);
+            color: var(--danger);
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            animation: pulse-border 1.8s ease-in-out infinite;
+        }
 
-		@keyframes pulse-border {
-			0%, 100% {
-				box-shadow: 0 0 0 0 rgba(248, 113, 113, 0);
-			}
-			50% {
-				box-shadow: 0 0 0 5px var(--danger-ring);
-			}
-		}
+        @keyframes pulse-border {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(200, 35, 51, 0);
+            }
+            50% {
+                box-shadow: 0 0 0 5px var(--danger-ring);
+            }
+        }
 
-		h1 {
-			margin: 22px 0 12px;
-			font-size: clamp(28px, 5vw, 42px);
-			line-height: 1.1;
-			letter-spacing: 0;
-		}
+        h1 {
+            margin: 0;
+            font-size: 32px;
+            font-weight: 650;
+            line-height: 1.15;
+        }
 
-		p {
-			margin: 0;
-			color: var(--muted);
-			font-size: 17px;
-		}
+        p {
+            margin: 0 0 24px;
+            color: var(--muted);
+            font-size: 17px;
+        }
 
-		.details {
-			margin-top: 26px;
-			padding-top: 20px;
-			border-top: 1px solid var(--border);
-			display: grid;
-			gap: 8px;
-			font-size: 14px;
-			color: var(--muted);
-		}
+        dl {
+            margin: 32px 0 0;
+            padding: 22px 0 0;
+            border-top: 1px solid var(--border);
+            display: grid;
+            grid-template-columns: max-content 1fr;
+            gap: 10px 18px;
+        }
 
-		.details strong {
-			color: var(--text);
-		}
+        dt {
+            color: var(--muted);
+        }
 
-		code {
-			display: inline-block;
-			padding: 2px 7px;
-			border: 1px solid var(--border);
-			border-radius: 5px;
-			background: #18181b;
-			color: var(--text);
-			font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-			font-size: 0.94em;
-		}
-	</style>
+        dd {
+            margin: 0;
+        }
+
+        code {
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: var(--code);
+            font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+            font-size: 0.94em;
+        }
+
+        @media (max-width: 560px) {
+            .heading {
+                display: grid;
+                gap: 14px;
+            }
+
+            .status {
+                justify-self: start;
+            }
+        }
+    </style>
 </head>
 <body>
-	<main>
-		<div class="status">HTTP 504</div>
-		<h1>The backend application took too long to respond.</h1>
-		<p>This proxy/load-balancer is online, but the upstream service did not return a response before the timeout.</p>
-		<div class="details">
-			<div><strong>Application:</strong> <code>@@APPNAME@@</code></div>
-			<div><strong>What the team should check:</strong> review backend performance, logs, network reachability, and proxy timeout settings.</div>
-			<div><strong>What you can try:</strong> refresh this page again in a short while.</div>
-		</div>
-	</main>
+    <main>
+        <div class="heading">
+            <h1>Gateway timeout.</h1>
+            <p class="status">HTTP 504</p>
+        </div>
+        <p>The proxy/load-balancer is running, but the upstream service did not respond before the timeout.</p>
+        <dl>
+            <dt>Application</dt>
+            <dd><code>@@APPNAME@@</code></dd>
+            <dt>Check</dt>
+            <dd>Review backend logs, network reachability, and proxy timeout settings.</dd>
+        </dl>
+    </main>
 </body>
 </html>
