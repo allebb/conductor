@@ -33,6 +33,10 @@ if (isset($commands[1])) {
             $conductor->listApplications();
             $conductor->endWithSuccess();
             break;
+        case "versions":
+            $conductor->versions();
+            $conductor->endWithSuccess();
+            break;
         case "new":
             $conductor->newApplication();
             $conductor->endWithSuccess();
@@ -138,6 +142,7 @@ function displayHelp($conductor)
     $conductor->writeln();
     $conductor->writeln('Options:');
     $conductor->writeln('  list                List all currently hosted applications');
+    $conductor->writeln('  versions            Display installed component versions');
     $conductor->writeln('  new {name}          Prepares and deploys a new application');
     $conductor->writeln('  edit {name}         Open a text editor to update the vhost config.');
     $conductor->writeln('  enable {name}       Enables an application vhost config.');

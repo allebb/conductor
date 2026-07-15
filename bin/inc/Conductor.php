@@ -75,11 +75,6 @@ class Conductor extends CliApplication
 
         $this->conf = $this->conductorConfiguration();
         $this->checkDependencies();
-
-        if ($this->mysqlEnabled()) {
-            $this->mysql = MysqlPdo::connect('information_schema', $this->conf->mysql->username,
-                $this->conf->mysql->password, $this->conf->mysql->host);
-        }
     }
 
     /**
@@ -130,6 +125,20 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Connect to MySQL when a command first needs database access.
+     * @return void
+     */
+    private function connectMySQL()
+    {
+        if (!$this->mysqlEnabled() || $this->mysql) {
+            return;
+        }
+
+        $this->mysql = MysqlPdo::connect('information_schema', $this->conf->mysql->username,
+            $this->conf->mysql->password, $this->conf->mysql->host);
+    }
+
+    /**
      * Checks whether Conductor should manage local MySQL databases.
      * @return boolean
      */
@@ -140,6 +149,94 @@ class Conductor extends CliApplication
         }
 
         return (bool) $this->conf->mysql->enabled;
+    }
+
+    /**
+     * Display versions for installed Conductor-managed components.
+     * @return void
+     */
+    public function versions()
+    {
+        $this->writeln(sprintf('%-18s %s', 'Component', 'Version'));
+
+        foreach ($this->versionComponents() as $component => $settings) {
+            $this->writeln(sprintf('%-18s %s', $component, $this->componentVersion($settings)));
+        }
+    }
+
+    /**
+     * Components and configured binaries to display in conductor versions.
+     * @return array
+     */
+    private function versionComponents()
+    {
+        return [
+            'CertBot' => ['binary' => 'certbot', 'arguments' => ['--version']],
+            'MySQL' => ['binary' => 'mysql', 'arguments' => ['--version']],
+            'Redis' => ['binary' => 'redis', 'arguments' => ['--version']],
+            'Supervisor' => ['binary' => 'supervisord', 'arguments' => ['--version']],
+            'PHP7.4' => ['binary' => 'php7.4', 'arguments' => ['--version']],
+            'PHP8.1' => ['binary' => 'php8.1', 'arguments' => ['--version']],
+            'PHP8.4' => ['binary' => 'php8.4', 'arguments' => ['--version']],
+            'PHP8.5' => ['binary' => 'php8.5', 'arguments' => ['--version']],
+            'nftable' => ['binary' => 'nftables', 'arguments' => ['--version']],
+            'Fail2Ban' => ['binary' => 'fail2ban', 'arguments' => ['--version']],
+            'Crowdsec' => ['binary' => 'crowdsec', 'arguments' => ['-version']],
+        ];
+    }
+
+    /**
+     * Get a component version or N/A when the configured binary is unavailable.
+     * @param array $settings
+     * @return string
+     */
+    private function componentVersion($settings)
+    {
+        $binary = $this->configuredBinary($settings['binary']);
+        if (!$binary || !is_executable($binary)) {
+            return 'N/A';
+        }
+
+        $command = escapeshellarg($binary);
+        foreach ($settings['arguments'] as $argument) {
+            $command .= ' ' . escapeshellarg($argument);
+        }
+
+        $output = [];
+        exec($command . ' 2>&1', $output, $exit_code);
+        if ($exit_code !== 0 || empty($output)) {
+            return 'N/A';
+        }
+
+        return $this->extractVersionNumber(implode(' ', $output));
+    }
+
+    /**
+     * Return a configured binary path if present.
+     * @param string $name
+     * @return string|null
+     */
+    private function configuredBinary($name)
+    {
+        if (!isset($this->conf->binaries->$name)) {
+            return null;
+        }
+
+        return $this->conf->binaries->$name;
+    }
+
+    /**
+     * Extract the first semantic-looking version number from command output.
+     * @param string $output
+     * @return string
+     */
+    private function extractVersionNumber($output)
+    {
+        if (preg_match('/\d+(?:\.\d+)+(?:[-+~][A-Za-z0-9.+~:-]+)?/', $output, $matches)) {
+            return $matches[0];
+        }
+
+        return trim($output) ?: 'N/A';
     }
 
     /**
@@ -635,6 +732,7 @@ class Conductor extends CliApplication
     {
         $this->appNameRequired();
         $this->call('cp -R ' . $this->appdir . ' ' . $this->conf->paths->temp . '/' . $this->appname);
+        $this->connectMySQL();
         if ($this->mysqlEnabled() && $this->mysql->query('SHOW DATABASES LIKE \'db_' . $this->appname . '\';')->fetchObject()) {
             $this->writeln('Detected a MySQL database, backing it up...');
             $this->call($this->conf->binaries->mysqldump . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' --no-create-db db_' . $this->appname . ' | ' . $this->conf->binaries->gzip . ' -c | cat > ' . $this->conf->paths->temp . '/' . $this->appname . '/appdb.sql.gz');
@@ -668,6 +766,7 @@ class Conductor extends CliApplication
             $this->writeln('MySQL management is disabled in /etc/conductor.conf; skipping database provisioning.');
             return;
         }
+        $this->connectMySQL();
 
         // Creating the user and granting privileges in separate statements (rather than the legacy
         // combined `GRANT ... IDENTIFIED BY`) is required since MySQL 8.0 removed that syntax entirely;
@@ -700,6 +799,7 @@ class Conductor extends CliApplication
         if (!$this->mysqlEnabled()) {
             return;
         }
+        $this->connectMySQL();
 
         if ($this->mysql->query('SHOW DATABASES LIKE \'db_' . $this->appname . '\';')->fetchObject()) {
             $this->writeln('Detected a Application MySQL user and database...');

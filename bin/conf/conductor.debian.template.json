@@ -24,11 +24,21 @@
     "composer": "/usr/bin/composer",
     "git": "/usr/bin/git",
     "mysql": "/usr/bin/mysql",
+    "redis": "/usr/bin/redis-server",
+    "supervisord": "/usr/bin/supervisord",
+    "fail2ban": "/usr/bin/fail2ban-client",
+    "nftables": "/usr/sbin/nft",
+    "php8.5": "/usr/bin/php8.5",
+    "php8.4": "/usr/bin/php8.4",
+    "php8.1": "/usr/bin/php8.1",
+    "php7.4": "/usr/bin/php7.4",
     "mysqldump": "/usr/bin/mysqldump",
     "gzip": "/bin/gzip",
     "sshkeygen": "/usr/bin/ssh-keygen",
     "editor": "/usr/bin/nano",
-    "nginx": "/usr/sbin/nginx"
+    "nginx": "/usr/sbin/nginx",
+    "certbot": "/usr/bin/certbot",
+    "crowdsec": "/usr/bin/crowdsec"
   },
   "mysql": {
     "enabled": true,
