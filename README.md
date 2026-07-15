@@ -358,6 +358,16 @@ As conductor is designed to be a 'set and forget' system, we've now implemented 
 0 3 1 * * /etc/conductor/utils/update_composer.sh
 ```
 
+Automating GeoIP database updates
+---------------------------------
+It is recommended to automate the GeoIP database updates (expecially if you've kept the feature enabled)
+
+We recommend adding this line to the crontab so that updates are applied monthly (first day of the month at 00:14):
+
+```shell
+14 0 1 * * sudo www-data /usr/bin/conductor geoip update
+```
+
 The use of different PHP versions
 ---------------------------
 
