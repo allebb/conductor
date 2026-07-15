@@ -90,6 +90,20 @@ server {
     client_body_timeout 60s;
     client_header_timeout 30s;
 
+    # Example GeoIP country block. Enable the geoip2 lookup in
+    # /etc/conductor/configs/common/conductor_nginx.conf, then add ISO 3166-1
+    # alpha-2 country codes to the regex for this vhost.
+    #
+    # if ($conductor_geoip_country_code ~ ^(CN|RU)$) {
+    #     return 444;
+    # }
+
+    # Optional HTTP Basic authentication managed by `conductor auth`.
+    # -- C:Start HTTP Basic Auth Block -- #
+    #auth_basic           "Restricted";
+    #auth_basic_user_file /etc/conductor/auth/.htpasswd_@@APPNAME@@;
+    # -- C:End HTTP Basic Auth Block -- #
+
     # Enable GZip by default for common files.
     include /etc/conductor/configs/common/gzip.conf;
 

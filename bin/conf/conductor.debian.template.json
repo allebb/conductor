@@ -9,6 +9,8 @@
     "backups": "/var/conductor/backups",
     "appconfs": "/etc/conductor/configs",
     "applogs": "/var/conductor/logs",
+    "geoip": "/var/conductor/geoip",
+    "auth": "/etc/conductor/auth",
     "templates": "/etc/conductor/configs/common",
     "fpmsocket": "/var/run/php/php8.5-fpm.sock",
     "fastcgiparams": "/etc/nginx/fastcgi_params",

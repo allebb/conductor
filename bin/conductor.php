@@ -28,6 +28,10 @@ if ($conductor->isFlagSet('v') || $conductor->isFlagSet('version')) {
 
 if (isset($commands[1])) {
     switch ($commands[1]) {
+        case "__complete":
+            $conductor->complete();
+            $conductor->endWithSuccess();
+            break;
         case "list":
             $conductor->writeln('Applications hosted on this server:');
             $conductor->listApplications();
@@ -35,6 +39,19 @@ if (isset($commands[1])) {
             break;
         case "versions":
             $conductor->versions();
+            $conductor->endWithSuccess();
+            break;
+        case "geoipdb":
+            if (!isset($commands[2])) {
+                displayHelp($conductor);
+                $conductor->endWithError();
+                break;
+            }
+            $conductor->geoIpDbControl($commands[2]);
+            $conductor->endWithSuccess();
+            break;
+        case "auth":
+            $conductor->authControl();
             $conductor->endWithSuccess();
             break;
         case "new":
@@ -143,6 +160,10 @@ function displayHelp($conductor)
     $conductor->writeln('Options:');
     $conductor->writeln('  list                List all currently hosted applications');
     $conductor->writeln('  versions            Display installed component versions');
+    $conductor->writeln('  geoipdb update      Download/update the GeoIP country database');
+    $conductor->writeln('  auth {name} --enable|--disable');
+    $conductor->writeln('  auth {name} set {username} {password}');
+    $conductor->writeln('  auth {name} delete {username}');
     $conductor->writeln('  new {name}          Prepares and deploys a new application');
     $conductor->writeln('  edit {name}         Open a text editor to update the vhost config.');
     $conductor->writeln('  enable {name}       Enables an application vhost config.');

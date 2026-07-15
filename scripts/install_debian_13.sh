@@ -152,12 +152,12 @@ check_required_tcp_ports "${REQUIRED_PORTS[@]}"
 
 echo "Updating system..."
 sudo apt-get update
-sudo apt-get -y install curl wget gnupg ca-certificates lsb-release zip unzip git
+sudo apt-get -y install bash-completion curl wget gnupg ca-certificates lsb-release zip unzip git
 
 ################################################################################
 # NGINX
 ################################################################################
-sudo apt-get -y install nginx
+sudo apt-get -y install nginx libnginx-mod-http-geoip2
 
 if [ "$INSTALL_MYSQL" -eq 1 ]; then
     ################################################################################
@@ -251,7 +251,9 @@ cd /etc/conductor
 sudo git checkout "${BRANCH_INSTALL}"
 cd -
 
-sudo mkdir -p /var/conductor/{applications,certificates,logs,backups,tmp}
+sudo mkdir -p /var/conductor/{applications,certificates,logs,backups,tmp,geoip}
+sudo mkdir -p /etc/conductor/auth
+sudo chmod 755 /etc/conductor/auth
 
 sudo mkdir -p /var/www/.cache
 sudo chown -R www-data:www-data /var/www/.cache
@@ -276,6 +278,7 @@ sudo chmod +x /usr/bin/composer
 sudo chmod +x /etc/conductor/bin/*
 sudo chmod +x /etc/conductor/utils/*
 sudo /etc/conductor/utils/install_nginx_streams.sh
+sudo install -m 0644 /etc/conductor/configs/common/completion/conductor.bash /etc/bash_completion.d/conductor
 
 sudo ln -sf /etc/conductor/bin/conductor.php /usr/bin/conductor
 sudo chmod +x /usr/bin/conductor

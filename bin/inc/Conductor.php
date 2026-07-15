@@ -37,6 +37,10 @@ class Conductor extends CliApplication
     const OPTION_YES = "y";
     const OPTION_NO = "n";
     const NGINX_CONFIG_ERROR_EXIT_CODE = 88;
+    const GEOIP_DATABASE_FILENAME = "dbip-country-lite.mmdb";
+    const DEFAULT_PROXY_TARGET = "http://localhost:9000";
+    const AUTH_START_MARKER = "# -- C:Start HTTP Basic Auth Block -- #";
+    const AUTH_END_MARKER = "# -- C:End HTTP Basic Auth Block -- #";
 
     /**
      * The current application number.
@@ -68,6 +72,11 @@ class Conductor extends CliApplication
 
         $this->enforceCli();
 
+        if ($this->getCommand(1) == '__complete') {
+            $this->conf = $this->conductorConfiguration(false);
+            return;
+        }
+
         if (!$this->isSuperUser()) {
             $this->writeln('You must be root to use this tool!');
             $this->endWithError();
@@ -81,14 +90,18 @@ class Conductor extends CliApplication
      * Loads the Conductor configuration file.
      * @return stdClass
      */
-    private function conductorConfiguration()
+    private function conductorConfiguration($required = true)
     {
         if (file_exists(self::CONDUCTOR_CONF)) {
             return json_decode(file_get_contents(self::CONDUCTOR_CONF));
-        } else {
+        }
+
+        if ($required) {
             $this->writeln('The conductor configuration file could not be found!');
             $this->endWithError();
         }
+
+        return new stdClass();
     }
 
     /**
@@ -237,6 +250,623 @@ class Conductor extends CliApplication
         }
 
         return trim($output) ?: 'N/A';
+    }
+
+    /**
+     * Print shell completion candidates for the external completion script.
+     * @return void
+     */
+    public function complete()
+    {
+        $args = $this->rawArgs();
+        $words = array_slice($args, 3);
+        $current_index = isset($args[2]) ? (int) $args[2] : 0;
+        $current = isset($words[$current_index]) ? $words[$current_index] : '';
+        $previous = $current_index > 0 && isset($words[$current_index - 1]) ? $words[$current_index - 1] : '';
+        $command = isset($words[1]) ? $words[1] : '';
+
+        foreach ($this->completionCandidates($words, $current_index, $current, $previous, $command) as $candidate) {
+            $this->writeln($candidate);
+        }
+    }
+
+    /**
+     * Build completion candidates for commands, options and command arguments.
+     * @param array $words
+     * @param int $current_index
+     * @param string $current
+     * @param string $previous
+     * @param string $command
+     * @return array
+     */
+    private function completionCandidates($words, $current_index, $current, $previous, $command)
+    {
+        if ($current_index <= 1) {
+            return $this->filterCompletionCandidates($this->completionCommands(), $current);
+        }
+
+        if (substr($current, 0, 2) == '--') {
+            return $this->filterCompletionCandidates($this->completionOptions($command), $current);
+        }
+
+        if (substr($previous, 0, 2) == '--') {
+            return [];
+        }
+
+        switch ($command) {
+            case 'services':
+                return $this->filterCompletionCandidates(['start', 'stop', 'status', 'restart', 'reload'], $current);
+            case 'ban':
+                return $this->filterCompletionCandidates(['list', 'purge'], $current);
+            case 'geoipdb':
+                return $this->filterCompletionCandidates(['update'], $current);
+            case 'auth':
+                if ($current_index == 3) {
+                    return $this->filterCompletionCandidates(['set', 'delete'], $current);
+                }
+
+                return $this->filterCompletionCandidates($this->completionApplicationNames(), $current);
+            case 'new':
+                return [];
+        }
+
+        if (in_array($command, $this->completionApplicationCommands())) {
+            return $this->filterCompletionCandidates($this->completionApplicationNames(), $current);
+        }
+
+        return [];
+    }
+
+    /**
+     * Top-level commands available to the conductor CLI.
+     * @return array
+     */
+    private function completionCommands()
+    {
+        return [
+            'list',
+            'versions',
+            'geoipdb',
+            'auth',
+            'new',
+            'edit',
+            'enable',
+            'disable',
+            'cron',
+            'destroy',
+            'update',
+            'rollback',
+            'envars',
+            'backup',
+            'restore',
+            'letsencrypt',
+            'genkey',
+            'delkey',
+            'start',
+            'stop',
+            'services',
+            'ban',
+            'unban',
+        ];
+    }
+
+    /**
+     * Commands that accept an application name argument.
+     * @return array
+     */
+    private function completionApplicationCommands()
+    {
+        return [
+            'edit',
+            'enable',
+            'disable',
+            'cron',
+            'destroy',
+            'update',
+            'rollback',
+            'envars',
+            'backup',
+            'restore',
+            'letsencrypt',
+            'genkey',
+            'delkey',
+            'start',
+            'stop',
+        ];
+    }
+
+    /**
+     * Options available for a command.
+     * @param string $command
+     * @return array
+     */
+    private function completionOptions($command)
+    {
+        $global = ['--help', '--version'];
+        $options = [
+            'new' => [
+                '--fqdn=',
+                '--environment=',
+                '--mysql-pass=',
+                '--git-uri=',
+                '--git-branch=',
+                '--path=',
+                '--template=',
+                '--target=',
+                '--genkey',
+                '--auto-reload',
+            ],
+            'enable' => ['--auto-reload'],
+            'disable' => ['--auto-reload'],
+            'letsencrypt' => ['--enable', '--disable', '--delete', '--force-renew', '--auto-reload'],
+            'update' => ['--down='],
+            'geoipdb' => ['--url='],
+            'auth' => ['--enable', '--disable', '--auto-reload'],
+        ];
+
+        if (!isset($options[$command])) {
+            return $global;
+        }
+
+        return array_values(array_unique(array_merge($global, $options[$command])));
+    }
+
+    /**
+     * Find application names from configured application and vhost paths.
+     * @return array
+     */
+    private function completionApplicationNames()
+    {
+        $names = [];
+        $paths = [];
+
+        if (isset($this->conf->paths->apps)) {
+            $paths[] = ['type' => 'directory', 'path' => $this->conf->paths->apps];
+        }
+
+        if (isset($this->conf->paths->appconfs)) {
+            $paths[] = ['type' => 'config', 'path' => $this->conf->paths->appconfs];
+        }
+
+        foreach ($paths as $path) {
+            if (!is_dir($path['path']) || !is_readable($path['path'])) {
+                continue;
+            }
+
+            foreach (scandir($path['path']) as $entry) {
+                if ($entry == '.' || $entry == '..') {
+                    continue;
+                }
+
+                if ($path['type'] == 'directory' && is_dir($path['path'] . '/' . $entry)) {
+                    $names[] = $entry;
+                }
+
+                if ($path['type'] == 'config' && preg_match('/^(.+)\.(?:conf|disabled)$/', $entry, $matches)) {
+                    $names[] = $matches[1];
+                }
+            }
+        }
+
+        sort($names);
+        return array_values(array_unique($names));
+    }
+
+    /**
+     * Filter completion candidates by the current shell word.
+     * @param array $candidates
+     * @param string $current
+     * @return array
+     */
+    private function filterCompletionCandidates($candidates, $current)
+    {
+        return array_values(array_filter($candidates, function ($candidate) use ($current) {
+            return $current === '' || strpos($candidate, $current) === 0;
+        }));
+    }
+
+    /**
+     * Validate and normalize a proxy upstream target.
+     * @param string $target
+     * @return string
+     */
+    private function validateProxyTarget($target)
+    {
+        $target = rtrim(trim($target), '/');
+        $parts = parse_url($target);
+
+        if ($parts === false
+            || !isset($parts['scheme'], $parts['host'], $parts['port'])
+            || !in_array(strtolower($parts['scheme']), ['http', 'https'])
+            || isset($parts['user'], $parts['pass'], $parts['query'], $parts['fragment'])
+            || (isset($parts['path']) && $parts['path'] !== '')
+        ) {
+            $this->writeln('Proxy target must be an HTTP(S) URL with a host and port, eg. http://127.24.54.54:8000');
+            $this->endWithError();
+        }
+
+        if (!$this->validProxyTargetHost($parts['host'])) {
+            $this->writeln('Proxy target host must be a valid FQDN, localhost, IPv4 address, or IPv6 address.');
+            $this->endWithError();
+        }
+
+        if ($parts['port'] < 1 || $parts['port'] > 65535) {
+            $this->writeln('Proxy target port must be between 1 and 65535.');
+            $this->endWithError();
+        }
+
+        return strtolower($parts['scheme']) . '://' . $parts['host'] . ':' . $parts['port'];
+    }
+
+    /**
+     * Build placeholder values for proxy upstream configuration.
+     * @param string $target
+     * @return array
+     */
+    private function proxyTargetPlaceholders($target)
+    {
+        $parts = parse_url($target);
+
+        return [
+            '@@TARGET_SCHEME@@' => strtolower($parts['scheme']),
+            '@@TARGET_HOST@@' => $parts['host'] . ':' . $parts['port'],
+            '@@UPSTREAM@@' => $this->nginxUpstreamName($this->appname),
+        ];
+    }
+
+    /**
+     * Convert an application name into an Nginx upstream-safe identifier.
+     * @param string $name
+     * @return string
+     */
+    private function nginxUpstreamName($name)
+    {
+        $name = preg_replace('/[^A-Za-z0-9_]/', '_', $name);
+        $name = trim($name, '_');
+
+        return $name !== '' ? $name : 'app';
+    }
+
+    /**
+     * Validate a proxy target host.
+     * @param string $host
+     * @return bool
+     */
+    private function validProxyTargetHost($host)
+    {
+        $host = trim($host, '[]');
+
+        if ($host == 'localhost' || filter_var($host, FILTER_VALIDATE_IP)) {
+            return true;
+        }
+
+        return filter_var($host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false
+            && strpos($host, '.') !== false;
+    }
+
+    /**
+     * Manage HTTP Basic authentication for an application.
+     * @return void
+     */
+    public function authControl()
+    {
+        $this->appNameRequired();
+
+        if ($this->isFlagSet('enable')) {
+            $this->updateApplicationAuthConfig(true);
+            return;
+        }
+
+        if ($this->isFlagSet('disable')) {
+            $this->updateApplicationAuthConfig(false);
+            return;
+        }
+
+        $action = $this->getCommand(3);
+        if ($action == 'set') {
+            $username = $this->getCommand(4);
+            $password = $this->getCommand(5);
+            if (!$username || !$password) {
+                $this->writeln('Usage: conductor auth {name} set {username} {password}');
+                $this->endWithError();
+            }
+
+            $this->setAuthUser($username, $password);
+            return;
+        }
+
+        if ($action == 'delete') {
+            $username = $this->getCommand(4);
+            if (!$username) {
+                $this->writeln('Usage: conductor auth {name} delete {username}');
+                $this->endWithError();
+            }
+
+            $this->deleteAuthUser($username);
+            return;
+        }
+
+        $this->writeln('Usage: conductor auth {name} --enable|--disable');
+        $this->writeln('       conductor auth {name} set {username} {password}');
+        $this->writeln('       conductor auth {name} delete {username}');
+        $this->endWithError();
+    }
+
+    /**
+     * Enable or disable the HTTP Basic auth block in an application vhost.
+     * @param bool $enable
+     * @return void
+     */
+    private function updateApplicationAuthConfig($enable)
+    {
+        $config_path = $this->applicationConfigPath();
+        $config = file_get_contents($config_path);
+
+        if ($enable && !file_exists($this->authFilePath())) {
+            $this->writeAuthUsers([]);
+        }
+
+        foreach ([self::AUTH_START_MARKER, self::AUTH_END_MARKER] as $marker) {
+            if (strpos($config, $marker) === false) {
+                $this->writeln('Could not find required Conductor marker in virtualhost configuration: ' . $marker);
+                $this->endWithError();
+            }
+        }
+
+        $original_config = $config;
+        $config = $this->replaceLinesBetweenMarkers(
+            $config,
+            self::AUTH_START_MARKER,
+            self::AUTH_END_MARKER,
+            $enable ? [$this, 'uncommentNginxConfigLine'] : [$this, 'commentNginxConfigLine']
+        );
+        file_put_contents($config_path, $config);
+
+        $this->writeln('HTTP Basic authentication has been ' . ($enable ? 'enabled.' : 'disabled.'));
+        $this->writeln('Checking Nginx configuration...');
+        if ($this->callWithExitCode($this->conf->binaries->nginx . ' -t') !== 0) {
+            file_put_contents($config_path, $original_config);
+            $this->writeln('Nginx configuration test failed. The auth configuration has been returned to its previous state.');
+            $this->endWithNginxConfigError();
+        }
+
+        $this->promptGracefulNginxReload('auth configuration change', $this->isFlagSet('auto-reload'));
+    }
+
+    /**
+     * Create or reset an HTTP Basic auth user password.
+     * @param string $username
+     * @param string $password
+     * @return void
+     */
+    private function setAuthUser($username, $password)
+    {
+        $this->validateAuthUsername($username);
+        $users = $this->authUsers();
+        $users[$username] = password_hash($password, PASSWORD_BCRYPT);
+        $this->writeAuthUsers($users);
+        $this->writeln('HTTP Basic auth password has been set for user: ' . $username);
+    }
+
+    /**
+     * Delete an HTTP Basic auth user.
+     * @param string $username
+     * @return void
+     */
+    private function deleteAuthUser($username)
+    {
+        $this->validateAuthUsername($username);
+        $users = $this->authUsers();
+
+        if (!isset($users[$username])) {
+            $this->writeln('HTTP Basic auth user was not found: ' . $username);
+            return;
+        }
+
+        unset($users[$username]);
+        $this->writeAuthUsers($users);
+        $this->writeln('HTTP Basic auth user has been deleted: ' . $username);
+    }
+
+    /**
+     * Read HTTP Basic auth users for the selected application.
+     * @return array
+     */
+    private function authUsers()
+    {
+        $users = [];
+        $path = $this->authFilePath();
+        if (!file_exists($path)) {
+            return $users;
+        }
+
+        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+            $parts = explode(':', $line, 2);
+            if (count($parts) == 2) {
+                $users[$parts[0]] = $parts[1];
+            }
+        }
+
+        return $users;
+    }
+
+    /**
+     * Write HTTP Basic auth users for the selected application.
+     * @param array $users
+     * @return void
+     */
+    private function writeAuthUsers($users)
+    {
+        $directory = $this->authDirectory();
+        if (!is_dir($directory) && !mkdir($directory, 0755, true)) {
+            $this->writeln('Unable to create auth directory: ' . $directory);
+            $this->endWithError();
+        }
+
+        $lines = [];
+        foreach ($users as $username => $hash) {
+            $lines[] = $username . ':' . $hash;
+        }
+
+        $path = $this->authFilePath();
+        file_put_contents($path, implode(PHP_EOL, $lines) . (count($lines) > 0 ? PHP_EOL : ''));
+        chmod($path, 0644);
+    }
+
+    /**
+     * Validate an HTTP Basic auth username.
+     * @param string $username
+     * @return void
+     */
+    private function validateAuthUsername($username)
+    {
+        if ($username === '' || preg_match('/[:\r\n]/', $username)) {
+            $this->writeln('Auth username cannot be empty or contain colons/newlines.');
+            $this->endWithError();
+        }
+    }
+
+    /**
+     * Return the auth directory.
+     * @return string
+     */
+    private function authDirectory()
+    {
+        if (isset($this->conf->paths->auth)) {
+            return rtrim($this->conf->paths->auth, '/');
+        }
+
+        return '/etc/conductor/auth';
+    }
+
+    /**
+     * Return the auth file path for the selected application.
+     * @return string
+     */
+    private function authFilePath()
+    {
+        return $this->authDirectory() . '/.htpasswd_' . $this->appname;
+    }
+
+    /**
+     * Action GeoIP database management commands.
+     * @param string $action
+     */
+    public function geoIpDbControl($action)
+    {
+        if ($action == 'update') {
+            $this->updateGeoIpDatabase();
+            return;
+        }
+
+        $this->writeln('Unknown GeoIP database command: ' . $action);
+        $this->endWithError();
+    }
+
+    /**
+     * Download/update the GeoIP country database used by Nginx GeoIP2 examples.
+     * @return void
+     */
+    private function updateGeoIpDatabase()
+    {
+        if (!function_exists('gzdecode')) {
+            $this->writeln('The PHP zlib extension is required to unpack the GeoIP database.');
+            $this->endWithError();
+        }
+
+        $directory = $this->geoIpDatabaseDirectory();
+        if (!is_dir($directory) && !mkdir($directory, 0755, true)) {
+            $this->writeln('Unable to create GeoIP database directory: ' . $directory);
+            $this->endWithError();
+        }
+
+        $urls = $this->geoIpDatabaseDownloadUrls();
+        foreach ($urls as $url) {
+            $this->writeln('Downloading GeoIP database: ' . $url);
+            $archive = $this->downloadGeoIpDatabaseArchive($url);
+            if ($archive === false) {
+                continue;
+            }
+
+            $database = gzdecode($archive);
+            if ($database === false || strlen($database) < 1024) {
+                continue;
+            }
+
+            $target = $directory . '/' . self::GEOIP_DATABASE_FILENAME;
+            $temporary_target = tempnam($directory, 'geoip-');
+            if ($temporary_target === false || file_put_contents($temporary_target, $database) === false) {
+                $this->writeln('Unable to write GeoIP database to: ' . $directory);
+                $this->endWithError();
+            }
+
+            if (!rename($temporary_target, $target)) {
+                @unlink($temporary_target);
+                $this->writeln('Unable to move GeoIP database into place: ' . $target);
+                $this->endWithError();
+            }
+
+            file_put_contents($directory . '/source.txt', $url . PHP_EOL);
+            $this->writeln('GeoIP database updated: ' . $target);
+            return;
+        }
+
+        $this->writeln('Unable to download a GeoIP database from the configured source(s).');
+        $this->endWithError();
+    }
+
+    /**
+     * Return the configured GeoIP database directory.
+     * @return string
+     */
+    private function geoIpDatabaseDirectory()
+    {
+        if (isset($this->conf->paths->geoip)) {
+            return rtrim($this->conf->paths->geoip, '/');
+        }
+
+        return '/var/conductor/geoip';
+    }
+
+    /**
+     * Build the ordered GeoIP download URL list.
+     * @return array
+     */
+    private function geoIpDatabaseDownloadUrls()
+    {
+        $configured_url = $this->getOption('url');
+        if ($configured_url) {
+            return [$configured_url];
+        }
+
+        $urls = [];
+        for ($months_ago = 0; $months_ago <= 1; $months_ago++) {
+            $date = new DateTimeImmutable('first day of this month', new DateTimeZone('UTC'));
+            if ($months_ago > 0) {
+                $date = $date->modify('-' . $months_ago . ' month');
+            }
+
+            $urls[] = 'https://download.db-ip.com/free/dbip-country-lite-' . $date->format('Y-m') . '.mmdb.gz';
+        }
+
+        return $urls;
+    }
+
+    /**
+     * Download a GeoIP database archive.
+     * @param string $url
+     * @return string|false
+     */
+    private function downloadGeoIpDatabaseArchive($url)
+    {
+        $context = stream_context_create([
+            'http' => [
+                'timeout' => 60,
+                'user_agent' => 'Conductor/' . self::CONDUCTOR_VERSION,
+            ],
+        ]);
+
+        return @file_get_contents($url, false, $context);
     }
 
     /**
@@ -1332,6 +1962,13 @@ class Conductor extends CliApplication
 
         $vhost_template = $this->getOption('template', $this->conf->admin->default_template);
         $is_proxy_template = strtolower($vhost_template) == 'proxy';
+        if (!$is_proxy_template && $this->getOption('target')) {
+            $this->writeln('The --target option can only be used with --template=proxy.');
+            $this->endWithError();
+        }
+        $proxy_target = $is_proxy_template
+            ? $this->validateProxyTarget($this->getOption('target', self::DEFAULT_PROXY_TARGET))
+            : '';
         if(!file_exists($tmpl = $this->conf->paths->templates.'/templates/vhost_' . strtolower($vhost_template).'.tpl')){
             $this->writeln('The configuration template was not found!');
             $this->endWithError();
@@ -1342,6 +1979,9 @@ class Conductor extends CliApplication
             // Entering interactive mode...
             $domain = $this->input('Domains (FQDN\'s) to map this application to:');
             $apppath = $is_proxy_template ? '' : $this->input('Hosted directory:', '/public');
+            if ($is_proxy_template && !$this->getOption('target')) {
+                $proxy_target = $this->validateProxyTarget($this->input('Target address:', self::DEFAULT_PROXY_TARGET));
+            }
             $environment = $this->input('Environment type:', 'production');
             $mysql_req = $this->mysqlEnabled()
                 ? $this->input('Provision a MySQL database?', self::OPTION_NO, $option_yes_no_set)
@@ -1402,6 +2042,9 @@ class Conductor extends CliApplication
             '@@VERSION@@' => $this->version(),
             '@@CREATED_AT@@' => date('c'),
         ];
+        if ($is_proxy_template) {
+            $placeholders = array_merge($placeholders, $this->proxyTargetPlaceholders($proxy_target));
+        }
         $config = file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf');
         foreach ($placeholders as $placeholder => $value) {
             $config = str_replace($placeholder, $value, $config);

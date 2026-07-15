@@ -87,6 +87,10 @@ It's pretty straight forward to use, I'll go over briefly the main features (CLI
 
 ### List of available commands and what they do
 
+### Shell completion
+
+The Debian installers install Bash completion for ``conductor`` via ``/etc/bash_completion.d/conductor``. Completion is split between that shell hook and the PHP CLI: Bash handles the Tab key, then calls Conductor's hidden ``__complete`` command to return commands, options, subcommands, and deployed application names from ``/etc/conductor.conf`` paths.
+
 #### ```conductor list```
 
 A simple command that displays the names of the currently deployed applications on the server.
@@ -107,16 +111,16 @@ There are other application configurations you can use but by default Conductor 
 As an example, if you wanted to use a generic proxy template for your application you should use the following command:
 
 ```shell
-sudo conductor new {app name} --template=proxy
+sudo conductor new {app name} --template=proxy --target="http://localhost:9000"
 ```
 
 If you are creating an application non-interactively, add ``--auto-reload`` to test the Nginx configuration and gracefully reload Nginx after the virtual host has been created without prompting:
 
 ```shell
-sudo conductor new {app name} --fqdn="example.com" --template=proxy --auto-reload
+sudo conductor new {app name} --fqdn="example.com" --template=proxy --target="http://localhost:9000" --auto-reload
 ```
 
-Then you can edit the configuration file (to set the correct backend proxy target port) by running ``conductor edit {app name}``.
+The ``--target`` value is only valid for proxy templates and must be an HTTP(S) URL with a host and explicit port number.
 
 Proxy applications do not ask for a hosted directory because the virtual host serves from the application root. Conductor will also create custom ``.502.html``, ``.503.html``, and ``.504.html`` pages in ``/var/conductor/applications/{app name}/`` and configure Nginx to show them if the backend application is unreachable.
 
@@ -181,6 +185,18 @@ sudo conductor unban 203.0.113.10
 
 Manual bans are added to the ``conductor-manual`` jail and remain in place until explicitly unbanned or purged. ``ban purge`` clears all IP addresses currently banned by Fail2Ban, including bans created by non-Conductor jails.
 
+### Optional Nginx GeoIP country blocking
+
+The Debian installers include the Nginx GeoIP2 module and create ``/var/conductor/geoip``. To download or refresh the free DB-IP country database, run:
+
+```shell
+sudo conductor geoipdb update
+```
+
+This writes ``/var/conductor/geoip/dbip-country-lite.mmdb``. The common Nginx configuration includes a commented shared ``geoip2`` lookup, and each vhost template includes a commented block showing how to drop requests from selected countries for that specific vhost. Uncomment the shared lookup, uncomment the per-vhost block, add the ISO country codes you want to block, then run ``sudo nginx -t`` and reload Nginx.
+
+The bundled updater uses DB-IP's Lite country database, which requires attribution to DB-IP.com when used in an application.
+
 ### Optional CrowdSec protection
 
 Conductor also includes an optional post-install script for [CrowdSec](https://www.crowdsec.net/). It is not run by the main installer, so you can add it after Conductor is installed, if you wish by running:
@@ -226,6 +242,23 @@ Enables or disables an application's Nginx virtual host by renaming its configur
 Add ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes.
 
 The ``conductor list`` command shows the current virtual host status: ``[/]`` for enabled, ``[x]`` for disabled, and ``[?]`` if no matching virtual host configuration was found.
+
+#### ```conductor auth {app name}```
+
+Enables or disables HTTP Basic authentication for an application's Nginx virtual host.
+
+```shell
+# Create (or update/reset password) for a user account.
+sudo conductor auth {app name} set {username} {password}
+# Deletes (removes) a user account.
+sudo conductor auth {app name} delete {username}
+# Enable the auth_basic support for this application.
+sudo conductor auth {app name} --enable
+# Disable the auth_basic support for this application.
+sudo conductor auth {app name} --disable
+```
+
+Add ``--auto-reload`` to ``--enable`` or ``--disable`` to gracefully reload Nginx automatically after the configuration test passes. Without it, Conductor asks whether to reload (to apply the changes) and defaults to yes.
 
 #### ```conductor update {app name}```
 The upgrade command does three things, firstly it gives you the option of putting your application into 'offline mode' of which is up to you (you're prompted for your decision here), before it upgrades anything an automatic 'snapshot' is taken and stored separately to enable you to 'roll-back' later if required.. So next if Conductor finds that the application was previously deployed by Git or has a ```.git``` directory it will attempt to do a ```git fetch --all``` and then a ```git reset --hard origin/master``` to pull in the latest changes. If no git directory is found, Conductor assumes you're doing a 'manual upgrade' and prompts you at this point to upload the new files into your application's root directory... once this is complete you should confirm that the files have all been uploaded... Next Conductor will now execute any database migrations and then clear the application cache as well as dump the autoloader and finally (if you choose to 'take the application offline' during the upgrade process) it will now be automatically put back on-line!

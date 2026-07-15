@@ -156,10 +156,10 @@ check_required_tcp_ports "${REQUIRED_PORTS[@]}"
 # @todo
 
 sudo apt-get update
-sudo apt-get -y install software-properties-common debconf-i18n curl
+sudo apt-get -y install software-properties-common debconf-i18n bash-completion curl
 
 # We now install Nginx
-sudo apt-get -y install nginx
+sudo apt-get -y install nginx libnginx-mod-http-geoip2
 
 if [ "$INSTALL_MYSQL" -eq 1 ]; then
     # Now we'll install MariaDB Server and set a default 'root' password, in future we'll generate a random one!
@@ -241,6 +241,9 @@ sudo mkdir /var/conductor/certificates
 sudo mkdir /var/conductor/logs
 sudo mkdir /var/conductor/backups
 sudo mkdir /var/conductor/tmp
+sudo mkdir /var/conductor/geoip
+sudo mkdir /etc/conductor/auth
+sudo chmod 755 /etc/conductor/auth
 
 # Create the composer cache directory and set the required ownership
 sudo mkdir /var/www/.cache
@@ -274,6 +277,7 @@ sudo chmod +x /usr/bin/composer
 sudo chmod +x /etc/conductor/bin/*
 sudo chmod +x /etc/conductor/utils/*
 sudo /etc/conductor/utils/install_nginx_streams.sh
+sudo install -m 0644 /etc/conductor/configs/common/completion/conductor.bash /etc/bash_completion.d/conductor
 
 # Lets symlink the main conductor script...
 sudo ln -s /etc/conductor/bin/conductor.php /usr/bin/conductor

@@ -9,13 +9,15 @@ final class CliApplicationTest extends TestCase
 {
     public function testParsesCommandsOptionsAndFlags(): void
     {
-        $app = new CliApplication([
+        $args = [
             'conductor', 'new', 'myapp', '--fqdn=example.com', '--environment=production', '-v', 'trailing',
-        ]);
+        ];
+        $app = new CliApplication($args);
 
         $this->assertSame(['conductor', 'new', 'myapp', 'trailing'], $app->commands());
         $this->assertSame(['fqdn' => 'example.com', 'environment' => 'production'], $app->options());
         $this->assertSame(['v'], $app->flags());
+        $this->assertSame($args, $app->rawArgs());
     }
 
     public function testCombinedShortFlagsAreSplitIntoIndividualCharacters(): void

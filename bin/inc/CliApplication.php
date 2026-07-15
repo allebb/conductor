@@ -18,9 +18,11 @@ class CliApplication
     private $options = [];
     private $flags = [];
     private $arguments = [];
+    private $rawArgs = [];
 
     public function __construct($argv)
     {
+        $this->rawArgs = $argv;
         $this->paramBuilder($argv);
     }
 
@@ -54,6 +56,15 @@ class CliApplication
     public function arguments()
     {
         return $this->arguments;
+    }
+
+    /**
+     * Return the original CLI arguments before parsing.
+     * @return array
+     */
+    public function rawArgs()
+    {
+        return $this->rawArgs;
     }
 
     /**

@@ -18,6 +18,33 @@
 #:: Managed domains: [@@DOMAIN@@]
 #
 
+# Upstream backends
+upstream conductor_@@UPSTREAM@@ {
+	# Load balancing defaults to round-robin when no method is specified.
+	# Uncomment one method below if it better matches your backend application.
+	#least_conn;
+	#ip_hash;
+	#random two least_conn;
+
+	server @@TARGET_HOST@@ max_fails=3 fail_timeout=30s;
+
+	# Example: add two or three backend instances for load balancing.
+	#server 127.0.0.1:9001 max_fails=3 fail_timeout=30s;
+	#server 127.0.0.1:9002 max_fails=3 fail_timeout=30s;
+	#server 127.0.0.1:9003 backup;
+
+	# Optional backend tuning examples.
+	#keepalive 32;
+	#zone conductor_@@UPSTREAM@@ 64k;
+}
+
+# Optional secondary upstream for routing a specific path, such as an API
+# gateway or admin backend. Uncomment this block and the matching location
+# example below, then update the target host.
+#upstream conductor_@@UPSTREAM@@_api {
+#	server 127.0.0.1:9100;
+#}
+
 # Enable this configuration block if you wish to configure SSL and force all HTTP traffic over SSL (https).
 # -- C:Start Default HTTP to HTTPS Redirect Block -- #
 #server {
@@ -90,6 +117,30 @@ server {
 	client_body_timeout 60s;
 	client_header_timeout 30s;
 
+	# Optional per-vhost access controls.
+	#allow 203.0.113.0/24;
+	#allow 2001:db8::/32;
+	#deny all;
+
+	# Optional HTTP Basic authentication managed by `conductor auth`.
+	# -- C:Start HTTP Basic Auth Block -- #
+	#auth_basic           "Restricted";
+	#auth_basic_user_file /etc/conductor/auth/.htpasswd_@@APPNAME@@;
+	# -- C:End HTTP Basic Auth Block -- #
+
+	# Request rate/connection limiting requires matching limit_req_zone or
+	# limit_conn_zone directives at http{} scope, for example in nginx.conf.
+	#limit_req zone=conductor_@@APPNAME@@ burst=20 nodelay;
+	#limit_conn conductor_@@APPNAME@@ 20;
+
+	# Example GeoIP country block. Enable the geoip2 lookup in
+	# /etc/conductor/configs/common/conductor_nginx.conf, then add ISO 3166-1
+	# alpha-2 country codes to the regex for this vhost.
+	#
+	# if ($conductor_geoip_country_code ~ ^(CN|RU)$) {
+	#	return 444;
+	# }
+
 	# Enable GZip by default for common files.
 	#include /etc/conductor/configs/common/gzip.conf;
 
@@ -133,19 +184,25 @@ server {
 	}
 
 	location / {
-		#**************************************************************************************#
-		# Update the temp port (9000) below to the required port for your backend application! #
-		#**************************************************************************************#
-		proxy_pass         http://127.0.0.1:9000;
+		proxy_pass         @@TARGET_SCHEME@@://conductor_@@UPSTREAM@@;
 		proxy_intercept_errors on;
 		proxy_http_version 1.1;
 		proxy_redirect     off;
+		proxy_next_upstream error timeout invalid_header http_502 http_503 http_504;
+		proxy_next_upstream_tries 3;
 		proxy_set_header   Host              $host;
 		proxy_set_header   X-Real-IP         $remote_addr;
 		proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
 		proxy_set_header   X-Forwarded-Proto $scheme;
 		proxy_set_header   X-Forwarded-Host  $host;
 		proxy_set_header   X-Forwarded-Port  $server_port;
+
+		# If proxying to an HTTPS backend with a self-signed certificate, you can
+		# bypass upstream certificate verification. Prefer installing/trusting the
+		# backend CA when possible.
+		#proxy_ssl_verify off;
+		#proxy_ssl_server_name on;
+		#proxy_ssl_name $proxy_host;
 
 		# Enable these two lines for WebSocket or HTTP upgrade support.
 		#proxy_set_header  Upgrade           $http_upgrade;
@@ -156,8 +213,51 @@ server {
 		#proxy_send_timeout    60s;
 		#proxy_read_timeout    60s;
 
+		# Tune proxy buffers for large response headers or chatty upstreams.
+		#proxy_buffer_size 16k;
+		#proxy_buffers 8 16k;
+		#proxy_busy_buffers_size 32k;
+
 		# Disable buffering for streaming APIs or server-sent events.
 		#proxy_buffering off;
+
+		# Hide or rewrite upstream headers that can leak backend details.
+		#proxy_hide_header X-Powered-By;
+		#proxy_hide_header Server;
+
+		# Add cookie flags when the upstream app cannot set them itself.
+		#proxy_cookie_flags ~ secure httponly samesite=lax;
+
+		# Rewrite backend cookie domains/paths when proxying a legacy app.
+		#proxy_cookie_domain backend.internal @@DOMAIN_FIRST@@;
+		#proxy_cookie_path / /;
+
+		# Optional bandwidth/rate throttling examples.
+		#limit_rate 512k;
+		#limit_rate_after 5m;
+
+		# Optional proxy cache example. Requires proxy_cache_path at http{} scope.
+		#proxy_cache conductor_@@APPNAME@@;
+		#proxy_cache_valid 200 301 302 10m;
+		#proxy_cache_valid 404 1m;
+		#add_header X-Proxy-Cache $upstream_cache_status always;
 	}
+
+	# Optional path-based proxy example. Useful for routing /api/ to a separate
+	# backend while the rest of the site uses the main upstream above.
+	#location /api/ {
+	#	proxy_pass         @@TARGET_SCHEME@@://conductor_@@UPSTREAM@@_api;
+	#	proxy_http_version 1.1;
+	#	proxy_redirect     off;
+	#	proxy_set_header   Host              $host;
+	#	proxy_set_header   X-Real-IP         $remote_addr;
+	#	proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+	#	proxy_set_header   X-Forwarded-Proto $scheme;
+	#	proxy_set_header   X-Forwarded-Host  $host;
+	#	proxy_set_header   X-Forwarded-Port  $server_port;
+	#
+	#	# If your backend expects paths without /api/, use this rewrite before proxy_pass.
+	#	#rewrite ^/api/?(.*)$ /$1 break;
+	#}
 
 }
