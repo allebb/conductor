@@ -36,6 +36,7 @@ class Conductor extends CliApplication
      */
     const OPTION_YES = "y";
     const OPTION_NO = "n";
+    const NGINX_CONFIG_ERROR_EXIT_CODE = 88;
 
     /**
      * The current application number.
@@ -588,15 +589,30 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Exit with the code reserved for invalid Nginx configuration.
+     */
+    private function endWithNginxConfigError()
+    {
+        exit(self::NGINX_CONFIG_ERROR_EXIT_CODE);
+    }
+
+    /**
      * Validate Nginx and optionally reload it gracefully.
      * @param string $change_description
+     * @param bool $auto_reload
      */
-    private function promptGracefulNginxReload($change_description = 'change')
+    private function promptGracefulNginxReload($change_description = 'change', $auto_reload = false)
     {
         $this->writeln('Checking Nginx configuration...');
         if ($this->callWithExitCode($this->conf->binaries->nginx . ' -t') !== 0) {
             $this->writeln('Nginx configuration test failed. Please fix the configuration before reloading Nginx.');
-            $this->endWithError();
+            $this->endWithNginxConfigError();
+        }
+
+        if ($auto_reload) {
+            $this->writeln('Gracefully restarting (reloading) Nginx...');
+            $this->call($this->conf->services->nginx->reload);
+            return;
         }
 
         $reload_nginx = $this->input('Gracefully restart (reload) Nginx now for the ' . $change_description . ' to take effect?',
@@ -986,13 +1002,19 @@ class Conductor extends CliApplication
             $this->writeln();
             $this->writeln('Nginx configuration test failed; restored the previous virtualhost configuration.');
             $this->writeln();
-            $this->endWithError();
+            $this->endWithNginxConfigError();
         }
 
         if ($action == 'enable') {
             $this->writeln('SSL configuration has been enabled.');
         } else {
             $this->writeln('SSL configuration has been reset.');
+        }
+
+        if ($this->isFlagSet('auto-reload')) {
+            $this->writeln('Gracefully restarting (reloading) Nginx...');
+            $this->call($this->conf->services->nginx->reload);
+            return;
         }
 
         $reload_nginx = $this->input('Nginx configuration test passed. Gracefully restart (reload) Nginx now?', self::OPTION_YES,
@@ -1382,7 +1404,7 @@ class Conductor extends CliApplication
         }
 
         $this->migrateLaravel($environment);
-        $this->promptGracefulNginxReload('new application');
+        $this->promptGracefulNginxReload('new application', $this->isFlagSet('auto-reload'));
     }
 
     /**
@@ -1458,7 +1480,13 @@ class Conductor extends CliApplication
         if ($this->callWithExitCode($this->conf->binaries->nginx . ' -t') !== 0) {
             rename($to, $from);
             $this->writeln('Nginx configuration test failed. The application has been returned to its previous state.');
-            $this->endWithError();
+            $this->endWithNginxConfigError();
+        }
+
+        if ($this->isFlagSet('auto-reload')) {
+            $this->writeln('Gracefully restarting (reloading) Nginx...');
+            $this->call($this->conf->services->nginx->reload);
+            return;
         }
 
         $reload_nginx = $this->input('Gracefully restart (reload) Nginx now for the change to take effect?', self::OPTION_YES,

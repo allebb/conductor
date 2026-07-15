@@ -31,21 +31,27 @@ if (isset($commands[1])) {
         case "list":
             $conductor->writeln('Applications hosted on this server:');
             $conductor->listApplications();
+            $conductor->endWithSuccess();
             break;
         case "new":
             $conductor->newApplication();
+            $conductor->endWithSuccess();
             break;
         case "edit":
             $conductor->editApplicationConfig();
+            $conductor->endWithSuccess();
             break;
         case "enable":
             $conductor->enableApplication();
+            $conductor->endWithSuccess();
             break;
         case "disable":
             $conductor->disableApplication();
+            $conductor->endWithSuccess();
             break;
         case "cron":
             $conductor->editApplicationCron();
+            $conductor->endWithSuccess();
             break;
         case "destroy":
             $conductor->destroy();
@@ -58,6 +64,7 @@ if (isset($commands[1])) {
             break;
         case "envars":
             $conductor->updateEnvVars();
+            $conductor->endWithSuccess();
             break;
         case "backup":
             $conductor->backup();
@@ -70,9 +77,11 @@ if (isset($commands[1])) {
             break;
         case "genkey":
             $conductor->createDeploymentKey();
+            $conductor->endWithSuccess();
             break;
         case "delkey":
             $conductor->deleteDeploymentKey();
+            $conductor->endWithSuccess();
             break;
         case "start":
             $conductor->startLaravelApplication();
@@ -83,12 +92,18 @@ if (isset($commands[1])) {
             $conductor->endWithSuccess();
             break;
         case "services":
+            if (!isset($commands[2])) {
+                displayHelp($conductor);
+                $conductor->endWithError();
+                break;
+            }
             $conductor->serviceControl($commands[2]);
             $conductor->endWithSuccess();
             break;
         case "ban":
             if (!isset($commands[2])) {
                 displayHelp($conductor);
+                $conductor->endWithError();
                 break;
             }
             $conductor->banControl($commands[2]);
@@ -97,6 +112,7 @@ if (isset($commands[1])) {
         case "unban":
             if (!isset($commands[2])) {
                 displayHelp($conductor);
+                $conductor->endWithError();
                 break;
             }
             $conductor->unbanIpAddress($commands[2]);
@@ -105,9 +121,11 @@ if (isset($commands[1])) {
 
         default:
             displayHelp($conductor);
+            $conductor->endWithError();
     }
 } else {
     displayHelp($conductor);
+    $conductor->endWithError();
 }
 
 /**

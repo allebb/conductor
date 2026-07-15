@@ -24,6 +24,8 @@ For a minimal reverse-proxy/load-balancer style installation, you can use ``--pr
 bash -c "$(curl -fsSL https://raw.github.com/allebb/conductor/stable/install.sh)" -- --proxy-only
 ```
 
+Proxy-only installs also set Conductor's default application template to ``proxy`` in ``/etc/conductor.conf``. You can still override the template for a specific application by passing ``--template={template}`` to ``conductor new``.
+
 If you would like to automate the deployments of your applications using Git and/or standalone webhooks, you should check out [Hooker](https://github.com/allebb/hooker) - Another tool that I've built ;)
 
 If you wish to install Conductor from a specific branch, you can set the ``BRANCH_INSTALL`` environment variable before running the installer like so:
@@ -106,6 +108,12 @@ As an example, if you wanted to use a generic proxy template for your applicatio
 
 ```shell
 sudo conductor new {app name} --template=proxy
+```
+
+If you are creating an application non-interactively, add ``--auto-reload`` to test the Nginx configuration and gracefully reload Nginx after the virtual host has been created without prompting:
+
+```shell
+sudo conductor new {app name} --fqdn="example.com" --template=proxy --auto-reload
 ```
 
 Then you can edit the configuration file (to set the correct backend proxy target port) by running ``conductor edit {app name}``.
@@ -215,6 +223,8 @@ Will remove the application from the server, removes the Nginx configuration for
 
 Enables or disables an application's Nginx virtual host by renaming its configuration between ``{app name}.conf`` and ``{app name}.disabled``. Conductor will test the Nginx configuration and ask whether to reload Nginx so the change takes effect.
 
+Add ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes.
+
 The ``conductor list`` command shows the current virtual host status: ``[/]`` for enabled, ``[x]`` for disabled, and ``[?]`` if no matching virtual host configuration was found.
 
 #### ```conductor update {app name}```
@@ -284,6 +294,8 @@ Once the SSL certificate has been generated, Conductor will ask if you want to e
 If you already have a LetsEncrypt certificate and only want to enable the SSL virtual host blocks, without requesting a certificate, run ``sudo conductor letsencrypt {appname} --enable``.
 
 If you want to disable the SSL virtual host blocks and restore the default HTTP block, without deleting a certificate, run ``sudo conductor letsencrypt {appname} --disable``.
+
+Add ``--auto-reload`` to ``--enable``, ``--disable``, or certificate creation commands to gracefully reload Nginx automatically after the configuration test passes.
 
 Your SSL certificates will automatically be renewed as required.
 

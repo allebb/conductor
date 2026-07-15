@@ -331,6 +331,9 @@ sudo sed -i "s|ROOT_PASSWORD_HERE|$MYSQL_ROOT_PASSWORD|" /etc/conductor.conf;
 if [ "$INSTALL_MYSQL" -eq 0 ]; then
     sudo sed -i '0,/"enabled": true/s//"enabled": false/' /etc/conductor.conf
 fi
+if [ "$PROXY_ONLY" -eq 1 ]; then
+    sudo sed -i 's|"default_template": "laravel"|"default_template": "proxy"|' /etc/conductor.conf
+fi
 prompt_letsencrypt_email
 echo ""
 if [ "$INSTALL_MYSQL" -eq 1 ]; then
