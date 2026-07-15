@@ -45,12 +45,12 @@
 server {
 
     # Comment this line out if you wish to switch to HTTPS (but then enable the next code block!).
-	# -- C:Start Default (HTTP) Main Block -- #
-	listen                   80;
-	listen                   [::]:80;
-	# -- C:End Default (HTTP) Main Block -- #
+    # -- C:Start Default (HTTP) Main Block -- #
+    listen                   80;
+    listen                   [::]:80;
+    # -- C:End Default (HTTP) Main Block -- #
 
-	# -- C:Start Auto-LetsEncrypt Main Block -- #
+    # -- C:Start Auto-LetsEncrypt Main Block -- #
     #listen                  443 ssl;
     #listen                  [::]:443 ssl;
     #ssl_certificate         /etc/letsencrypt/live/@@APPNAME@@/fullchain.pem;
@@ -71,18 +71,10 @@ server {
     error_log       @@HLOGS@@error.log;
     rewrite_log     on;
 
-    # Fail2Ban (optional) protection, uncomment to enable!
-	#access_log     /tmp/conductor_@@APPNAME@@.seclog conductor_security;
-
-    # Recommended security headers
-    add_header      X-Frame-Options         "SAMEORIGIN";
-    add_header      X-XSS-Protection        "1; mode=block";
-    add_header      X-Content-Type-Options  "nosniff";
-    add_header      Referrer-Policy         "strict-origin-when-cross-origin";
-
-    # Optional security headers. Enable after confirming they do not block required third-party assets or browser APIs.
-    #add_header     Permissions-Policy      "camera=(), microphone=(), geolocation=()";
-    #add_header     Content-Security-Policy "default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline';";
+    # Fail2Ban (optional) protection managed by `conductor protect`.
+    # -- C:Start Fail2Ban Protection Block -- #
+    #access_log     /tmp/conductor_@@APPNAME@@.seclog conductor_security;
+    # -- C:End Fail2Ban Protection Block -- #
 
     # Additional per-application optimisations.
     charset utf-8;
@@ -90,18 +82,10 @@ server {
     client_body_timeout 60s;
     client_header_timeout 30s;
 
-    # Example GeoIP country block. Enable the geoip2 lookup in
-    # /etc/conductor/configs/common/conductor_nginx.conf, then add ISO 3166-1
-    # alpha-2 country codes to the regex for this vhost.
-    #
-    # if ($conductor_geoip_country_code ~ ^(CN|RU)$) {
-    #     return 444;
-    # }
-
     # Optional HTTP Basic authentication managed by `conductor auth`.
     # -- C:Start HTTP Basic Auth Block -- #
     #auth_basic           "Restricted";
-    #auth_basic_user_file /etc/conductor/auth/.htpasswd_@@APPNAME@@;
+    #auth_basic_user_file /etc/conductor/pwdbs/.htpasswd_@@APPNAME@@;
     # -- C:End HTTP Basic Auth Block -- #
 
     # Enable GZip by default for common files.
@@ -117,9 +101,10 @@ server {
     # LetsEncrypt verification block
     include /etc/conductor/configs/common/wellknown.conf;
 
-    # Disable access and error logs for requests to these common files.
-    location = /favicon.ico { access_log off; log_not_found off; }
-    location = /robots.txt  { access_log off; log_not_found off; }
+    # Optional WAF configuration managed by `conductor waf`.
+    # -- C:Start WAF Include Block -- #
+    include /etc/conductor/wafs/@@APPNAME@@.conf;
+    # -- C:End WAF Include Block -- #
 
     # Root location handler configuration.
     location / {
@@ -129,37 +114,6 @@ server {
     # Laravel framework specific configuration.
     if (!-d $request_filename) {
         rewrite ^/(.+)/$ /$1 permanent;
-    }
-
-    # Deny direct access to Laravel and backup/runtime files if the document root is broader than /public.
-    location ~* \.(?:env|log|sql|sqlite|bak|conf|ini)$ {
-        deny all;
-        access_log off;
-        log_not_found off;
-        return 404;
-    }
-
-    # Uncomment if this vhost root points at a Laravel project root instead of its public directory.
-    #location ~ ^/(?:app|bootstrap|config|database|resources|routes|storage|tests|vendor)/ {
-    #    deny all;
-    #    return 404;
-    #}
-
-    # Deny access to common project readme files that may disclose implementation details.
-    location ~* (^|/)readme(?:\.(?:txt|md|markdown|html?))?$ {
-        deny all;
-        access_log off;
-        log_not_found off;
-        return 404;
-    }
-
-    # Deny access to .htaccess, .git and other hidden files by default.
-    # LetsEncrypt ACME challenges are handled by Conductor; other /.well-known/ paths may be served by the app.
-    location ~ /\.(?!well-known(?:/|$)).* {
-        deny all;
-        access_log off;
-        log_not_found off;
-        return 404;
     }
 
     # PHP-FPM handler configuration.

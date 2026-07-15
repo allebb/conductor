@@ -41,6 +41,10 @@ class Conductor extends CliApplication
     const DEFAULT_PROXY_TARGET = "http://localhost:9000";
     const AUTH_START_MARKER = "# -- C:Start HTTP Basic Auth Block -- #";
     const AUTH_END_MARKER = "# -- C:End HTTP Basic Auth Block -- #";
+    const PROTECTION_START_MARKER = "# -- C:Start Fail2Ban Protection Block -- #";
+    const PROTECTION_END_MARKER = "# -- C:End Fail2Ban Protection Block -- #";
+    const WAF_START_MARKER = "# -- C:Start WAF Include Block -- #";
+    const WAF_END_MARKER = "# -- C:End WAF Include Block -- #";
 
     /**
      * The current application number.
@@ -253,6 +257,348 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Display operating system, Nginx and network statistics.
+     * @return void
+     */
+    public function stats()
+    {
+        $stats = $this->statsData();
+
+        if (strtolower($this->getOption('format', 'text')) == 'json') {
+            $this->writeln(json_encode($stats, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            return;
+        }
+
+        $this->writeln('System');
+        $this->writeln('  Operating system uptime: ' . $stats['system']['operating_system_uptime']);
+        $this->writeln('  Nginx daemon uptime:     ' . $stats['system']['nginx_daemon_uptime']);
+
+        $this->writeln();
+        $this->writeln('Nginx status');
+        foreach ($this->formatNginxStatusLines($stats['nginx_status']) as $line) {
+            $this->writeln('  ' . $line);
+        }
+
+        $this->writeln();
+        $this->writeln('Configured IP addresses');
+        foreach ($stats['configured_ip_addresses'] as $address) {
+            $this->writeln('  ' . $address);
+        }
+
+        $this->writeln();
+        $this->writeln('Public (detected) IP: ' . $stats['public_detected_ip']);
+    }
+
+    /**
+     * Collect the full stats payload used by text and JSON output.
+     * @return array
+     */
+    private function statsData()
+    {
+        $operating_system_uptime_seconds = $this->operatingSystemUptimeSeconds();
+        $nginx_daemon_uptime_seconds = $this->nginxDaemonUptimeSeconds();
+
+        return [
+            'system' => [
+                'operating_system_uptime' => $this->formatDuration($operating_system_uptime_seconds),
+                'operating_system_uptime_seconds' => $this->wholeSeconds($operating_system_uptime_seconds),
+                'nginx_daemon_uptime' => $this->formatDuration($nginx_daemon_uptime_seconds),
+                'nginx_daemon_uptime_seconds' => $this->wholeSeconds($nginx_daemon_uptime_seconds),
+            ],
+            'nginx_status' => $this->nginxStatusData(),
+            'configured_ip_addresses' => $this->configuredIpAddresses(),
+            'public_detected_ip' => $this->publicDetectedIpAddress(),
+        ];
+    }
+
+    /**
+     * Format a duration in seconds as Xd Xh Xm.
+     * @param int|float|null $seconds
+     * @return string
+     */
+    private function formatDuration($seconds)
+    {
+        if ($seconds === null || $seconds < 0) {
+            return 'N/A';
+        }
+
+        $minutes = (int) floor($seconds / 60);
+        $days = (int) floor($minutes / 1440);
+        $hours = (int) floor(($minutes % 1440) / 60);
+        $remaining_minutes = $minutes % 60;
+
+        return $days . 'd ' . $hours . 'h ' . $remaining_minutes . 'm';
+    }
+
+    /**
+     * Convert a duration value to whole seconds for structured output.
+     * @param int|float|null $seconds
+     * @return int|null
+     */
+    private function wholeSeconds($seconds)
+    {
+        if ($seconds === null || $seconds < 0) {
+            return null;
+        }
+
+        return (int) floor($seconds);
+    }
+
+    /**
+     * Read the operating system uptime from procfs.
+     * @return float|null
+     */
+    private function operatingSystemUptimeSeconds()
+    {
+        if (!is_readable('/proc/uptime')) {
+            return null;
+        }
+
+        $uptime = trim(file_get_contents('/proc/uptime'));
+        if (preg_match('/^([0-9]+(?:\.[0-9]+)?)/', $uptime, $matches)) {
+            return (float) $matches[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * Calculate Nginx master process uptime from systemd/procfs details.
+     * @return float|null
+     */
+    private function nginxDaemonUptimeSeconds()
+    {
+        $pid = $this->nginxMainPid();
+        if (!$pid || !is_readable('/proc/' . $pid . '/stat')) {
+            return null;
+        }
+
+        $stat = file_get_contents('/proc/' . $pid . '/stat');
+        $end = strrpos($stat, ')');
+        if ($end === false) {
+            return null;
+        }
+
+        $parts = preg_split('/\s+/', trim(substr($stat, $end + 2)));
+        if (!isset($parts[19])) {
+            return null;
+        }
+
+        $clock_ticks = $this->clockTicksPerSecond();
+        $uptime = $this->operatingSystemUptimeSeconds();
+        if (!$clock_ticks || $uptime === null) {
+            return null;
+        }
+
+        return $uptime - ((float) $parts[19] / $clock_ticks);
+    }
+
+    /**
+     * Return the Nginx service main PID, falling back to the oldest nginx process.
+     * @return int|null
+     */
+    private function nginxMainPid()
+    {
+        $output = [];
+        exec('systemctl show nginx --property=MainPID --value 2>/dev/null', $output, $exit_code);
+        if ($exit_code === 0 && isset($output[0]) && (int) $output[0] > 0) {
+            return (int) $output[0];
+        }
+
+        $output = [];
+        exec('pgrep -o nginx 2>/dev/null', $output, $exit_code);
+        if ($exit_code === 0 && isset($output[0]) && (int) $output[0] > 0) {
+            return (int) $output[0];
+        }
+
+        return null;
+    }
+
+    /**
+     * Return the system clock ticks per second.
+     * @return int|null
+     */
+    private function clockTicksPerSecond()
+    {
+        $output = [];
+        exec('getconf CLK_TCK 2>/dev/null', $output, $exit_code);
+        if ($exit_code === 0 && isset($output[0]) && (int) $output[0] > 0) {
+            return (int) $output[0];
+        }
+
+        return null;
+    }
+
+    /**
+     * Retrieve and parse the default vhost Nginx stub status endpoint.
+     * @return array
+     */
+    private function nginxStatusData()
+    {
+        $body = $this->httpGet('http://127.0.0.1/nginx_status');
+        if ($body === null) {
+            $body = $this->httpGet('https://127.0.0.1/nginx_status', false);
+        }
+
+        if ($body === null) {
+            return [
+                'available' => false,
+                'error' => 'Unable to read http(s)://127.0.0.1/nginx_status',
+            ];
+        }
+
+        return $this->parseNginxStatusData($body);
+    }
+
+    /**
+     * Format parsed Nginx stub_status data into readable lines.
+     * @param array $status
+     * @return array
+     */
+    private function formatNginxStatusLines($status)
+    {
+        if (isset($status['available']) && !$status['available']) {
+            return ['N/A - ' . $status['error']];
+        }
+
+        if (!isset($status['active_connections'])) {
+            return isset($status['raw']) && is_array($status['raw']) ? $status['raw'] : ['N/A'];
+        }
+
+        return [
+            'Active connections:   ' . $status['active_connections'],
+            'Accepted connections: ' . ($status['accepted_connections'] ?? 'N/A'),
+            'Handled connections:  ' . ($status['handled_connections'] ?? 'N/A'),
+            'Requests:             ' . ($status['requests'] ?? 'N/A'),
+            'Reading:              ' . ($status['reading'] ?? 'N/A'),
+            'Writing:              ' . ($status['writing'] ?? 'N/A'),
+            'Waiting:              ' . ($status['waiting'] ?? 'N/A'),
+        ];
+    }
+
+    /**
+     * Parse Nginx stub_status output into readable lines.
+     * @param string $body
+     * @return array
+     */
+    private function parseNginxStatus($body)
+    {
+        return $this->formatNginxStatusLines($this->parseNginxStatusData($body));
+    }
+
+    /**
+     * Parse Nginx stub_status output into structured data.
+     * @param string $body
+     * @return array
+     */
+    private function parseNginxStatusData($body)
+    {
+        $lines = preg_split('/\r?\n/', trim($body));
+        $lines = array_values(array_filter(array_map('trim', $lines), 'strlen'));
+
+        if (isset($lines[0]) && preg_match('/^Active connections:\s+(\d+)/i', $lines[0], $matches)) {
+            $parsed = [
+                'active_connections' => (int) $matches[1],
+            ];
+
+            if (isset($lines[2]) && preg_match('/^(\d+)\s+(\d+)\s+(\d+)$/', $lines[2], $matches)) {
+                $parsed['accepted_connections'] = (int) $matches[1];
+                $parsed['handled_connections'] = (int) $matches[2];
+                $parsed['requests'] = (int) $matches[3];
+            }
+
+            if (isset($lines[3]) && preg_match('/Reading:\s+(\d+)\s+Writing:\s+(\d+)\s+Waiting:\s+(\d+)/i', $lines[3], $matches)) {
+                $parsed['reading'] = (int) $matches[1];
+                $parsed['writing'] = (int) $matches[2];
+                $parsed['waiting'] = (int) $matches[3];
+            }
+
+            return $parsed;
+        }
+
+        return [
+            'available' => false,
+            'raw' => $lines ?: ['N/A'],
+        ];
+    }
+
+    /**
+     * Return all configured IP addresses grouped by interface.
+     * @return array
+     */
+    private function configuredIpAddresses()
+    {
+        $output = [];
+        exec('ip -o addr show 2>/dev/null', $output, $exit_code);
+        if ($exit_code !== 0 || empty($output)) {
+            return ['N/A - unable to run ip addr'];
+        }
+
+        $addresses = [];
+        foreach ($output as $line) {
+            if (preg_match('/^\d+:\s+([^ ]+)\s+inet6?\s+([^ ]+)/', $line, $matches)) {
+                $addresses[] = $matches[1] . ' ' . $matches[2];
+            }
+        }
+
+        return $addresses ?: ['N/A'];
+    }
+
+    /**
+     * Detect the public IP address using HalliNet's IP endpoint.
+     * @return string
+     */
+    private function publicDetectedIpAddress()
+    {
+        $body = $this->httpGet('https://ip.hallinet.com');
+        if ($body === null) {
+            $body = $this->httpGet('http://ip.hallinet.com');
+        }
+
+        if ($body === null) {
+            return 'N/A';
+        }
+
+        foreach (preg_split('/\s+/', trim($body)) as $token) {
+            $token = trim($token, " \t\n\r\0\x0B,;[]()");
+            if (filter_var($token, FILTER_VALIDATE_IP)) {
+                return $token;
+            }
+        }
+
+        return trim($body) ?: 'N/A';
+    }
+
+    /**
+     * Make a small HTTP request with a short timeout.
+     * @param string $url
+     * @param bool $verify_ssl
+     * @return string|null
+     */
+    private function httpGet($url, $verify_ssl = true)
+    {
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'header' => "User-Agent: Conductor/" . self::CONDUCTOR_VERSION . "\r\n",
+                'ignore_errors' => true,
+                'timeout' => 5,
+            ],
+            'ssl' => [
+                'verify_peer' => $verify_ssl,
+                'verify_peer_name' => $verify_ssl,
+            ],
+        ]);
+
+        $body = @file_get_contents($url, false, $context);
+        if ($body === false) {
+            return null;
+        }
+
+        return $body;
+    }
+
+    /**
      * Print shell completion candidates for the external completion script.
      * @return void
      */
@@ -326,8 +672,12 @@ class Conductor extends CliApplication
         return [
             'list',
             'versions',
+            'stats',
+            'test',
             'geoipdb',
             'auth',
+            'protect',
+            'waf',
             'new',
             'edit',
             'enable',
@@ -368,6 +718,7 @@ class Conductor extends CliApplication
             'backup',
             'restore',
             'letsencrypt',
+            'waf',
             'genkey',
             'delkey',
             'start',
@@ -398,10 +749,14 @@ class Conductor extends CliApplication
             ],
             'enable' => ['--auto-reload'],
             'disable' => ['--auto-reload'],
+            'stats' => ['--format='],
+            'test' => ['--auto-reload'],
             'letsencrypt' => ['--enable', '--disable', '--delete', '--force-renew', '--auto-reload'],
             'update' => ['--down='],
             'geoipdb' => ['--url='],
             'auth' => ['--enable', '--disable', '--auto-reload'],
+            'protect' => ['--enable', '--disable', '--auto-reload'],
+            'waf' => ['--enable', '--disable', '--auto-reload'],
         ];
 
         if (!isset($options[$command])) {
@@ -593,6 +948,59 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Manage optional security logging protection for an application.
+     * @return void
+     */
+    public function protectControl()
+    {
+        $this->appNameRequired();
+
+        if ($this->isFlagSet('enable') && $this->isFlagSet('disable')) {
+            $this->writeln('Usage: conductor protect {name} --enable|--disable [--auto-reload]');
+            $this->endWithError();
+        }
+
+        if ($this->isFlagSet('enable')) {
+            $this->updateApplicationProtectionConfig(true);
+            return;
+        }
+
+        if ($this->isFlagSet('disable')) {
+            $this->updateApplicationProtectionConfig(false);
+            return;
+        }
+
+        $this->writeln('Usage: conductor protect {name} --enable|--disable [--auto-reload]');
+        $this->endWithError();
+    }
+
+    /**
+     * Manage an application's WAF include file and vhost include toggle.
+     * @return void
+     */
+    public function wafControl()
+    {
+        $this->appNameRequired();
+
+        if ($this->isFlagSet('enable') && $this->isFlagSet('disable')) {
+            $this->writeln('Usage: conductor waf {name} [--enable|--disable] [--auto-reload]');
+            $this->endWithError();
+        }
+
+        if ($this->isFlagSet('enable')) {
+            $this->updateApplicationWafConfig(true);
+            return;
+        }
+
+        if ($this->isFlagSet('disable')) {
+            $this->updateApplicationWafConfig(false);
+            return;
+        }
+
+        $this->editApplicationWafConfig();
+    }
+
+    /**
      * Enable or disable the HTTP Basic auth block in an application vhost.
      * @param bool $enable
      * @return void
@@ -623,14 +1031,188 @@ class Conductor extends CliApplication
         file_put_contents($config_path, $config);
 
         $this->writeln('HTTP Basic authentication has been ' . ($enable ? 'enabled.' : 'disabled.'));
-        $this->writeln('Checking Nginx configuration...');
-        if ($this->callWithExitCode($this->conf->binaries->nginx . ' -t') !== 0) {
+        if (!$this->runNginxConfigurationTest()) {
             file_put_contents($config_path, $original_config);
             $this->writeln('Nginx configuration test failed. The auth configuration has been returned to its previous state.');
             $this->endWithNginxConfigError();
         }
 
         $this->promptGracefulNginxReload('auth configuration change', $this->isFlagSet('auto-reload'));
+    }
+
+    /**
+     * Enable or disable the optional conductor_security access log line.
+     * @param bool $enable
+     * @return void
+     */
+    private function updateApplicationProtectionConfig($enable)
+    {
+        $config_path = $this->applicationConfigPath();
+        $config = file_get_contents($config_path);
+
+        foreach ([self::PROTECTION_START_MARKER, self::PROTECTION_END_MARKER] as $marker) {
+            if (strpos($config, $marker) === false) {
+                $this->writeln('Could not find required Conductor marker in virtualhost configuration: ' . $marker);
+                $this->endWithError();
+            }
+        }
+
+        $original_config = $config;
+        $config = $this->replaceLinesBetweenMarkers(
+            $config,
+            self::PROTECTION_START_MARKER,
+            self::PROTECTION_END_MARKER,
+            $enable ? [$this, 'uncommentNginxConfigLine'] : [$this, 'commentNginxConfigLine']
+        );
+        file_put_contents($config_path, $config);
+
+        $this->writeln('Application protection has been ' . ($enable ? 'enabled.' : 'disabled.'));
+        if (!$this->runNginxConfigurationTest()) {
+            file_put_contents($config_path, $original_config);
+            $this->writeln('Nginx configuration test failed. The protection configuration has been returned to its previous state.');
+            $this->endWithNginxConfigError();
+        }
+
+        $this->promptGracefulNginxReload('protection configuration change', $this->isFlagSet('auto-reload'));
+    }
+
+    /**
+     * Enable or disable the WAF include line in an application vhost.
+     * @param bool $enable
+     * @return void
+     */
+    private function updateApplicationWafConfig($enable)
+    {
+        $config_path = $this->applicationConfigPath();
+        $this->ensureApplicationWafConfig();
+        $config = file_get_contents($config_path);
+
+        foreach ([self::WAF_START_MARKER, self::WAF_END_MARKER] as $marker) {
+            if (strpos($config, $marker) === false) {
+                $this->writeln('Could not find required Conductor marker in virtualhost configuration: ' . $marker);
+                $this->endWithError();
+            }
+        }
+
+        $original_config = $config;
+        $config = $this->replaceLinesBetweenMarkers(
+            $config,
+            self::WAF_START_MARKER,
+            self::WAF_END_MARKER,
+            $enable ? [$this, 'uncommentNginxConfigLine'] : [$this, 'commentNginxConfigLine']
+        );
+        file_put_contents($config_path, $config);
+
+        $this->writeln('Application WAF has been ' . ($enable ? 'enabled.' : 'disabled.'));
+        if (!$this->runNginxConfigurationTest()) {
+            file_put_contents($config_path, $original_config);
+            $this->writeln('Nginx configuration test failed. The WAF configuration has been returned to its previous state.');
+            $this->endWithNginxConfigError();
+        }
+
+        $this->promptGracefulNginxReload('WAF configuration change', $this->isFlagSet('auto-reload'));
+    }
+
+    /**
+     * Open the application WAF config in the configured editor.
+     * @return void
+     */
+    private function editApplicationWafConfig()
+    {
+        $this->applicationConfigPath();
+        $config_path = $this->ensureApplicationWafConfig();
+
+        system($this->conf->binaries->editor . ' ' . $config_path . ' > `tty`');
+        $this->writeln('Checking WAF updates for Nginx configuration issues...');
+        $this->writeln();
+        $this->promptGracefulNginxReload('WAF configuration change');
+        $this->writeln();
+    }
+
+    /**
+     * Ensure the application WAF file exists and return its path.
+     * @return string
+     */
+    private function ensureApplicationWafConfig()
+    {
+        $directory = $this->wafDirectory();
+        if (!is_dir($directory) && !mkdir($directory, 0755, true)) {
+            $this->writeln('Unable to create WAF configuration directory: ' . $directory);
+            $this->endWithError();
+        }
+
+        $config_path = $this->applicationWafConfigPath();
+        if (!file_exists($config_path)) {
+            file_put_contents($config_path, $this->defaultWafConfigContent());
+        }
+
+        return $config_path;
+    }
+
+    /**
+     * Returns the WAF configuration path for the selected application.
+     * @return string
+     */
+    private function applicationWafConfigPath()
+    {
+        return $this->wafDirectory() . '/' . $this->appname . '.conf';
+    }
+
+    /**
+     * Returns the configured WAF directory, with a fallback for older configs.
+     * @return string
+     */
+    private function wafDirectory()
+    {
+        if (isset($this->conf->paths->wafs)) {
+            return rtrim($this->conf->paths->wafs, '/');
+        }
+
+        return '/etc/conductor/wafs';
+    }
+
+    /**
+     * Basic WAF file content used when an older app does not have one yet.
+     * @return string
+     */
+    private function defaultWafConfigContent()
+    {
+        return implode(PHP_EOL, [
+            '# Conductor managed WAF include for ' . $this->appname,
+            '#',
+            '# This file is included inside the application Nginx server{} block.',
+            '# Add per-application WAF, access-control, and file-protection rules here.',
+            '',
+        ]);
+    }
+
+    /**
+     * Create the application WAF config from the matching template.
+     * @param string $template
+     * @param array $placeholders
+     * @return void
+     */
+    private function createApplicationWafConfig($template, $placeholders)
+    {
+        $directory = $this->wafDirectory();
+        if (!is_dir($directory) && !mkdir($directory, 0755, true)) {
+            $this->writeln('Unable to create WAF configuration directory: ' . $directory);
+            $this->endWithError();
+        }
+
+        $template_path = $this->conf->paths->templates . '/templates/waf_' . $template . '.tpl';
+        $config_path = $this->applicationWafConfigPath();
+        if (!file_exists($template_path)) {
+            file_put_contents($config_path, $this->defaultWafConfigContent());
+            return;
+        }
+
+        $config = file_get_contents($template_path);
+        foreach ($placeholders as $placeholder => $value) {
+            $config = str_replace($placeholder, $value, $config);
+        }
+
+        file_put_contents($config_path, $config);
     }
 
     /**
@@ -732,11 +1314,11 @@ class Conductor extends CliApplication
      */
     private function authDirectory()
     {
-        if (isset($this->conf->paths->auth)) {
-            return rtrim($this->conf->paths->auth, '/');
+        if (isset($this->conf->paths->pwdbs)) {
+            return rtrim($this->conf->paths->pwdbs, '/');
         }
 
-        return '/etc/conductor/auth';
+        return '/etc/conductor/pwdbs';
     }
 
     /**
@@ -930,6 +1512,21 @@ class Conductor extends CliApplication
         } else {
             $this->writeln('The requested action could be found!');
             $this->endWithError();
+        }
+    }
+
+    /**
+     * Test the active Nginx configuration and optionally reload on success.
+     */
+    public function testNginxConfiguration()
+    {
+        if (!$this->runNginxConfigurationTest()) {
+            exit(1);
+        }
+
+        if ($this->isFlagSet('auto-reload')) {
+            $this->writeln('Gracefully restarting (reloading) Nginx...');
+            $this->call($this->conf->services->nginx->reload);
         }
     }
 
@@ -1350,15 +1947,38 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Run nginx -t while suppressing Nginx's noisy success output.
+     * @param bool $show_success
+     * @return bool
+     */
+    private function runNginxConfigurationTest($show_success = true)
+    {
+        $output = [];
+        $exit_code = $this->callWithOutput($this->conf->binaries->nginx . ' -t 2>&1', $output);
+
+        if ($exit_code !== 0) {
+            foreach ($output as $line) {
+                $this->writeln($line);
+            }
+
+            return false;
+        }
+
+        if ($show_success) {
+            $this->writeln('Nginx configuration test successful!');
+        }
+
+        return true;
+    }
+
+    /**
      * Validate Nginx and optionally reload it gracefully.
      * @param string $change_description
      * @param bool $auto_reload
      */
     private function promptGracefulNginxReload($change_description = 'change', $auto_reload = false)
     {
-        $this->writeln('Checking Nginx configuration...');
-        if ($this->callWithExitCode($this->conf->binaries->nginx . ' -t') !== 0) {
-            $this->writeln('Nginx configuration test failed. Please fix the configuration before reloading Nginx.');
+        if (!$this->runNginxConfigurationTest()) {
             $this->endWithNginxConfigError();
         }
 
@@ -1633,8 +2253,12 @@ class Conductor extends CliApplication
      */
     private function commentNginxConfigLine($line)
     {
-        if (trim($line) === '' || preg_match('/^\s*#/', $line)) {
+        if (trim($line) === '' || strpos($line, '# -- C:') !== false) {
             return $line;
+        }
+
+        if (preg_match('/^(\s*)#\s*(\S.*)$/', $line, $matches)) {
+            return $matches[1] . '#' . $matches[2];
         }
 
         return preg_replace('/^(\s*)/', '$1#', $line, 1);
@@ -1651,7 +2275,7 @@ class Conductor extends CliApplication
             return $line;
         }
 
-        return preg_replace('/^(\s*)#\s?/', '$1', $line, 1);
+        return preg_replace('/^(\s*)#\s*/', '$1', $line, 1);
     }
 
     /**
@@ -1750,10 +2374,7 @@ class Conductor extends CliApplication
         }
 
         $this->writeln('Updated virtualhost configuration: ' . $config_path);
-        $this->writeln('Checking Nginx configuration...');
-        $nginx_test_exit_code = $this->callWithExitCode($this->conf->binaries->nginx . ' -t');
-
-        if ($nginx_test_exit_code !== 0) {
+        if (!$this->runNginxConfigurationTest()) {
             file_put_contents($config_path, $original_conf_content);
             $this->writeln();
             $this->writeln('Nginx configuration test failed; restored the previous virtualhost configuration.');
@@ -1773,7 +2394,7 @@ class Conductor extends CliApplication
             return;
         }
 
-        $reload_nginx = $this->input('Nginx configuration test passed. Gracefully restart (reload) Nginx now?', self::OPTION_YES,
+        $reload_nginx = $this->input('Gracefully restart (reload) Nginx now?', self::OPTION_YES,
             [self::OPTION_YES, self::OPTION_NO]);
 
         if (strtolower($reload_nginx) == self::OPTION_YES) {
@@ -2077,6 +2698,8 @@ class Conductor extends CliApplication
         }
         file_put_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf', $config);
 
+        $this->createApplicationWafConfig(strtolower($vhost_template), $placeholders);
+
         mkdir($this->appdir, 0755);
         mkdir($this->conf->paths->applogs . '/' . $this->appname, 0755);
         $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->conf->paths->applogs . '/' . $this->appname);
@@ -2245,8 +2868,7 @@ class Conductor extends CliApplication
 
         $this->writeln('Application ' . $this->appname . ' has been ' . ($enable ? 'enabled.' : 'disabled.'));
 
-        $this->writeln('Checking Nginx configuration...');
-        if ($this->callWithExitCode($this->conf->binaries->nginx . ' -t') !== 0) {
+        if (!$this->runNginxConfigurationTest()) {
             rename($to, $from);
             $this->writeln('Nginx configuration test failed. The application has been returned to its previous state.');
             $this->endWithNginxConfigError();
@@ -2548,6 +3170,8 @@ class Conductor extends CliApplication
             $this->call('rm ' . $this->conf->paths->crontabs . '/conductor_' . $this->appname);
             $this->writeln('Destroying application...');
             $this->call('rm ' . $this->conf->paths->appconfs . '/' . $this->appname . '*');
+            $this->writeln('Removing application WAF configuration...');
+            $this->call('rm -f ' . $this->applicationWafConfigPath());
             $this->promptGracefulNginxReload('deleted application');
             if ($this->mysqlEnabled()) {
                 $this->writeln('Destroying MySQL database and associated users...');

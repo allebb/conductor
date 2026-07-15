@@ -146,7 +146,7 @@ final class ConductorTest extends TestCase
         $reflection = new ReflectionClass(Conductor::class);
         $reflection->getProperty('conf')->setValue($conductor, (object) [
             'paths' => (object) [
-                'auth' => $auth,
+                'pwdbs' => $auth,
             ],
         ]);
         $reflection->getProperty('appname')->setValue($conductor, 'myapp');
@@ -186,7 +186,7 @@ final class ConductorTest extends TestCase
             'server {',
             '    ' . Conductor::AUTH_START_MARKER,
             '    #auth_basic           "Restricted";',
-            '    #auth_basic_user_file /etc/conductor/auth/.htpasswd_myapp;',
+            '    #auth_basic_user_file /etc/conductor/pwdbs/.htpasswd_myapp;',
             '    ' . Conductor::AUTH_END_MARKER,
             '}',
         ]));
@@ -196,8 +196,9 @@ final class ConductorTest extends TestCase
             {
             }
 
-            public function callWithExitCode($command)
+            public function callWithOutput($command, &$output)
             {
+                $output = [];
                 return 0;
             }
 
@@ -215,7 +216,7 @@ final class ConductorTest extends TestCase
         $reflection->getProperty('conf')->setValue($conductor, (object) [
             'paths' => (object) [
                 'appconfs' => $configs,
-                'auth' => $auth,
+                'pwdbs' => $auth,
             ],
             'binaries' => (object) [
                 'nginx' => '/usr/sbin/nginx',
@@ -243,6 +244,252 @@ final class ConductorTest extends TestCase
         @unlink($config);
         @rmdir($auth);
         @rmdir($configs);
+        @rmdir($root);
+    }
+
+    public function testProtectConfigCanBeEnabledAndDisabled(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-protect-config-' . uniqid();
+        $configs = $root . '/configs';
+        mkdir($root);
+        mkdir($configs);
+
+        $config = $configs . '/myapp.conf';
+        file_put_contents($config, implode(PHP_EOL, [
+            'server {',
+            '    access_log /var/log/nginx/myapp.access.log;',
+            '    ' . Conductor::PROTECTION_START_MARKER,
+            '    #access_log     /tmp/conductor_myapp.seclog conductor_security;',
+            '    ' . Conductor::PROTECTION_END_MARKER,
+            '}',
+        ]));
+
+        $conductor = new class extends Conductor {
+            public array $commands = [];
+
+            public function __construct()
+            {
+            }
+
+            public function callWithOutput($command, &$output)
+            {
+                $output = [];
+                return 0;
+            }
+
+            public function input($question, $default = '', $options = [])
+            {
+                return self::OPTION_NO;
+            }
+
+            public function writeln($line = '')
+            {
+            }
+        };
+
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'appconfs' => $configs,
+            ],
+            'binaries' => (object) [
+                'nginx' => '/usr/sbin/nginx',
+            ],
+            'services' => (object) [
+                'nginx' => (object) [
+                    'reload' => 'service nginx reload',
+                ],
+            ],
+        ]);
+        $reflection->getProperty('appname')->setValue($conductor, 'myapp');
+
+        $method = $reflection->getMethod('updateApplicationProtectionConfig');
+        $method->invoke($conductor, true);
+
+        $enabled = file_get_contents($config);
+        $this->assertStringContainsString('    access_log     /tmp/conductor_myapp.seclog conductor_security;', $enabled);
+        $this->assertStringContainsString('    access_log /var/log/nginx/myapp.access.log;', $enabled);
+
+        $method->invoke($conductor, false);
+        $disabled = file_get_contents($config);
+        $this->assertStringContainsString('    #access_log     /tmp/conductor_myapp.seclog conductor_security;', $disabled);
+        $this->assertStringContainsString('    access_log /var/log/nginx/myapp.access.log;', $disabled);
+
+        @unlink($config);
+        @rmdir($configs);
+        @rmdir($root);
+    }
+
+    public function testProtectConfigAutoReloadsWhenRequested(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-protect-reload-' . uniqid();
+        $configs = $root . '/configs';
+        mkdir($root);
+        mkdir($configs);
+
+        $config = $configs . '/myapp.conf';
+        file_put_contents($config, implode(PHP_EOL, [
+            'server {',
+            '    ' . Conductor::PROTECTION_START_MARKER,
+            '    #access_log /tmp/conductor_myapp.seclog conductor_security;',
+            '    ' . Conductor::PROTECTION_END_MARKER,
+            '}',
+        ]));
+
+        $conductor = new class extends Conductor {
+            public array $calls = [];
+
+            public function __construct()
+            {
+            }
+
+            public function isFlagSet($flag)
+            {
+                return $flag == 'auto-reload';
+            }
+
+            public function call($command)
+            {
+                $this->calls[] = $command;
+                return '';
+            }
+
+            public function callWithOutput($command, &$output)
+            {
+                $output = [];
+                return 0;
+            }
+
+            public function writeln($line = '')
+            {
+            }
+        };
+
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'appconfs' => $configs,
+            ],
+            'binaries' => (object) [
+                'nginx' => '/usr/sbin/nginx',
+            ],
+            'services' => (object) [
+                'nginx' => (object) [
+                    'reload' => 'service nginx reload',
+                ],
+            ],
+        ]);
+        $reflection->getProperty('appname')->setValue($conductor, 'myapp');
+
+        $method = $reflection->getMethod('updateApplicationProtectionConfig');
+        $method->invoke($conductor, true);
+
+        $this->assertContains('service nginx reload', $conductor->calls);
+
+        @unlink($config);
+        @rmdir($configs);
+        @rmdir($root);
+    }
+
+    public function testWafConfigCanBeEnabledAndDisabled(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-waf-config-' . uniqid();
+        $configs = $root . '/configs';
+        $waf = $root . '/waf';
+        mkdir($root);
+        mkdir($configs);
+        mkdir($waf);
+
+        $config = $configs . '/myapp.conf';
+        file_put_contents($config, implode(PHP_EOL, [
+            'server {',
+            '    ' . Conductor::WAF_START_MARKER,
+            '    include /etc/conductor/wafs/myapp.conf;',
+            '    ' . Conductor::WAF_END_MARKER,
+            '}',
+        ]));
+        file_put_contents($waf . '/myapp.conf', '# waf');
+
+        $conductor = new class extends Conductor {
+            public function __construct()
+            {
+            }
+
+            public function callWithOutput($command, &$output)
+            {
+                $output = [];
+                return 0;
+            }
+
+            public function input($question, $default = '', $options = [])
+            {
+                return self::OPTION_NO;
+            }
+
+            public function writeln($line = '')
+            {
+            }
+        };
+
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'appconfs' => $configs,
+                'wafs' => $waf,
+            ],
+            'binaries' => (object) [
+                'nginx' => '/usr/sbin/nginx',
+            ],
+            'services' => (object) [
+                'nginx' => (object) [
+                    'reload' => 'service nginx reload',
+                ],
+            ],
+        ]);
+        $reflection->getProperty('appname')->setValue($conductor, 'myapp');
+
+        $method = $reflection->getMethod('updateApplicationWafConfig');
+        $method->invoke($conductor, false);
+        $this->assertStringContainsString('    #include /etc/conductor/wafs/myapp.conf;', file_get_contents($config));
+
+        $method->invoke($conductor, true);
+        $this->assertStringContainsString('    include /etc/conductor/wafs/myapp.conf;', file_get_contents($config));
+
+        @unlink($waf . '/myapp.conf');
+        @unlink($config);
+        @rmdir($waf);
+        @rmdir($configs);
+        @rmdir($root);
+    }
+
+    public function testApplicationWafConfigIsCreatedFromTemplate(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-waf-template-' . uniqid();
+        $templates = $root . '/templates';
+        $waf = $root . '/waf';
+        mkdir($root);
+        mkdir($templates);
+        mkdir($waf);
+
+        file_put_contents($templates . '/waf_html.tpl', "location = /test-@@APPNAME@@ { return 204; }\n");
+
+        $conductor = $this->makeConductorWithConfig((object) [
+            'paths' => (object) [
+                'templates' => $root,
+                'wafs' => $waf,
+            ],
+        ]);
+        (new ReflectionClass(Conductor::class))->getProperty('appname')->setValue($conductor, 'myapp');
+
+        $method = (new ReflectionClass(Conductor::class))->getMethod('createApplicationWafConfig');
+        $method->invoke($conductor, 'html', ['@@APPNAME@@' => 'myapp']);
+
+        $this->assertSame("location = /test-myapp { return 204; }\n", file_get_contents($waf . '/myapp.conf'));
+
+        @unlink($waf . '/myapp.conf');
+        @unlink($templates . '/waf_html.tpl');
+        @rmdir($waf);
+        @rmdir($templates);
         @rmdir($root);
     }
 
@@ -275,6 +522,58 @@ final class ConductorTest extends TestCase
         $this->assertContains('edit', $conductor->lines);
         $this->assertContains('enable', $conductor->lines);
 
+        $conductor = new class(['conductor', '__complete', 1, 'conductor', 's']) extends Conductor {
+            public array $lines = [];
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+        $property->setValue($conductor, new \stdClass());
+
+        $conductor->complete();
+        $this->assertContains('stats', $conductor->lines);
+
+        $conductor = new class(['conductor', '__complete', 1, 'conductor', 'p']) extends Conductor {
+            public array $lines = [];
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+        $property->setValue($conductor, new \stdClass());
+
+        $conductor->complete();
+        $this->assertContains('protect', $conductor->lines);
+
+        $conductor = new class(['conductor', '__complete', 1, 'conductor', 'w']) extends Conductor {
+            public array $lines = [];
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+        $property->setValue($conductor, new \stdClass());
+
+        $conductor->complete();
+        $this->assertContains('waf', $conductor->lines);
+
+        $conductor = new class(['conductor', '__complete', 2, 'conductor', 'stats', '--']) extends Conductor {
+            public array $lines = [];
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+        $property->setValue($conductor, new \stdClass());
+
+        $conductor->complete();
+        $this->assertContains('--format=', $conductor->lines);
+
         $conductor = new class(['conductor', '__complete', 2, 'conductor', 'new', '--t']) extends Conductor {
             public array $lines = [];
 
@@ -303,6 +602,49 @@ final class ConductorTest extends TestCase
         $this->assertContains('--enable', $conductor->lines);
         $this->assertContains('--disable', $conductor->lines);
 
+        $conductor = new class(['conductor', '__complete', 2, 'conductor', 'protect', '--']) extends Conductor {
+            public array $lines = [];
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+        $property->setValue($conductor, new \stdClass());
+
+        $conductor->complete();
+        $this->assertContains('--enable', $conductor->lines);
+        $this->assertContains('--disable', $conductor->lines);
+        $this->assertContains('--auto-reload', $conductor->lines);
+
+        $conductor = new class(['conductor', '__complete', 2, 'conductor', 'waf', '--']) extends Conductor {
+            public array $lines = [];
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+        $property->setValue($conductor, new \stdClass());
+
+        $conductor->complete();
+        $this->assertContains('--enable', $conductor->lines);
+        $this->assertContains('--disable', $conductor->lines);
+        $this->assertContains('--auto-reload', $conductor->lines);
+
+        $conductor = new class(['conductor', '__complete', 2, 'conductor', 'test', '--']) extends Conductor {
+            public array $lines = [];
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+        $property->setValue($conductor, new \stdClass());
+
+        $conductor->complete();
+        $this->assertContains('--auto-reload', $conductor->lines);
+
         $conductor = new class(['conductor', '__complete', 2, 'conductor', 'edit', '']) extends Conductor {
             public array $lines = [];
 
@@ -319,13 +661,32 @@ final class ConductorTest extends TestCase
         ]);
 
         $conductor->complete();
+        $this->assertContains('alpha', $conductor->lines);
+        $this->assertContains('bravo', $conductor->lines);
+
+        $conductor = new class(['conductor', '__complete', 2, 'conductor', 'waf', '']) extends Conductor {
+            public array $lines = [];
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+        $property->setValue($conductor, (object) [
+            'paths' => (object) [
+                'apps' => $apps,
+                'appconfs' => $configs,
+            ],
+        ]);
+
+        $conductor->complete();
+        $this->assertContains('alpha', $conductor->lines);
+        $this->assertContains('bravo', $conductor->lines);
+
         @unlink($configs . '/bravo.conf');
         @rmdir($apps . '/alpha');
         @rmdir($apps);
         @rmdir($configs);
-
-        $this->assertContains('alpha', $conductor->lines);
-        $this->assertContains('bravo', $conductor->lines);
 
         $conductor = new class(['conductor', '__complete', 3, 'conductor', 'auth', 'alpha', '']) extends Conductor {
             public array $lines = [];
@@ -361,5 +722,66 @@ final class ConductorTest extends TestCase
         );
 
         $this->assertSame(' replacement', $result);
+    }
+
+    public function testNginxConfigCommentTogglesKeepDirectiveAlignment(): void
+    {
+        $reflection = new ReflectionClass(Conductor::class);
+        $comment = $reflection->getMethod('commentNginxConfigLine');
+        $uncomment = $reflection->getMethod('uncommentNginxConfigLine');
+        $conductor = $this->makeConductor();
+
+        $this->assertSame('    #access_log /tmp/app.seclog conductor_security;', $comment->invoke($conductor, '    access_log /tmp/app.seclog conductor_security;'));
+        $this->assertSame('    #access_log /tmp/app.seclog conductor_security;', $comment->invoke($conductor, '    #   access_log /tmp/app.seclog conductor_security;'));
+        $this->assertSame('    access_log /tmp/app.seclog conductor_security;', $uncomment->invoke($conductor, '    #   access_log /tmp/app.seclog conductor_security;'));
+        $this->assertSame('    ' . Conductor::WAF_START_MARKER, $comment->invoke($conductor, '    ' . Conductor::WAF_START_MARKER));
+        $this->assertSame('    ' . Conductor::WAF_START_MARKER, $uncomment->invoke($conductor, '    ' . Conductor::WAF_START_MARKER));
+    }
+
+    public function testFormatDurationUsesDaysHoursAndMinutes(): void
+    {
+        $method = (new ReflectionClass(Conductor::class))->getMethod('formatDuration');
+
+        $this->assertSame('0d 0h 0m', $method->invoke($this->makeConductor(), 59));
+        $this->assertSame('1d 2h 3m', $method->invoke($this->makeConductor(), 93780));
+        $this->assertSame('N/A', $method->invoke($this->makeConductor(), null));
+    }
+
+    public function testWholeSecondsRemovesDecimalValues(): void
+    {
+        $method = (new ReflectionClass(Conductor::class))->getMethod('wholeSeconds');
+
+        $this->assertSame(123, $method->invoke($this->makeConductor(), 123.98));
+        $this->assertNull($method->invoke($this->makeConductor(), null));
+    }
+
+    public function testParseNginxStatusReturnsTrimmedStatusLines(): void
+    {
+        $method = (new ReflectionClass(Conductor::class))->getMethod('parseNginxStatus');
+
+        $this->assertSame([
+            'Active connections:   1',
+            'Accepted connections: 10',
+            'Handled connections:  10',
+            'Requests:             20',
+            'Reading:              0',
+            'Writing:              1',
+            'Waiting:              0',
+        ], $method->invoke($this->makeConductor(), " Active connections: 1 \nserver accepts handled requests\n 10 10 20\nReading: 0 Writing: 1 Waiting: 0\n"));
+    }
+
+    public function testParseNginxStatusDataReturnsStructuredCounters(): void
+    {
+        $method = (new ReflectionClass(Conductor::class))->getMethod('parseNginxStatusData');
+
+        $this->assertSame([
+            'active_connections' => 1,
+            'accepted_connections' => 10,
+            'handled_connections' => 10,
+            'requests' => 20,
+            'reading' => 0,
+            'writing' => 1,
+            'waiting' => 0,
+        ], $method->invoke($this->makeConductor(), "Active connections: 1\nserver accepts handled requests\n10 10 20\nReading: 0 Writing: 1 Waiting: 0\n"));
     }
 }

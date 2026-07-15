@@ -41,6 +41,14 @@ if (isset($commands[1])) {
             $conductor->versions();
             $conductor->endWithSuccess();
             break;
+        case "stats":
+            $conductor->stats();
+            $conductor->endWithSuccess();
+            break;
+        case "test":
+            $conductor->testNginxConfiguration();
+            $conductor->endWithSuccess();
+            break;
         case "geoipdb":
             if (!isset($commands[2])) {
                 displayHelp($conductor);
@@ -52,6 +60,14 @@ if (isset($commands[1])) {
             break;
         case "auth":
             $conductor->authControl();
+            $conductor->endWithSuccess();
+            break;
+        case "protect":
+            $conductor->protectControl();
+            $conductor->endWithSuccess();
+            break;
+        case "waf":
+            $conductor->wafControl();
             $conductor->endWithSuccess();
             break;
         case "new":
@@ -160,10 +176,17 @@ function displayHelp($conductor)
     $conductor->writeln('Options:');
     $conductor->writeln('  list                List all currently hosted applications');
     $conductor->writeln('  versions            Display installed component versions');
+    $conductor->writeln('  stats [--format=json]');
+    $conductor->writeln('                      Display system, Nginx and IP address details');
+    $conductor->writeln('  test                Test the Nginx configuration');
     $conductor->writeln('  geoipdb update      Download/update the GeoIP country database');
     $conductor->writeln('  auth {name} --enable|--disable');
     $conductor->writeln('  auth {name} set {username} {password}');
     $conductor->writeln('  auth {name} delete {username}');
+    $conductor->writeln('  protect {name} --enable|--disable');
+    $conductor->writeln('                      Enable or disable optional security logging');
+    $conductor->writeln('  waf {name} [--enable|--disable]');
+    $conductor->writeln('                      Edit, enable or disable the application WAF include');
     $conductor->writeln('  new {name}          Prepares and deploys a new application');
     $conductor->writeln('  edit {name}         Open a text editor to update the vhost config.');
     $conductor->writeln('  enable {name}       Enables an application vhost config.');

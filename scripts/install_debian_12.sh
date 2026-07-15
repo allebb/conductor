@@ -255,8 +255,10 @@ sudo mkdir /var/conductor/logs
 sudo mkdir /var/conductor/backups
 sudo mkdir /var/conductor/tmp
 sudo mkdir /var/conductor/geoip
-sudo mkdir /etc/conductor/auth
-sudo chmod 755 /etc/conductor/auth
+sudo mkdir /etc/conductor/pwdbs
+sudo chmod 755 /etc/conductor/pwdbs
+sudo mkdir /etc/conductor/wafs
+sudo chmod 755 /etc/conductor/wafs
 
 # Create the composer cache directory and set the required ownership
 sudo mkdir /var/www/.cache

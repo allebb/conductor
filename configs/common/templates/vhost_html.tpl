@@ -44,113 +44,81 @@
 
 server {
 
-	# Comment this line out if you wish to switch to HTTPS (but then enable the next code block!).
-	# -- C:Start Default (HTTP) Main Block -- #
-	listen                   80;
-	listen                   [::]:80;
-	# -- C:End Default (HTTP) Main Block -- #
+    # Comment this line out if you wish to switch to HTTPS (but then enable the next code block!).
+    # -- C:Start Default (HTTP) Main Block -- #
+    listen                   80;
+    listen                   [::]:80;
+    # -- C:End Default (HTTP) Main Block -- #
 
-	# -- C:Start Auto-LetsEncrypt Main Block -- #
-	#listen                  443 ssl;
-	#listen                  [::]:443 ssl;
-	#ssl_certificate         /etc/letsencrypt/live/@@APPNAME@@/fullchain.pem;
-	#ssl_certificate_key     /etc/letsencrypt/live/@@APPNAME@@/privkey.pem;
-	#ssl_trusted_certificate /etc/letsencrypt/live/@@APPNAME@@/chain.pem;
-	#include /etc/nginx/snippets/ssl-params.conf;
-	# -- C:End Auto-LetsEncrypt Main Block -- #
+    # -- C:Start Auto-LetsEncrypt Main Block -- #
+    #listen                  443 ssl;
+    #listen                  [::]:443 ssl;
+    #ssl_certificate         /etc/letsencrypt/live/@@APPNAME@@/fullchain.pem;
+    #ssl_certificate_key     /etc/letsencrypt/live/@@APPNAME@@/privkey.pem;
+    #ssl_trusted_certificate /etc/letsencrypt/live/@@APPNAME@@/chain.pem;
+    #include /etc/nginx/snippets/ssl-params.conf;
+    # -- C:End Auto-LetsEncrypt Main Block -- #
 
-	server_name     @@DOMAIN@@;
-	server_tokens   off;
+    server_name     @@DOMAIN@@;
+    server_tokens   off;
 
-	# Application path and index file settings.
-	root            /var/conductor/applications/@@APPPATH@@;
-	index           index.html index.htm conductor.html;
+    # Application path and index file settings.
+    root            /var/conductor/applications/@@APPPATH@@;
+    index           index.html index.htm conductor.html;
 
-	# Logging settings
-	access_log      @@HLOGS@@access.log;
-	error_log       @@HLOGS@@error.log;
-	rewrite_log     off;
+    # Logging settings
+    access_log      @@HLOGS@@access.log;
+    error_log       @@HLOGS@@error.log;
+    rewrite_log     off;
 
-	# Fail2Ban (optional) protection, uncomment to enable!
-	#access_log     /tmp/conductor_@@APPNAME@@.seclog conductor_security;
+    # Fail2Ban (optional) protection managed by `conductor protect`.
+    # -- C:Start Fail2Ban Protection Block -- #
+    #access_log     /tmp/conductor_@@APPNAME@@.seclog conductor_security;
+    # -- C:End Fail2Ban Protection Block -- #
 
-	# Recommended security headers
-	add_header      X-Frame-Options         "SAMEORIGIN";
-	add_header      X-XSS-Protection        "1; mode=block";
-	add_header      X-Content-Type-Options  "nosniff";
-	add_header      Referrer-Policy         "strict-origin-when-cross-origin";
+    # Additional per-application optimisations.
+    charset utf-8;
+    client_max_body_size 2m;
+    client_body_timeout 30s;
+    client_header_timeout 30s;
 
-	# Optional security headers. Enable after confirming they do not block required third-party assets or browser APIs.
-	#add_header     Permissions-Policy      "camera=(), microphone=(), geolocation=()";
-	#add_header     Content-Security-Policy "default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline';";
+    # Optional HTTP Basic authentication managed by `conductor auth`.
+    # -- C:Start HTTP Basic Auth Block -- #
+    #auth_basic           "Restricted";
+    #auth_basic_user_file /etc/conductor/pwdbs/.htpasswd_@@APPNAME@@;
+    # -- C:End HTTP Basic Auth Block -- #
 
-	# Additional per-application optimisations.
-	charset utf-8;
-	client_max_body_size 2m;
-	client_body_timeout 30s;
-	client_header_timeout 30s;
+    # Enable GZip by default for common files.
+    include /etc/conductor/configs/common/gzip.conf;
 
-	# Example GeoIP country block. Enable the geoip2 lookup in
-	# /etc/conductor/configs/common/conductor_nginx.conf, then add ISO 3166-1
-	# alpha-2 country codes to the regex for this vhost.
-	#
-	# if ($conductor_geoip_country_code ~ ^(CN|RU)$) {
-	#	return 444;
-	# }
+    # Optional but sensible defaults for caching assets (eg. images, CSS) files etc.
+    location ~* \.(?:png|jpg|jpeg|gif|webp|avif|svg|js|css|ico|woff|woff2)$ {
+        expires 30d;
+        add_header Cache-Control "public";
+        log_not_found off;
+    }
 
-	# Optional HTTP Basic authentication managed by `conductor auth`.
-	# -- C:Start HTTP Basic Auth Block -- #
-	#auth_basic           "Restricted";
-	#auth_basic_user_file /etc/conductor/auth/.htpasswd_@@APPNAME@@;
-	# -- C:End HTTP Basic Auth Block -- #
+    # Uncomment to prevent browsers from caching HTML documents while still caching static assets above.
+    #location ~* \.(?:html|htm)$ {
+    #    expires -1;
+    #    add_header Cache-Control "no-store";
+    #}
 
-	# Enable GZip by default for common files.
-	include /etc/conductor/configs/common/gzip.conf;
+    # LetsEncrypt verification block
+    include /etc/conductor/configs/common/wellknown.conf;
 
-	# Optional but sensible defaults for caching assets (eg. images, CSS) files etc.
-	location ~* \.(?:png|jpg|jpeg|gif|webp|avif|svg|js|css|ico|woff|woff2)$ {
-		expires 30d;
-		add_header Cache-Control "public";
-		log_not_found off;
-	}
+    # Optional WAF configuration managed by `conductor waf`.
+    # -- C:Start WAF Include Block -- #
+    include /etc/conductor/wafs/@@APPNAME@@.conf;
+    # -- C:End WAF Include Block -- #
 
-	# Uncomment to prevent browsers from caching HTML documents while still caching static assets above.
-	#location ~* \.(?:html|htm)$ {
-	#	expires -1;
-	#	add_header Cache-Control "no-store";
-	#}
+    # Root location handler configuration.
+    location / {
+        try_files $uri $uri/ =404;
+    }
 
-	# LetsEncrypt verification block
-	include /etc/conductor/configs/common/wellknown.conf;
-
-	# Disable access and error logs for requests to these common files.
-	location = /favicon.ico { allow all; access_log off; log_not_found off; }
-	location = /robots.txt  { allow all; access_log off; log_not_found off; }
-
-	# Root location handler configuration.
-	location / {
-		try_files $uri $uri/ =404;
-	}
-
-	# Optional custom error pages. Create these files before enabling.
-	#error_page 404 /404.html;
-	#error_page 500 502 503 504 /50x.html;
-
-	# Deny access to common project readme files that may disclose implementation details.
-	location ~* (^|/)readme(?:\.(?:txt|md|markdown|html?))?$ {
-		deny all;
-		access_log off;
-		log_not_found off;
-		return 404;
-	}
-
-	# Deny access to .htaccess, .git and other hidden files by default.
-	# LetsEncrypt ACME challenges are handled by Conductor; other /.well-known/ paths may be served by the app.
-	location ~ /\.(?!well-known(?:/|$)).* {
-		deny all;
-		access_log off;
-		log_not_found off;
-		return 404;
-	}
+    # Optional custom error pages. Create these files before enabling.
+    #error_page 404 /404.html;
+    #error_page 500 502 503 504 /50x.html;
 
 }

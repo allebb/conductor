@@ -95,6 +95,10 @@ The Debian installers install Bash completion for ``conductor`` via ``/etc/bash_
 
 A simple command that displays the names of the currently deployed applications on the server.
 
+#### ```conductor stats```
+
+Displays operating system uptime, Nginx daemon uptime, the default virtual host's ``/nginx_status`` details, all configured server IP addresses, and the public IP detected from ``ip.hallinet.com``. Use ``conductor stats --format=json`` for machine-readable output.
+
 #### ```conductor new {app name}```
 
 When you first want to deploy a new instance of a Laravel application on to your server, you are required to SSH in (or you could write a web-based application to speak to the **conductor(( behind if you wanted too) to your server and then execute the following command:-
@@ -160,7 +164,7 @@ Each Nginx vhost template includes a commented security log line:
 #access_log /tmp/conductor_{appname}.seclog conductor_security;
 ```
 
-Uncomment that line in any application/website vhost you want Fail2Ban to monitor, then run ``sudo nginx -t`` and reload Nginx. The Fail2Ban templates watch ``/tmp/conductor_*.seclog`` and install three automatic jails:
+Run ``sudo conductor protect {app name} --enable`` for any application/website vhost you want Fail2Ban to monitor. Use ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes. The Fail2Ban templates watch ``/tmp/conductor_*.seclog`` and install three automatic jails:
 
 * excessive 4xx responses: 80 hits in 10 minutes, banned for 30 minutes.
 * scanner probes for common sensitive paths: 5 hits in 10 minutes, banned for 1 hour.
@@ -260,6 +264,29 @@ sudo conductor auth {app name} --disable
 
 Add ``--auto-reload`` to ``--enable`` or ``--disable`` to gracefully reload Nginx automatically after the configuration test passes. Without it, Conductor asks whether to reload (to apply the changes) and defaults to yes.
 
+#### ```conductor protect {app name}```
+
+Enables or disables the optional ``conductor_security`` ``.seclog`` access log line in an application's Nginx virtual host. This is used by the optional Fail2Ban and CrowdSec integrations.
+
+```shell
+sudo conductor protect {app name} --enable
+sudo conductor protect {app name} --disable
+```
+
+Add ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes. Without it, Conductor asks whether to reload and defaults to yes.
+
+#### ```conductor waf {app name}```
+
+Opens the application's WAF configuration file at ``/etc/conductor/wafs/{app name}.conf``. This file is included inside the application's Nginx virtual host and can contain per-application WAF, access-control, and file-protection rules.
+
+```shell
+sudo conductor waf {app name}
+sudo conductor waf {app name} --enable
+sudo conductor waf {app name} --disable
+```
+
+The command tests Nginx after edits or enable/disable changes. Add ``--auto-reload`` to ``--enable`` or ``--disable`` to gracefully reload Nginx automatically after the configuration test passes. Without it, Conductor asks whether to reload and defaults to yes.
+
 #### ```conductor update {app name}```
 The upgrade command does three things, firstly it gives you the option of putting your application into 'offline mode' of which is up to you (you're prompted for your decision here), before it upgrades anything an automatic 'snapshot' is taken and stored separately to enable you to 'roll-back' later if required.. So next if Conductor finds that the application was previously deployed by Git or has a ```.git``` directory it will attempt to do a ```git fetch --all``` and then a ```git reset --hard origin/master``` to pull in the latest changes. If no git directory is found, Conductor assumes you're doing a 'manual upgrade' and prompts you at this point to upload the new files into your application's root directory... once this is complete you should confirm that the files have all been uploaded... Next Conductor will now execute any database migrations and then clear the application cache as well as dump the autoloader and finally (if you choose to 'take the application offline' during the upgrade process) it will now be automatically put back on-line!
 
@@ -305,6 +332,10 @@ A very simple and quick method to restart ALL dependent/bundled Conductor manage
 #### ```conductor services reload```
 
 When manually changing configuration of one or more of the dependent/bundled daemons this command will attempt to safely reload the configuration without dropping existing connections. For Nginx this gracefully applies new virtual host config, stream config, SSL certificate paths, and renewed SSL certificate contents as long as the configuration test passes. Existing Nginx workers continue serving current connections while new workers start with the updated configuration. If the new Nginx configuration is invalid, the reload should fail and the existing workers should continue serving the previous configuration.
+
+#### ```conductor test```
+
+Tests the active Nginx configuration. The command returns ``0`` when the configuration is valid and ``1`` when Nginx reports an error. On success it prints ``Nginx configuration test successful!``; on failure it prints Nginx's original error output so the exact file, line, and issue are visible. Add ``--auto-reload`` to gracefully reload Nginx automatically after a successful test.
 
 #### ```conductor --version```
 

@@ -265,8 +265,10 @@ sudo git checkout "${BRANCH_INSTALL}"
 cd -
 
 sudo mkdir -p /var/conductor/{applications,certificates,logs,backups,tmp,geoip}
-sudo mkdir -p /etc/conductor/auth
-sudo chmod 755 /etc/conductor/auth
+sudo mkdir -p /etc/conductor/pwdbs
+sudo chmod 755 /etc/conductor/pwdbs
+sudo mkdir -p /etc/conductor/wafs
+sudo chmod 755 /etc/conductor/wafs
 
 sudo mkdir -p /var/www/.cache
 sudo chown -R www-data:www-data /var/www/.cache
