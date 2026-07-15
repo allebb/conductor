@@ -30,8 +30,9 @@ else
     exit 1
 fi
 
-install -d -m 0755 /etc/fail2ban/filter.d /etc/fail2ban/jail.d /etc/logrotate.d
+install -d -m 0755 /etc/fail2ban/action.d /etc/fail2ban/filter.d /etc/fail2ban/jail.d /etc/logrotate.d
 touch /var/log/conductor-fail2ban-manual.log
+install -m 0644 "${FAIL2BAN_SOURCE}/action.d/"*.conf /etc/fail2ban/action.d/
 install -m 0644 "${FAIL2BAN_SOURCE}/filter.d/"*.conf /etc/fail2ban/filter.d/
 install -m 0644 "${FAIL2BAN_SOURCE}/jail.d/conductor-nginx.conf" /etc/fail2ban/jail.d/conductor-nginx.conf
 
@@ -63,4 +64,12 @@ Then validate and reload Nginx:
 The installed automatic jails watch /tmp/conductor_*.seclog for scanner probes,
 excessive 4xx responses, and very high request rates. The conductor-manual jail
 is available for manual bans added with conductor ban {ip_address}.
+
+Commented webhook examples are included in:
+
+    /etc/fail2ban/jail.d/conductor-nginx.conf
+
+Uncomment a conductor-webhook action and set the url parameter to POST ban/unban
+events to your own dashboard or automation endpoint. The webhook action requires
+curl to be installed on the server.
 EOF
