@@ -391,6 +391,98 @@ final class ConductorTest extends TestCase
         @rmdir($root);
     }
 
+    public function testProtectConfigStartsFail2BanWhenNotRunning(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-protect-fail2ban-' . uniqid();
+        $configs = $root . '/configs';
+        mkdir($root);
+        mkdir($configs);
+
+        $config = $configs . '/myapp.conf';
+        file_put_contents($config, implode(PHP_EOL, [
+            'server {',
+            '    ' . Conductor::PROTECTION_START_MARKER,
+            '    #access_log /tmp/conductor_myapp.seclog conductor_security;',
+            '    ' . Conductor::PROTECTION_END_MARKER,
+            '}',
+        ]));
+
+        $conductor = new class extends Conductor {
+            public array $commands = [];
+            private int $ping_count = 0;
+
+            public function __construct()
+            {
+            }
+
+            public function callWithOutput($command, &$output)
+            {
+                $this->commands[] = $command;
+                $output = [];
+
+                if ($command == '/usr/sbin/nginx -t 2>&1') {
+                    return 0;
+                }
+
+                if ($command == 'command -v fail2ban-client 2>/dev/null') {
+                    $output = ['/usr/bin/fail2ban-client'];
+                    return 0;
+                }
+
+                if ($command == 'fail2ban-client ping 2>&1') {
+                    $this->ping_count++;
+                    return $this->ping_count === 1 ? 1 : 0;
+                }
+
+                if ($command == 'command -v systemctl 2>/dev/null') {
+                    $output = ['/usr/bin/systemctl'];
+                    return 0;
+                }
+
+                if ($command == 'systemctl start fail2ban 2>&1') {
+                    return 0;
+                }
+
+                return 0;
+            }
+
+            public function input($question, $default = '', $options = [])
+            {
+                return self::OPTION_NO;
+            }
+
+            public function writeln($line = '')
+            {
+            }
+        };
+
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'appconfs' => $configs,
+            ],
+            'binaries' => (object) [
+                'nginx' => '/usr/sbin/nginx',
+            ],
+            'services' => (object) [
+                'nginx' => (object) [
+                    'reload' => 'service nginx reload',
+                ],
+            ],
+        ]);
+        $reflection->getProperty('appname')->setValue($conductor, 'myapp');
+
+        $method = $reflection->getMethod('updateApplicationProtectionConfig');
+        $method->invoke($conductor, true);
+
+        $this->assertContains('fail2ban-client ping 2>&1', $conductor->commands);
+        $this->assertContains('systemctl start fail2ban 2>&1', $conductor->commands);
+
+        @unlink($config);
+        @rmdir($configs);
+        @rmdir($root);
+    }
+
     public function testWafConfigCanBeEnabledAndDisabled(): void
     {
         $root = sys_get_temp_dir() . '/conductor-waf-config-' . uniqid();

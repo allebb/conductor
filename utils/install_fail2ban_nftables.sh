@@ -32,6 +32,8 @@ fi
 
 install -d -m 0755 /etc/fail2ban/action.d /etc/fail2ban/filter.d /etc/fail2ban/jail.d /etc/logrotate.d
 touch /var/log/conductor-fail2ban-manual.log
+touch /tmp/conductor_fail2ban_seed.seclog
+chmod 0644 /var/log/conductor-fail2ban-manual.log /tmp/conductor_fail2ban_seed.seclog
 install -m 0644 "${FAIL2BAN_SOURCE}/action.d/"*.conf /etc/fail2ban/action.d/
 install -m 0644 "${FAIL2BAN_SOURCE}/filter.d/"*.conf /etc/fail2ban/filter.d/
 install -m 0644 "${FAIL2BAN_SOURCE}/jail.d/conductor-nginx.conf" /etc/fail2ban/jail.d/conductor-nginx.conf
@@ -53,13 +55,9 @@ cat <<'EOF'
 
 Conductor Fail2Ban support has been installed using nftables.
 
-To enable it for an application, edit the app's Nginx vhost and uncomment:
+To enable it for an application:
 
-    access_log /tmp/conductor_{appname}.seclog conductor_security;
-
-Then validate and reload Nginx:
-
-    nginx -t && systemctl reload nginx
+    conductor protect {appname} --enable --auto-reload
 
 The installed automatic jails watch /tmp/conductor_*.seclog for scanner probes,
 excessive 4xx responses, and very high request rates. The conductor-manual jail

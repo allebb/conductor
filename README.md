@@ -164,7 +164,7 @@ Each Nginx vhost template includes a commented security log line:
 #access_log /tmp/conductor_{appname}.seclog conductor_security;
 ```
 
-Run ``sudo conductor protect {app name} --enable`` for any application/website vhost you want Fail2Ban to monitor. Use ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes. The Fail2Ban templates watch ``/tmp/conductor_*.seclog`` and install three automatic jails:
+Run ``sudo conductor protect {app name} --enable`` for any application/website vhost you want Fail2Ban to monitor. Use ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes. The Fail2Ban templates watch ``/tmp/conductor_*.seclog`` and the installer creates an empty ``/tmp/conductor_fail2ban_seed.seclog`` so Fail2Ban can start before any app security logs exist. They install three automatic jails:
 
 * excessive 4xx responses: 80 hits in 10 minutes, banned for 30 minutes.
 * scanner probes for common sensitive paths: 5 hits in 10 minutes, banned for 1 hour.

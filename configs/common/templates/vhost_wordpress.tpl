@@ -101,7 +101,7 @@ server {
     # LetsEncrypt verification block
     include /etc/conductor/configs/common/wellknown.conf;
 
-    # Optional WAF configuration managed by `conductor waf`.
+    # Optional WAF configuration (app and security-related protection live in here) managed by `conductor waf {appname}`.
     # -- C:Start WAF Include Block -- #
     include /etc/conductor/wafs/@@APPNAME@@.conf;
     # -- C:End WAF Include Block -- #
@@ -123,8 +123,8 @@ server {
         fastcgi_param                   HTTP_PROXY "";
 
         # Optionally you can override any (default) PHP configuration (php.ini) values:
-        #fastcgi_param  PHP_VALUE  upload_max_filesize=32M;
-        #fastcgi_param  PHP_VALUE  post_max_size=38M;
+        #fastcgi_param  PHP_VALUE       upload_max_filesize=32M;
+        #fastcgi_param  PHP_VALUE       post_max_size=38M;
         #fastcgi_read_timeout           120s;
         #fastcgi_buffers                16 16k;
         #fastcgi_buffer_size            32k;

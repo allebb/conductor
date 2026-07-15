@@ -101,7 +101,7 @@ server {
     # LetsEncrypt verification block
     include /etc/conductor/configs/common/wellknown.conf;
 
-    # Optional WAF configuration managed by `conductor waf`.
+    # Optional WAF configuration (app and security-related protection live in here) managed by `conductor waf {appname}`.
     # -- C:Start WAF Include Block -- #
     include /etc/conductor/wafs/@@APPNAME@@.conf;
     # -- C:End WAF Include Block -- #

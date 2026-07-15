@@ -1073,7 +1073,62 @@ class Conductor extends CliApplication
             $this->endWithNginxConfigError();
         }
 
+        if ($enable) {
+            $this->ensureFail2BanRunningForProtection();
+        }
+
         $this->promptGracefulNginxReload('protection configuration change', $this->isFlagSet('auto-reload'));
+    }
+
+    /**
+     * Ensure Fail2Ban is running when an application security log is enabled.
+     * @return void
+     */
+    private function ensureFail2BanRunningForProtection()
+    {
+        $output = [];
+        if ($this->callWithOutput('command -v fail2ban-client 2>/dev/null', $output) !== 0) {
+            $this->writeln('Fail2Ban is not installed; run /etc/conductor/utils/install_fail2ban_nftables.sh to enable automatic bans.');
+            return;
+        }
+
+        $output = [];
+        if ($this->callWithOutput('fail2ban-client ping 2>&1', $output) === 0) {
+            return;
+        }
+
+        $this->writeln('Fail2Ban is not running; attempting to start it...');
+
+        $start_output = [];
+        if ($this->startFail2BanService($start_output) !== 0) {
+            $this->writeln('Unable to start Fail2Ban: ' . trim(implode(' ', $start_output)));
+            $this->writeln('Run /etc/conductor/utils/install_fail2ban_nftables.sh and check /var/log/fail2ban.log.');
+            return;
+        }
+
+        $verify_output = [];
+        if ($this->callWithOutput('fail2ban-client ping 2>&1', $verify_output) !== 0) {
+            $this->writeln('Fail2Ban start command completed, but the daemon is not responding: ' . trim(implode(' ', $verify_output)));
+            $this->writeln('Check /var/log/fail2ban.log for details.');
+            return;
+        }
+
+        $this->writeln('Fail2Ban has been started.');
+    }
+
+    /**
+     * Start the Fail2Ban service using the available service manager.
+     * @param array $output
+     * @return int
+     */
+    private function startFail2BanService(&$output)
+    {
+        $systemctl = [];
+        if ($this->callWithOutput('command -v systemctl 2>/dev/null', $systemctl) === 0) {
+            return $this->callWithOutput('systemctl start fail2ban 2>&1', $output);
+        }
+
+        return $this->callWithOutput('service fail2ban start 2>&1', $output);
     }
 
     /**
