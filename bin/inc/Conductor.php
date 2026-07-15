@@ -370,27 +370,79 @@ class Conductor extends CliApplication
     {
         $pid = $this->nginxMainPid();
         if (!$pid || !is_readable('/proc/' . $pid . '/stat')) {
-            return null;
+            return $this->nginxServiceUptimeSeconds();
         }
 
         $stat = file_get_contents('/proc/' . $pid . '/stat');
         $end = strrpos($stat, ')');
         if ($end === false) {
-            return null;
+            return $this->nginxServiceUptimeSeconds();
         }
 
         $parts = preg_split('/\s+/', trim(substr($stat, $end + 2)));
         if (!isset($parts[19])) {
-            return null;
+            return $this->nginxServiceUptimeSeconds();
         }
 
         $clock_ticks = $this->clockTicksPerSecond();
         $uptime = $this->operatingSystemUptimeSeconds();
         if (!$clock_ticks || $uptime === null) {
-            return null;
+            return $this->nginxServiceUptimeSeconds();
         }
 
         return $uptime - ((float) $parts[19] / $clock_ticks);
+    }
+
+    /**
+     * Calculate Nginx uptime from systemd service metadata.
+     * @return float|null
+     */
+    private function nginxServiceUptimeSeconds()
+    {
+        $output = [];
+        exec('systemctl show nginx --property=ActiveEnterTimestamp --value 2>/dev/null', $output, $exit_code);
+        if ($exit_code === 0 && isset($output[0])) {
+            $uptime = $this->parseNginxActiveSinceUptimeSeconds($output[0]);
+            if ($uptime !== null) {
+                return $uptime;
+            }
+        }
+
+        $output = [];
+        exec('service nginx status 2>/dev/null', $output, $exit_code);
+        if ($exit_code === 0 && $output) {
+            return $this->parseNginxActiveSinceUptimeSeconds(implode("\n", $output));
+        }
+
+        return null;
+    }
+
+    /**
+     * Parse a systemd "Active: ... since ..." timestamp into uptime seconds.
+     * @param string $status
+     * @param int|null $now
+     * @return float|null
+     */
+    private function parseNginxActiveSinceUptimeSeconds($status, $now = null)
+    {
+        $status = trim($status);
+        if ($status === '' || strtolower($status) === 'n/a') {
+            return null;
+        }
+
+        if (preg_match('/\bsince\s+(.+?)(?:;|\n|$)/i', $status, $matches)) {
+            $status = trim($matches[1]);
+        }
+
+        $started = strtotime($status);
+        if ($started === false) {
+            return null;
+        }
+
+        $now = $now ?? time();
+        $seconds = $now - $started;
+
+        return $seconds >= 0 ? (float) $seconds : null;
     }
 
     /**

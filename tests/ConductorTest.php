@@ -847,6 +847,29 @@ final class ConductorTest extends TestCase
         $this->assertNull($method->invoke($this->makeConductor(), null));
     }
 
+    public function testParseNginxActiveSinceUptimeSecondsReadsServiceStatusOutput(): void
+    {
+        $method = (new ReflectionClass(Conductor::class))->getMethod('parseNginxActiveSinceUptimeSeconds');
+        $status = <<<STATUS
+- nginx.service - A high performance web server and a reverse proxy server
+  Loaded: loaded (/usr/lib/systemd/system/nginx.service; enabled; preset: enabled)
+  Active: active (running) since Wed 2026-07-15 21:19:06 UTC; 6min ago
+STATUS;
+
+        $now = strtotime('Wed 2026-07-15 21:25:06 UTC');
+
+        $this->assertSame(360.0, $method->invoke($this->makeConductor(), $status, $now));
+    }
+
+    public function testParseNginxActiveSinceUptimeSecondsReadsSystemctlTimestamp(): void
+    {
+        $method = (new ReflectionClass(Conductor::class))->getMethod('parseNginxActiveSinceUptimeSeconds');
+        $now = strtotime('Wed 2026-07-15 21:25:06 UTC');
+
+        $this->assertSame(360.0, $method->invoke($this->makeConductor(), 'Wed 2026-07-15 21:19:06 UTC', $now));
+        $this->assertNull($method->invoke($this->makeConductor(), 'n/a', $now));
+    }
+
     public function testParseNginxStatusReturnsTrimmedStatusLines(): void
     {
         $method = (new ReflectionClass(Conductor::class))->getMethod('parseNginxStatus');
