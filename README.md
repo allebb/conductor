@@ -5,33 +5,35 @@ Conductor is a CLI utility to automate the installation of Laravel application s
 
 Requirements
 ------------
-Conductor is developed, tested and supported on the Ubuntu Server LTS releases (22.04, 20.04, 18.04, 16.04, 14.04 and 12.04), Debian 12 (Bookworm) and Debian 13 (Trixie) in future I may support other distributions too, I as always welcome PR's from other members of the community too if they wish to contribute configuration changes/updates to the existing project source code!
+Conductor is developed, tested and supported on Debian 12 (Bookworm) and Debian 13 (Trixie). Other Linux distributions, Ubuntu releases, and FreeBSD are no longer supported by the installer.
 
 Installation
 ------------
 
-Installation on Ubuntu or Debian-based servers can be done effortlessly by simply running this command from the console!
+Installation on supported Debian servers can be done effortlessly by simply running this command from the console!
 
-> If installing on Debian, please ensure you install the ``sudo``, ``lsb-release``, and ``curl`` packages **BEFORE** attempting to run the installer. You can do this by running ``apt install -y sudo curl``.
+> Please ensure you install the ``sudo``, ``lsb-release``, and ``curl`` packages **BEFORE** attempting to run the installer. You can do this by running ``apt install -y sudo lsb-release curl``.
 
 ```shell
 bash -c "$(curl -fsSL https://raw.github.com/allebb/conductor/stable/install.sh)"
 ```
 
+For a minimal reverse-proxy/load-balancer style installation, you can use ``--proxy-only``. This skips the optional local MySQL, Redis, SupervisorD, and additional PHP version prompts, and installs only the required PHP 8.5 runtime alongside Nginx and the core Conductor tooling:
+
+```shell
+bash -c "$(curl -fsSL https://raw.github.com/allebb/conductor/stable/install.sh)" -- --proxy-only
+```
+
 If you would like to automate the deployments of your applications using Git and/or standalone webhooks, you should check out [Hooker](https://github.com/allebb/hooker) - Another tool that I've built ;)
-
-If you wish to install on Ubuntu Server 16.04, 14.04 or 12.04 please use the instructions found on the PHP 5.6 branch instead: https://github.com/allebb/conductor/tree/ubuntu1404_php56
-
-If installing on FreeBSD, a slightly different approach is required at present (given that it needs some initial packages installed and OpenSSL needs some attention). If you wish to install on FreeBSD please follow the [FreeBSD Installation](INSTALL-FREEBSD.md) instructions.
 
 If you wish to install Conductor from a specific branch, you can set the ``BRANCH_INSTALL`` environment variable before running the installer like so:
 
 ```shell
-export BRANCH_INSTALL="ubuntu2204_php82" # Set the name of the Git Branch you want to install from.
-bash -c "$(curl -fsSL https://raw.github.com/allebb/conductor/ubuntu2204_php82/install.sh)" # Then, when we run the installer, it'll clone and install from the required branch!
+export BRANCH_INSTALL="stable" # Set the name of the Git Branch you want to install from.
+bash -c "$(curl -fsSL https://raw.github.com/allebb/conductor/stable/install.sh)" # Then, when we run the installer, it'll clone and install from the required branch!
 ```
 
-By default, on Debian 13, this installs multiple PHP versions, and each of the FPM pools are started automatically! If you don't intend on using specific versions you can disable them (freeing resources) as follows:
+If you choose to install additional PHP versions, each of the FPM pools are started automatically. If you don't intend on using specific versions you can disable them (freeing resources) as follows:
 
 ```shell
 # List all existing/installed PHP-FPM units:
@@ -66,10 +68,10 @@ The current Debian installers will also ask whether you want to install:
 
 * MySQL/MariaDB
 * Redis
-* SupervisorD
+* Supervisor
 * Additional PHP versions for hosted applications
 
-If you choose not to install MySQL/MariaDB locally, Conductor records this in ``/etc/conductor.conf`` and will not ask database provisioning questions when creating or deleting applications.
+If you choose not to install MySQL/MariaDB locally, Conductor will not ask database provisioning questions when creating or deleting applications.
 
 Optional post-install hardening:
 
@@ -193,11 +195,8 @@ The script installs CrowdSec, installs a firewall bouncer, adds common http coll
 
 This is the same optional log file path used by Conductor's Fail2Ban support, so you do not need CrowdSec to read the normal disk-based Nginx access logs. Uncomment the ``access_log /tmp/conductor_{appname}.seclog conductor_security;`` line in each vhost you want CrowdSec and/or Fail2Ban to monitor, then test and reload Nginx.
 
-You can choose a specific firewall bouncer if required:
-
 ```shell
 sudo bash /etc/conductor/utils/install_crowdsec.sh --bouncer=nftables
-sudo bash /etc/conductor/utils/install_crowdsec.sh --bouncer=none
 ```
 
 If ``crowdsec`` is not already available from apt, the script will add the official CrowdSec package repository. Use ``--skip-repo-bootstrap`` if you prefer to add and audit package repositories manually.
@@ -206,7 +205,7 @@ CrowdSec and Fail2Ban can be used together. If CrowdSec is installed, CrowdSec w
 
 When CrowdSec is installed, ``conductor ban list`` also shows a summary count of local CrowdSec IP bans at the bottom. It does not print all global/community CrowdSec decisions.
 
-The ``conductor unban {ip_address}`` command checks Fail2Ban first. If the IP address is not currently banned by Fail2Ban, Conductor will also remove matching local CrowdSec IP bans. Global/community CrowdSec decisions are left alone.
+You can however also manually remove a local Crowdsec decision (auto-ban) by using the ``conductor unban {ipaddress}`` command, this will first attempt to remove the IP address from the Fail2Ban manual bans but if not found, will then fall back and attempt to remove it from Crowdsec's local (ban) decission. Global/community bans will remain in-place however!
 
 #### ```conductor destroy {app name}```
 
@@ -314,15 +313,15 @@ As conductor is designed to be a 'set and forget' system, we've now implemented 
 0 3 1 * * /etc/conductor/utils/update_composer.sh
 ```
 
-The use of different PHP versions (8.1, 8.0 and 7.4)
+The use of different PHP versions
 ---------------------------
 
-By default, Conductor installs PHP 8.1, PHP 8.0 and PHP 7.4 onto your server and will configure new applications/sites to use PHP 8.1 out of the box.
+PHP 8.5 is always installed and is the default runtime required by Conductor. The Debian installers can optionally install additional PHP versions for hosted applications.
 
-If however you need to set a specific application or site to use PHP 8.0 or PHP 7.4 you can edit the virtual host configuration in ``/etc/conductor/configs/{sitename}.conf`` and change the socket that PHP-FPM is running on, for example you should change:
+If however you need to set a specific application or site to use another installed PHP version you can edit the virtual host configuration in ``/etc/conductor/configs/{sitename}.conf`` and change the socket that PHP-FPM is running on, for example you should change:
 
 ```shell
-fastcgi_pass                    unix:/var/run/php/php8.1-fpm.sock;
+fastcgi_pass                    unix:/var/run/php/php8.5-fpm.sock;
 ```
 
 to...

@@ -1759,6 +1759,8 @@ class Conductor extends CliApplication
             $this->writeln('Destroying app directory and log files...');
             $this->call('rm -Rf ' . $this->appdir);
             $this->call('rm -Rf ' . $this->conf->paths->applogs . '/' . $this->appname);
+            $this->writeln('Removing optional security log files...');
+            $this->call('rm -f /tmp/conductor_' . $this->appname . '.seclog*');
             $this->writeln();
             $this->writeln('Deployment keys have been kept (if you wish to re-use them');
             $this->writeln('otherwise you can delete them too by running:');

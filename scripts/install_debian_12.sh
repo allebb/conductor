@@ -8,6 +8,27 @@
 # Exit early if there was an issue with the installation.
 set -e
 
+PROXY_ONLY=0
+for arg in "$@"; do
+    case "$arg" in
+        --proxy-only)
+            PROXY_ONLY=1
+            ;;
+        -h|--help)
+            echo "Usage: sudo bash install_debian_12.sh [--proxy-only]"
+            echo ""
+            echo "Options:"
+            echo "  --proxy-only    Install only Nginx and required PHP 8.5, skipping optional local services."
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: ${arg}"
+            echo "Usage: sudo bash install_debian_12.sh [--proxy-only]"
+            exit 1
+            ;;
+    esac
+done
+
 # A random password generation function to generate MySQL passwords.
 passwordgen() {
     l=$1
@@ -100,20 +121,24 @@ INSTALL_SUPERVISOR=0
 INSTALL_EXTRA_PHP=0
 MYSQL_ROOT_PASSWORD="NOT_INSTALLED"
 
-if prompt_yes_no "Install MySQL locally?" "y"; then
-    INSTALL_MYSQL=1
-fi
+if [ "$PROXY_ONLY" -eq 1 ]; then
+    echo "Proxy-only install requested; skipping MySQL, Redis, SupervisorD, and additional PHP versions."
+else
+    if prompt_yes_no "Install MySQL locally?" "y"; then
+        INSTALL_MYSQL=1
+    fi
 
-if prompt_yes_no "Install Redis?" "y"; then
-    INSTALL_REDIS=1
-fi
+    if prompt_yes_no "Install Redis?" "y"; then
+        INSTALL_REDIS=1
+    fi
 
-if prompt_yes_no "Install SupervisorD?" "y"; then
-    INSTALL_SUPERVISOR=1
-fi
+    if prompt_yes_no "Install SupervisorD?" "y"; then
+        INSTALL_SUPERVISOR=1
+    fi
 
-if prompt_yes_no "Install additional PHP versions (7.4, 8.0, 8.1, 8.2) alongside required PHP 8.5?" "y"; then
-    INSTALL_EXTRA_PHP=1
+    if prompt_yes_no "Install additional PHP versions (7.4, 8.0, 8.1, 8.2) alongside required PHP 8.5?" "y"; then
+        INSTALL_EXTRA_PHP=1
+    fi
 fi
 
 REQUIRED_PORTS=(80 443)
@@ -160,8 +185,7 @@ else
     echo "Skipping local MySQL installation."
 fi
 
-# Enable the Universe repository (since Ubuntu 18.04 various packages are supplied in the universe repo eg. libzip4.0, beanstalkd, supervisor and letsencrypt)...
-#sudo add-apt-repository universe # NEEDS TO BE REFACTORED OR REMOVED, DOESN'T SEEM TO BE INCLUDED IN DEBIAN!
+# Debian packages are installed from the configured Debian and third-party repositories above.
 
 # Install some Zip libraries required by some PHP modules.
 sudo apt-get install -y zip unzip
@@ -265,8 +289,6 @@ sudo sed -i "s/include \/etc\/nginx\/sites-enabled\/\*/include \/etc\/conductor\
 sudo sed -i "s/# server_tokens off\;/server_tokens off\;/g" /etc/nginx/nginx.conf
 
 echo "Configuring PHP-FPM for Nginx..."
-# On Ubuntu 14.04 the following is already listening on a socket so this can be ignored!
-#sudo sed -i "s/\listen = 127\.0\.0\.1\:9000/listen = \/tmp\/php5-fpm\.sock/g" /etc/php/7.0/fpm/pool.d/www.conf
 # Change cgi.fix_pathinfo=1 to cgi.fix_pathinfo=0
 
 echo "Securing cgi.fix_pathinfo..."
@@ -302,7 +324,7 @@ done
 sudo /etc/init.d/nginx restart
 
 # Lets copy the configuration file template to /etc/conductor.conf for simplified administration.
-sudo cp /etc/conductor/bin/conf/conductor.ubuntu.template.json /etc/conductor.conf
+sudo cp /etc/conductor/bin/conf/conductor.debian.template.json /etc/conductor.conf
 
 # Set the root password on our configuration script.
 sudo sed -i "s|ROOT_PASSWORD_HERE|$MYSQL_ROOT_PASSWORD|" /etc/conductor.conf;

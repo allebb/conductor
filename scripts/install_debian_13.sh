@@ -1,9 +1,33 @@
 #!/usr/bin/env bash
-set -e
 
 ################################################################################
-# Conductor Installation Script for Debian 13 (Trixie)
+# Conductor Installation Script for Debian 13 (Trixie)                       #
+# Written by Bobby Allen <ballen@bobbyallen.me>, 07/04/2026                    #
 ################################################################################
+
+# Exit early if there was an issue with the installation.
+set -e
+
+PROXY_ONLY=0
+for arg in "$@"; do
+    case "$arg" in
+        --proxy-only)
+            PROXY_ONLY=1
+            ;;
+        -h|--help)
+            echo "Usage: sudo bash install_debian_13.sh [--proxy-only]"
+            echo ""
+            echo "Options:"
+            echo "  --proxy-only    Install only Nginx and required PHP 8.5, skipping optional local services."
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: ${arg}"
+            echo "Usage: sudo bash install_debian_13.sh [--proxy-only]"
+            exit 1
+            ;;
+    esac
+done
 
 passwordgen() {
     l=$1
@@ -96,20 +120,24 @@ INSTALL_SUPERVISOR=0
 INSTALL_EXTRA_PHP=0
 MYSQL_ROOT_PASSWORD="NOT_INSTALLED"
 
-if prompt_yes_no "Install MySQL locally?" "y"; then
-    INSTALL_MYSQL=1
-fi
+if [ "$PROXY_ONLY" -eq 1 ]; then
+    echo "Proxy-only install requested; skipping MySQL, Redis, SupervisorD, and additional PHP versions."
+else
+    if prompt_yes_no "Install MySQL locally?" "y"; then
+        INSTALL_MYSQL=1
+    fi
 
-if prompt_yes_no "Install Redis?" "y"; then
-    INSTALL_REDIS=1
-fi
+    if prompt_yes_no "Install Redis?" "y"; then
+        INSTALL_REDIS=1
+    fi
 
-if prompt_yes_no "Install SupervisorD?" "y"; then
-    INSTALL_SUPERVISOR=1
-fi
+    if prompt_yes_no "Install SupervisorD?" "y"; then
+        INSTALL_SUPERVISOR=1
+    fi
 
-if prompt_yes_no "Install additional PHP versions (7.4, 8.1, 8.4) alongside required PHP 8.5?" "y"; then
-    INSTALL_EXTRA_PHP=1
+    if prompt_yes_no "Install additional PHP versions (7.4, 8.1, 8.4) alongside required PHP 8.5?" "y"; then
+        INSTALL_EXTRA_PHP=1
+    fi
 fi
 
 REQUIRED_PORTS=(80 443)
@@ -304,7 +332,7 @@ sudo systemctl restart nginx
 ################################################################################
 # Conductor Config
 ################################################################################
-sudo cp /etc/conductor/bin/conf/conductor.ubuntu.template.json /etc/conductor.conf
+sudo cp /etc/conductor/bin/conf/conductor.debian.template.json /etc/conductor.conf
 sudo sed -i "s|ROOT_PASSWORD_HERE|$MYSQL_ROOT_PASSWORD|" /etc/conductor.conf
 if [ "$INSTALL_MYSQL" -eq 0 ]; then
     sudo sed -i '0,/"enabled": true/s//"enabled": false/' /etc/conductor.conf
