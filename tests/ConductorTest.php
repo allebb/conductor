@@ -214,6 +214,7 @@ final class ConductorTest extends TestCase
 
         $reflection = new ReflectionClass(Conductor::class);
         $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'auto-reload-nginx' => false,
             'paths' => (object) [
                 'appconfs' => $configs,
                 'pwdbs' => $auth,
@@ -289,6 +290,7 @@ final class ConductorTest extends TestCase
 
         $reflection = new ReflectionClass(Conductor::class);
         $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'auto-reload-nginx' => false,
             'paths' => (object) [
                 'appconfs' => $configs,
             ],
@@ -367,6 +369,7 @@ final class ConductorTest extends TestCase
 
         $reflection = new ReflectionClass(Conductor::class);
         $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'auto-reload-nginx' => false,
             'paths' => (object) [
                 'appconfs' => $configs,
             ],
@@ -458,6 +461,7 @@ final class ConductorTest extends TestCase
 
         $reflection = new ReflectionClass(Conductor::class);
         $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'auto-reload-nginx' => false,
             'paths' => (object) [
                 'appconfs' => $configs,
             ],
@@ -525,6 +529,7 @@ final class ConductorTest extends TestCase
 
         $reflection = new ReflectionClass(Conductor::class);
         $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'auto-reload-nginx' => false,
             'paths' => (object) [
                 'appconfs' => $configs,
                 'wafs' => $waf,
@@ -550,6 +555,170 @@ final class ConductorTest extends TestCase
         @unlink($waf . '/myapp.conf');
         @unlink($config);
         @rmdir($waf);
+        @rmdir($configs);
+        @rmdir($root);
+    }
+
+    public function testConductorTemplateEnablesNginxAutoReloadByDefault(): void
+    {
+        $config = json_decode(file_get_contents(__DIR__ . '/../bin/conf/conductor.debian.template.json'));
+
+        $this->assertTrue($config->{'auto-reload-nginx'});
+    }
+
+    public function testGlobalNginxAutoReloadSkipsPromptAndReloadsAfterSuccessfulConfigTest(): void
+    {
+        $conductor = new class extends Conductor {
+            public array $calls = [];
+            public array $questions = [];
+
+            public function __construct()
+            {
+            }
+
+            public function call($command)
+            {
+                $this->calls[] = $command;
+                return '';
+            }
+
+            public function callWithOutput($command, &$output)
+            {
+                $output = [];
+                return 0;
+            }
+
+            public function input($question, $default = '', $options = [])
+            {
+                $this->questions[] = $question;
+                return self::OPTION_NO;
+            }
+
+            public function writeln($line = '')
+            {
+            }
+        };
+
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'auto-reload-nginx' => true,
+            'binaries' => (object) [
+                'nginx' => '/usr/sbin/nginx',
+            ],
+            'services' => (object) [
+                'nginx' => (object) [
+                    'reload' => 'service nginx reload',
+                ],
+            ],
+        ]);
+
+        $method = $reflection->getMethod('promptGracefulNginxReload');
+        $method->invoke($conductor, 'test change');
+
+        $this->assertSame([], $conductor->questions);
+        $this->assertContains('service nginx reload', $conductor->calls);
+    }
+
+    public function testLetsEncryptCertificateSuccessCanEnableSslConfiguration(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-letsencrypt-enable-' . uniqid();
+        $configs = $root . '/configs';
+        mkdir($root);
+        mkdir($configs);
+
+        $config = $configs . '/myapp.conf';
+        file_put_contents($config, implode(PHP_EOL, [
+            '# :: Managed domains: [example.com www.example.com]',
+            'server {',
+            '    # -- C:Start Default (HTTP) Main Block -- #',
+            '    listen 80;',
+            '    # -- C:End Default (HTTP) Main Block -- #',
+            '    # -- C:Start Auto-LetsEncrypt Main Block -- #',
+            '    #listen 443 ssl;',
+            '    #ssl_certificate /etc/letsencrypt/live/myapp/fullchain.pem;',
+            '    # -- C:End Auto-LetsEncrypt Main Block -- #',
+            '}',
+        ]));
+
+        $conductor = new class extends Conductor {
+            public array $questions = [];
+            public array $commands = [];
+
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+
+            public function callWithExitCode($command)
+            {
+                $this->commands[] = $command;
+                return 0;
+            }
+
+            public function callWithOutput($command, &$output)
+            {
+                $output = [];
+                return 0;
+            }
+
+            public function input($question, $default = '', $options = [])
+            {
+                $this->questions[] = $question;
+                return strpos($question, 'Enable SSL configuration now?') !== false
+                    ? self::OPTION_YES
+                    : self::OPTION_NO;
+            }
+
+            public function writeln($line = '')
+            {
+            }
+
+            public function endWithSuccess()
+            {
+                throw new \RuntimeException('success');
+            }
+        };
+
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'auto-reload-nginx' => false,
+            'paths' => (object) [
+                'appconfs' => $configs,
+                'apps' => $root,
+            ],
+            'binaries' => (object) [
+                'nginx' => '/usr/sbin/nginx',
+            ],
+            'services' => (object) [
+                'nginx' => (object) [
+                    'reload' => 'service nginx reload',
+                ],
+            ],
+            'admin' => (object) [
+                'email' => 'admin@example.com',
+            ],
+            'cmdtpls' => (object) [
+                'letsencryptgen' => 'certbot --cert-name=__APP__ --deploy-hook=__NGINX_RELOAD_CMD__ --email=__EMAIL__ -d __DOMAINS__',
+            ],
+        ]);
+
+        try {
+            $conductor->generateLetsEncryptCertificate();
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('success', $exception->getMessage());
+        }
+
+        $updated = file_get_contents($config);
+        $this->assertContains('LetsEncrypt certificate request successful. Enable SSL configuration now?', $conductor->questions);
+        $this->assertStringContainsString('#listen 80;', $updated);
+        $this->assertStringContainsString('    listen 443 ssl;', $updated);
+        $this->assertStringContainsString('example.com,www.example.com', $conductor->commands[0]);
+
+        @unlink($config);
         @rmdir($configs);
         @rmdir($root);
     }

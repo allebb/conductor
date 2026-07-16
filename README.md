@@ -164,9 +164,11 @@ Each Nginx vhost template includes a commented security log line:
 #access_log /tmp/conductor_{appname}.seclog conductor_security;
 ```
 
-Run ``sudo conductor protect {app name} --enable`` for any application/website vhost you want Fail2Ban to monitor. Use ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes. The Fail2Ban templates watch ``/tmp/conductor_*.seclog`` and the installer creates an empty ``/tmp/conductor_fail2ban_seed.seclog`` so Fail2Ban can start before any app security logs exist. They install three automatic jails:
+Run ``sudo conductor protect {app name} --enable`` for any application/website vhost you want Fail2Ban to monitor. Use ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes. The Fail2Ban templates watch ``/tmp/conductor_*.seclog`` and the installer creates an empty ``/tmp/conductor_fail2ban_seed.seclog`` so Fail2Ban can start before any app security logs exist. They install five automatic jails:
 
 * excessive 4xx responses: 80 hits in 10 minutes, banned for 30 minutes.
+* repeated 401 responses: 20 hits in 10 minutes, banned for 1 hour.
+* repeated 403 responses: 30 hits in 10 minutes, banned for 2 hours.
 * scanner probes for common sensitive paths: 5 hits in 10 minutes, banned for 1 hour.
 * high total request rate: 600 hits in 1 minute, banned for 24 hours.
 
@@ -335,7 +337,9 @@ When manually changing configuration of one or more of the dependent/bundled dae
 
 #### ```conductor test```
 
-Tests the active Nginx configuration. The command returns ``0`` when the configuration is valid and ``1`` when Nginx reports an error. On success it prints ``Nginx configuration test successful!``; on failure it prints Nginx's original error output so the exact file, line, and issue are visible. Add ``--auto-reload`` to gracefully reload Nginx automatically after a successful test.
+Tests the active Nginx configuration. The command returns ``0`` when the configuration is valid and ``1`` when Nginx reports an error. On success it prints ``Nginx configuration test successful!``; on failure it prints Nginx's original error output so the exact file, line, and issue are visible.
+
+By default, ``auto-reload-nginx`` is set to ``true`` in ``/etc/conductor.conf``, so Conductor gracefully reloads Nginx automatically after successful configuration tests instead of asking each time. Set it to ``false`` if you prefer the interactive reload prompt. The ``--auto-reload`` flag still forces an automatic reload for commands that support it.
 
 #### ```conductor --version```
 

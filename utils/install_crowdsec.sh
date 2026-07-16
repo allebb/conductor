@@ -127,6 +127,12 @@ enabled = false
 [conductor-nginx-4xx]
 enabled = false
 
+[conductor-nginx-401]
+enabled = false
+
+[conductor-nginx-403]
+enabled = false
+
 [conductor-nginx-rate]
 enabled = false
 EOF

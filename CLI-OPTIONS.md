@@ -13,7 +13,7 @@ In "interactive" mode, Conductor asks a series of questions when a new applicati
 * ``--path`` - This will enable you to over-ride the default '/public' site mapping thus allowing users to host WordPress sites etc. without having to place the site in a '/public' directory.
 * ``--target`` - Proxy templates only: upstream HTTP(S) target with a host and port, eg. ``--target="http://127.24.54.54:8000"``.
 * ``--genkey`` - This will generate an SSH (deployment) key that can be used by this application.
-* ``--auto-reload`` - After creating the application, test the Nginx configuration and gracefully reload Nginx without prompting. This can also be used with ``conductor enable``, ``conductor disable``, and ``conductor letsencrypt``.
+* ``--auto-reload`` - After creating the application, test the Nginx configuration and gracefully reload Nginx without prompting. This can also be used with ``conductor enable``, ``conductor disable``, and ``conductor letsencrypt``. Conductor also supports the global ``auto-reload-nginx`` setting in ``/etc/conductor.conf``; it defaults to ``true``.
 
 So for example, setting up a standard Laravel type project you could use:
 

@@ -1631,9 +1631,8 @@ class Conductor extends CliApplication
             exit(1);
         }
 
-        if ($this->isFlagSet('auto-reload')) {
-            $this->writeln('Gracefully restarting (reloading) Nginx...');
-            $this->call($this->conf->services->nginx->reload);
+        if ($this->shouldAutoReloadNginx($this->isFlagSet('auto-reload'))) {
+            $this->reloadNginxGracefully();
         }
     }
 
@@ -2089,9 +2088,8 @@ class Conductor extends CliApplication
             $this->endWithNginxConfigError();
         }
 
-        if ($auto_reload) {
-            $this->writeln('Gracefully restarting (reloading) Nginx...');
-            $this->call($this->conf->services->nginx->reload);
+        if ($this->shouldAutoReloadNginx($auto_reload)) {
+            $this->reloadNginxGracefully();
             return;
         }
 
@@ -2099,11 +2097,48 @@ class Conductor extends CliApplication
             self::OPTION_YES, [self::OPTION_YES, self::OPTION_NO]);
 
         if (strtolower($reload_nginx) == self::OPTION_YES) {
-            $this->writeln('Gracefully restarting (reloading) Nginx...');
-            $this->call($this->conf->services->nginx->reload);
+            $this->reloadNginxGracefully();
         } else {
             $this->writeln('Remember to gracefully restart (reload) Nginx before the ' . $change_description . ' will take effect.');
         }
+    }
+
+    /**
+     * Determine whether successful Nginx configuration tests should reload automatically.
+     * @param bool $explicit_auto_reload
+     * @return bool
+     */
+    private function shouldAutoReloadNginx($explicit_auto_reload = false)
+    {
+        return $explicit_auto_reload || $this->autoReloadNginxEnabled();
+    }
+
+    /**
+     * Read the global Nginx auto-reload setting. Missing values default to enabled.
+     * @return bool
+     */
+    private function autoReloadNginxEnabled()
+    {
+        if (!isset($this->conf) || !is_object($this->conf) || !property_exists($this->conf, 'auto-reload-nginx')) {
+            return true;
+        }
+
+        $value = $this->conf->{'auto-reload-nginx'};
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * Gracefully reload Nginx using the configured service command.
+     * @return void
+     */
+    private function reloadNginxGracefully()
+    {
+        $this->writeln('Gracefully restarting (reloading) Nginx...');
+        $this->call($this->conf->services->nginx->reload);
     }
 
     /**
@@ -2495,9 +2530,8 @@ class Conductor extends CliApplication
             $this->writeln('SSL configuration has been reset.');
         }
 
-        if ($this->isFlagSet('auto-reload')) {
-            $this->writeln('Gracefully restarting (reloading) Nginx...');
-            $this->call($this->conf->services->nginx->reload);
+        if ($this->shouldAutoReloadNginx($this->isFlagSet('auto-reload'))) {
+            $this->reloadNginxGracefully();
             return;
         }
 
@@ -2505,8 +2539,7 @@ class Conductor extends CliApplication
             [self::OPTION_YES, self::OPTION_NO]);
 
         if (strtolower($reload_nginx) == self::OPTION_YES) {
-            $this->writeln('Gracefully restarting (reloading) Nginx...');
-            $this->call($this->conf->services->nginx->reload);
+            $this->reloadNginxGracefully();
         } else {
             $this->writeln('Remember to gracefully restart (reload) Nginx before the SSL configuration change will take effect.');
         }
@@ -2981,9 +3014,8 @@ class Conductor extends CliApplication
             $this->endWithNginxConfigError();
         }
 
-        if ($this->isFlagSet('auto-reload')) {
-            $this->writeln('Gracefully restarting (reloading) Nginx...');
-            $this->call($this->conf->services->nginx->reload);
+        if ($this->shouldAutoReloadNginx($this->isFlagSet('auto-reload'))) {
+            $this->reloadNginxGracefully();
             return;
         }
 
@@ -2991,8 +3023,7 @@ class Conductor extends CliApplication
             [self::OPTION_YES, self::OPTION_NO]);
 
         if (strtolower($reload_nginx) == self::OPTION_YES) {
-            $this->writeln('Gracefully restarting (reloading) Nginx...');
-            $this->call($this->conf->services->nginx->reload);
+            $this->reloadNginxGracefully();
         } else {
             $this->writeln('Remember to gracefully restart (reload) Nginx before the change will take effect.');
         }

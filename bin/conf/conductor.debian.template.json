@@ -3,6 +3,7 @@
     "email": "update_this_now@localhost.com",
     "default_template": "laravel"
   },
+  "auto-reload-nginx": true,
   "paths": {
     "apps": "/var/conductor/applications",
     "temp": "/var/conductor/tmp",
