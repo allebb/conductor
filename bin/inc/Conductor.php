@@ -827,6 +827,7 @@ class Conductor extends CliApplication
             'restore',
             'letsencrypt',
             'genkey',
+            'showkey',
             'delkey',
             'start',
             'stop',
@@ -858,6 +859,7 @@ class Conductor extends CliApplication
             'letsencrypt',
             'waf',
             'genkey',
+            'showkey',
             'delkey',
             'start',
             'stop',
@@ -882,7 +884,6 @@ class Conductor extends CliApplication
                 '--path=',
                 '--template=',
                 '--target=',
-                '--genkey',
                 '--auto-reload',
             ],
             'enable' => ['--auto-reload'],
@@ -1450,6 +1451,7 @@ class Conductor extends CliApplication
             'location = /.406.html {',
             '    internal;',
             '    add_header Cache-Control "no-store";',
+            '    add_header X-Application-Id $conductor_application always;',
             '}',
             '',
         ]);
@@ -2757,14 +2759,37 @@ class Conductor extends CliApplication
         }
 
         $this->writeln('Deployment key has been generated successfully!');
+        $this->printDeploymentPublicKey();
+    }
+
+    /**
+     * Display the SSH deployment public key for a specific application.
+     * @return void
+     */
+    public function showDeploymentKey()
+    {
+        $this->appNameRequired();
+        $this->printDeploymentPublicKey();
+    }
+
+    /**
+     * Print the deployment public key for the current application.
+     * @return void
+     */
+    private function printDeploymentPublicKey()
+    {
+        $deploy_key_path = $this->conf->paths->deploykeys . '/' . $this->appname . '.deploykey';
+        $public_key_path = $deploy_key_path . '.pub';
+
+        if (!file_exists($public_key_path)) {
+            $this->writeln('No public key found at: ' . $public_key_path);
+            $this->endWithError();
+        }
+
         $this->writeln();
-        $this->writeln(file_get_contents($deploy_key_path . '.pub'));
+        $this->writeln(file_get_contents($public_key_path));
         $this->writeln();
         $this->writeln('Copy and paste the above public key content to your remote service(s) as required.');
-        $this->writeln();
-        $this->writeln('You can review this public key in future by running:');
-        $this->writeln('   cat ' . $deploy_key_path . '.pub');
-        $this->writeln();
         $this->writeln();
     }
 
@@ -2774,6 +2799,15 @@ class Conductor extends CliApplication
     public function deleteDeploymentKey()
     {
         $this->appNameRequired();
+        $this->deleteDeploymentKeyFiles();
+    }
+
+    /**
+     * Delete deployment key files for the current application.
+     * @return void
+     */
+    private function deleteDeploymentKeyFiles()
+    {
         $deploy_key_path = $this->conf->paths->deploykeys . '/' . $this->appname . '.deploykey';
         if (file_exists($deploy_key_path)) {
             foreach ([$deploy_key_path, $deploy_key_path . '.pub'] as $keyfile) {
@@ -2783,6 +2817,23 @@ class Conductor extends CliApplication
         } else {
             $this->writeln('No private key found at: ' . $deploy_key_path);
         }
+    }
+
+    /**
+     * Prompt whether to delete deployment key files for the current application.
+     * @return void
+     */
+    private function promptDeleteDeploymentKeyFiles()
+    {
+        $delete_key = $this->input('Delete the SSH deployment key pair for this application too?', self::OPTION_YES,
+            [self::OPTION_YES, self::OPTION_NO]);
+
+        if (strtolower($delete_key) == self::OPTION_YES) {
+            $this->deleteDeploymentKeyFiles();
+            return;
+        }
+
+        $this->writeln('Deployment key files have been kept.');
     }
 
     /**
@@ -2909,6 +2960,7 @@ class Conductor extends CliApplication
         }
 
         $option_yes_no_set = [self::OPTION_YES, self::OPTION_NO];
+        $generate_keys = self::OPTION_YES;
 
         $vhost_template = $this->getOption('template', $this->conf->admin->default_template);
         $is_proxy_template = strtolower($vhost_template) == 'proxy';
@@ -2937,8 +2989,6 @@ class Conductor extends CliApplication
                 ? $this->input('Provision a MySQL database?', self::OPTION_NO, $option_yes_no_set)
                 : self::OPTION_NO;
             $deploy_git = $this->input('Deploy application with Git now?', self::OPTION_NO, $option_yes_no_set);
-            $generate_keys = $this->input('Create an SSH deployment key pair now?', self::OPTION_YES,
-                $option_yes_no_set);
         } else {
             // FQDN is set, entering non-interactive mode!
             $domain = $this->getOption('fqdn');
@@ -2946,7 +2996,6 @@ class Conductor extends CliApplication
             $apppath = $is_proxy_template ? '' : $this->getOption('path', '/public');
             $mysql_req = self::OPTION_NO; // Disable this by default.
             $deploy_git = self::OPTION_NO; // Disable this by default.
-            $generate_keys = self::OPTION_NO; // Disable this by default.
 
             if ($this->mysqlEnabled() && $this->getOption('mysql-pass')) {
                 $mysql_req = self::OPTION_YES;
@@ -2956,10 +3005,6 @@ class Conductor extends CliApplication
             if ($this->getOption('git-uri')) {
                 $deploy_git = self::OPTION_YES;
                 $gitrepo = $this->getOption('git-uri');
-            }
-
-            if ($this->isFlagSet('genkey')) {
-                $generate_keys = self::OPTION_YES;
             }
         }
 
@@ -3497,10 +3542,7 @@ class Conductor extends CliApplication
             $this->writeln('Removing optional security log files...');
             $this->call('rm -f /tmp/conductor_' . $this->appname . '.seclog*');
             $this->writeln();
-            $this->writeln('Deployment keys have been kept (if you wish to re-use them');
-            $this->writeln('otherwise you can delete them too by running:');
-            $this->writeln();
-            $this->writeln('  conductor delkey ' . $this->appname);
+            $this->promptDeleteDeploymentKeyFiles();
             $this->writeln();
             $this->writeln('...finished!');
             $this->endWithSuccess();

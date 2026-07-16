@@ -26,14 +26,17 @@
             margin: 0;
             min-height: 100vh;
             padding: 48px 20px;
+            display: grid;
+            place-items: center;
             background: var(--background);
             color: var(--foreground);
             font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
         main {
+            width: 100%;
             max-width: 620px;
-            margin: 0 auto;
+            margin: 0;
         }
 
         .heading {
@@ -131,12 +134,6 @@
             <p class="status">HTTP 503</p>
         </div>
         <p>The proxy/load-balancer is online, but the upstream service is not available right now. This page will retry automatically.</p>
-        <dl>
-            <dt>Application</dt>
-            <dd><code>@@APPNAME@@</code></dd>
-            <dt>Check</dt>
-            <dd>Confirm the backend service is running, healthy, and not in maintenance mode.</dd>
-        </dl>
         <p class="retry">Refreshing in <span id="retry-countdown">15</span> seconds.</p>
     </main>
     <script>

@@ -26,14 +26,17 @@
             margin: 0;
             min-height: 100vh;
             padding: 48px 20px;
+            display: grid;
+            place-items: center;
             background: var(--background);
             color: var(--foreground);
             font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
         main {
+            width: 100%;
             max-width: 620px;
-            margin: 0 auto;
+            margin: 0;
         }
 
         .heading {
@@ -125,12 +128,6 @@
             <p class="status">HTTP 502</p>
         </div>
         <p>The proxy/load-balancer is running, but it could not get a valid response from the upstream service.</p>
-        <dl>
-            <dt>Application</dt>
-            <dd><code>@@APPNAME@@</code></dd>
-            <dt>Check</dt>
-            <dd>Confirm the backend process is running and the proxy target is correct.</dd>
-        </dl>
     </main>
 </body>
 </html>

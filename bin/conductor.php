@@ -124,6 +124,10 @@ if (isset($commands[1])) {
             $conductor->createDeploymentKey();
             $conductor->endWithSuccess();
             break;
+        case "showkey":
+            $conductor->showDeploymentKey();
+            $conductor->endWithSuccess();
+            break;
         case "delkey":
             $conductor->deleteDeploymentKey();
             $conductor->endWithSuccess();
@@ -217,6 +221,7 @@ function displayHelp($conductor)
     $conductor->writeln('  unban {ip_address}  Unbans an IP address from all Fail2Ban jails');
     $conductor->writeln();
     $conductor->writeln('  genkey {name}       Generates an SSH deployment key for an application');
+    $conductor->writeln('  showkey {name}      Displays the SSH deployment public key for an application');
     $conductor->writeln('  delkey {name}       Deletes the SSH deployment key for an application.');
     $conductor->writeln('');
     $conductor->writeln('  services start      Starts all dependent Conductor daemons');

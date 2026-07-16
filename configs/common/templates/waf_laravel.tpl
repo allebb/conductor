@@ -70,5 +70,6 @@ error_page 406 /.406.html;
 location = /.406.html {
     internal;
     add_header Cache-Control "no-store";
+    add_header X-Application-Id $conductor_application always;
 }
 ##########################################################################

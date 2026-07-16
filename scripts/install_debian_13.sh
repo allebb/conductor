@@ -50,6 +50,10 @@ prompt_letsencrypt_email() {
     local email=""
     local email_regex='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
 
+    echo ""
+    echo "Conductor uses this email address when requesting LetsEncrypt certificates."
+    echo "Certbot may use it for important certificate expiry, renewal, and account notices."
+
     while true; do
         read -r -p "LetsEncrypt notification email address: " email
         if [[ "$email" =~ $email_regex ]]; then
@@ -80,6 +84,15 @@ prompt_yes_no() {
             *) echo "Please answer yes or no." ;;
         esac
     done
+}
+
+prompt_fail2ban_support() {
+    echo ""
+    if prompt_yes_no "Install optional Fail2Ban/nftables support now?" "n"; then
+        sudo bash /etc/conductor/utils/install_fail2ban_nftables.sh
+    else
+        echo "Skipping Fail2Ban/nftables support installation."
+    fi
 }
 
 required_tcp_port_label() {
@@ -377,3 +390,4 @@ echo "Bash completion for conductor has been installed."
 echo "Open a new shell to use it, or enable it immediately with:"
 echo "  source /etc/bash_completion.d/conductor"
 echo ""
+prompt_fail2ban_support

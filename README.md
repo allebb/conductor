@@ -182,9 +182,11 @@ The installer enables these default jails:
 | ``conductor-nginx-burst`` | 800 total requests in 30 seconds | 10 minutes |
 | ``conductor-nginx-dos`` | 2000 total requests in 1 minute | 24 hours |
 
+Each Conductor Fail2Ban jail also posts JSON ban/unban events to ``https://bin.hallinet.com/z7jw38z7`` using the installed ``conductor-webhook`` action. The payload includes the event type, jail/action name, IP address, and ban duration for ban events. Edit ``/etc/fail2ban/action.d/conductor-webhook.conf`` if you need to change or disable the endpoint.
+
 > These values can be manually adjusted to fit your personal requirements by editting the default configurations that are installed to ``/etc/conductor/configs/common/fail2ban/``.
 
-The security log format records only the timestamp, client IP, status code, request line, and user agent to keep things "lean". The ``/tmp`` path is often memory-backed on modern Linux systems, but not always; check ``findmnt /tmp`` if this matters for your server. A logrotate rule is installed to rotate matching security logs at 10MB and keep three compressed rotations.
+The security log format records the timestamp, client IP, Conductor application id, status code, request line, and user agent to keep things "lean" while still making ban webhooks attributable to a site/application. The ``/tmp`` path is often memory-backed on modern Linux systems, but not always; check ``findmnt /tmp`` if this matters for your server. A logrotate rule is installed to rotate matching security logs at 10MB and keep three compressed rotations.
 
 Once Fail2Ban support is installed, Conductor can manage bans directly:
 
@@ -250,6 +252,10 @@ You can however also manually remove a local Crowdsec decision (auto-ban) by usi
 #### ```conductor destroy {app name}```
 
 Will remove the application from the server, removes the Nginx configuration for this application and will also drop the MySQL database and MySQL user (if present), this command basically removes the named application and immediately stops serving the content.
+
+#### ```conductor showkey {app name}```
+
+Prints the application's SSH deployment public key again, so it can be copied into GitHub or another deployment platform after the original application setup output has gone.
 
 #### ```conductor enable {app name}``` / ```conductor disable {app name}```
 

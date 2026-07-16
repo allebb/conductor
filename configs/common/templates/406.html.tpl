@@ -26,14 +26,17 @@
             margin: 0;
             min-height: 100vh;
             padding: 48px 20px;
+            display: grid;
+            place-items: center;
             background: var(--background);
             color: var(--foreground);
             font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
         main {
+            width: 100%;
             max-width: 620px;
-            margin: 0 auto;
+            margin: 0;
         }
 
         .heading {
@@ -124,13 +127,7 @@
             <h1>Request rejected.</h1>
             <p class="status">HTTP 406</p>
         </div>
-        <p>Your request was blocked by this site's web application firewall because it matched a protected traffic pattern.</p>
-        <dl>
-            <dt>Application</dt>
-            <dd><code>@@APPNAME@@</code></dd>
-            <dt>Check</dt>
-            <dd>If you believe this is a mistake, review the request URL or contact the site administrator.</dd>
-        </dl>
+        <p>Your request was intercepted and blocked by this site's web application firewall because it matched a protected traffic pattern.</p>
     </main>
 </body>
 </html>

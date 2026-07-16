@@ -40,6 +40,67 @@ final class ConductorTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
+    public function testNewApplicationsGenerateDeploymentKeysWithoutPrompting(): void
+    {
+        $source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');
+
+        $this->assertStringContainsString('$generate_keys = self::OPTION_YES;', $source);
+        $this->assertStringNotContainsString('Create an SSH deployment key pair now?', $source);
+        $this->assertStringContainsString('Generating a deployment (SSH) key pair...', $source);
+    }
+
+    public function testDestroyPromptsBeforeDeletingDeploymentKeys(): void
+    {
+        $source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');
+
+        $this->assertStringContainsString('Delete the SSH deployment key pair for this application too?', $source);
+        $this->assertStringContainsString("self::OPTION_YES,\n            [self::OPTION_YES, self::OPTION_NO]", $source);
+        $this->assertStringContainsString('$this->promptDeleteDeploymentKeyFiles();', $source);
+        $this->assertStringNotContainsString('otherwise you can delete them too by running:', $source);
+        $this->assertStringNotContainsString('conductor delkey \' . $this->appname', $source);
+    }
+
+    public function testShowDeploymentKeyPrintsExistingPublicKey(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-showkey-' . uniqid();
+        mkdir($root);
+        file_put_contents($root . '/myapp.deploykey.pub', "ssh-ed25519 AAAATEST deploy@myapp\n");
+
+        $conductor = new class extends Conductor {
+            public array $lines = [];
+
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+
+        (new ReflectionClass(Conductor::class))->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'apps' => $root,
+                'deploykeys' => $root,
+            ],
+        ]);
+
+        $conductor->showDeploymentKey();
+
+        $output = implode(PHP_EOL, $conductor->lines);
+        $this->assertStringContainsString('ssh-ed25519 AAAATEST deploy@myapp', $output);
+        $this->assertStringContainsString('Copy and paste the above public key content', $output);
+
+        @unlink($root . '/myapp.deploykey.pub');
+        @rmdir($root);
+    }
+
     public function testVersionsDisplaysDetectedVersionsAndNAForMissingBinaries(): void
     {
         $binary = tempnam(sys_get_temp_dir(), 'conductor-certbot-');
@@ -977,7 +1038,15 @@ final class ConductorTest extends TestCase
                 $waf_content
             );
             $this->assertStringContainsString('error_page 406 /.406.html;', $waf_content);
+            $this->assertStringContainsString(
+                'add_header X-Application-Id $conductor_application always;',
+                $waf_content
+            );
             $this->assertStringNotContainsString('error_page 406 /.406.html;', $vhost_content);
+            $this->assertStringContainsString(
+                'set             $conductor_application "@@APPNAME@@";',
+                $vhost_content
+            );
             $this->assertStringContainsString('X-Frame-Options', $vhost_content);
             $this->assertStringContainsString(
                 'include /etc/conductor/configs/common/conductor_quiet_common_requests.conf;',
@@ -1014,7 +1083,9 @@ final class ConductorTest extends TestCase
             $this->assertStringContainsString('return 406;', $block);
         }
         $this->assertStringContainsString('Request rejected.', $waf_error_page);
-        $this->assertStringContainsString('@@APPNAME@@', $waf_error_page);
+        $this->assertStringNotContainsString('<dt>Application</dt>', $waf_error_page);
+        $this->assertStringNotContainsString('<dt>Check</dt>', $waf_error_page);
+        $this->assertStringNotContainsString('@@APPNAME@@', $waf_error_page);
     }
 
     public function testProxyVhostUsesSharedProxyErrorPageInclude(): void
@@ -1030,6 +1101,10 @@ final class ConductorTest extends TestCase
         $this->assertStringContainsString('error_page 502 /.502.html;', $proxy_error_pages);
         $this->assertStringContainsString('error_page 503 /.503.html;', $proxy_error_pages);
         $this->assertStringContainsString('error_page 504 /.504.html;', $proxy_error_pages);
+        $this->assertStringContainsString(
+            'add_header X-Application-Id $conductor_application always;',
+            $proxy_error_pages
+        );
     }
 
     public function testProxyCacheExampleUsesSharedCacheZone(): void
@@ -1040,6 +1115,42 @@ final class ConductorTest extends TestCase
         $this->assertStringContainsString('proxy_cache_path /var/conductor/cache/nginx-proxy', $nginx_common);
         $this->assertStringContainsString('keys_zone=conductor_proxy:32m', $nginx_common);
         $this->assertStringContainsString('#proxy_cache conductor_proxy;', $proxy_vhost);
+    }
+
+    public function testFail2BanJailsPostBanAndUnbanWebhooks(): void
+    {
+        $webhook_action = file_get_contents(__DIR__ . '/../configs/common/fail2ban/action.d/conductor-webhook.conf');
+        $jails = file_get_contents(__DIR__ . '/../configs/common/fail2ban/jail.d/conductor-nginx.conf');
+        $nginx_common = file_get_contents(__DIR__ . '/../configs/common/conductor_nginx.conf');
+        $webhook_helper = file_get_contents(__DIR__ . '/../utils/fail2ban_webhook.sh');
+        $installer = file_get_contents(__DIR__ . '/../utils/install_fail2ban_nftables.sh');
+
+        $this->assertStringContainsString('url = https://bin.hallinet.com/z7jw38z7', $webhook_action);
+        $this->assertStringContainsString('/etc/conductor/utils/fail2ban_webhook.sh ban', $webhook_action);
+        $this->assertStringContainsString('/etc/conductor/utils/fail2ban_webhook.sh unban', $webhook_action);
+        $this->assertStringContainsString('$conductor_application $status', $nginx_common);
+        $this->assertStringContainsString('"event"', $webhook_helper);
+        $this->assertStringContainsString('"bantime"', $webhook_helper);
+        $this->assertStringNotContainsString('"application"', $webhook_helper);
+        $this->assertStringNotContainsString('"seclogs"', $webhook_helper);
+        $this->assertStringContainsString('-H "Content-Type: application/json"', $webhook_helper);
+
+        foreach ([
+            'conductor-manual',
+            'conductor-scanner',
+            'conductor-4xx',
+            'conductor-401',
+            'conductor-403',
+            'conductor-waf-violation',
+            'conductor-geoip-block',
+            'conductor-burst',
+            'conductor-dos',
+        ] as $action_name) {
+            $this->assertStringContainsString('conductor-webhook[name=' . $action_name . ']', $jails);
+        }
+
+        $this->assertStringNotContainsString('https://example.com/fail2ban-webhook', $jails);
+        $this->assertStringContainsString('fail2ban nftables logrotate curl', $installer);
     }
 
     public function testCompleteSuggestsCommandsOptionsAndApplicationNames(): void
@@ -1083,6 +1194,7 @@ final class ConductorTest extends TestCase
 
         $conductor->complete();
         $this->assertContains('stats', $conductor->lines);
+        $this->assertContains('showkey', $conductor->lines);
 
         $conductor = new class(['conductor', '__complete', 1, 'conductor', 'p']) extends Conductor {
             public array $lines = [];
@@ -1214,6 +1326,25 @@ final class ConductorTest extends TestCase
         $this->assertContains('bravo', $conductor->lines);
 
         $conductor = new class(['conductor', '__complete', 2, 'conductor', 'waf', '']) extends Conductor {
+            public array $lines = [];
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+        $property->setValue($conductor, (object) [
+            'paths' => (object) [
+                'apps' => $apps,
+                'appconfs' => $configs,
+            ],
+        ]);
+
+        $conductor->complete();
+        $this->assertContains('alpha', $conductor->lines);
+        $this->assertContains('bravo', $conductor->lines);
+
+        $conductor = new class(['conductor', '__complete', 2, 'conductor', 'showkey', '']) extends Conductor {
             public array $lines = [];
 
             public function writeln($line = '')

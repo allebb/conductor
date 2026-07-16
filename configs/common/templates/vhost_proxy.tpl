@@ -88,6 +88,7 @@ server {
 
     server_name     @@DOMAIN@@;
     server_tokens   off;
+    set             $conductor_application "@@APPNAME@@";
 
     # Application path and index file settings.
     root            /var/conductor/applications/@@APPPATH@@;

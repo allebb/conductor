@@ -21,10 +21,10 @@ fi
 
 if command -v apt-get >/dev/null 2>&1; then
     apt-get update
-    DEBIAN_FRONTEND=noninteractive apt-get install -y fail2ban nftables logrotate
+    DEBIAN_FRONTEND=noninteractive apt-get install -y fail2ban nftables logrotate curl
 elif command -v apt >/dev/null 2>&1; then
     apt update
-    DEBIAN_FRONTEND=noninteractive apt install -y fail2ban nftables logrotate
+    DEBIAN_FRONTEND=noninteractive apt install -y fail2ban nftables logrotate curl
 else
     echo "This installer currently supports Debian/Ubuntu systems with apt-get."
     exit 1
@@ -37,6 +37,10 @@ chmod 0644 /var/log/conductor-fail2ban-manual.log /tmp/conductor_fail2ban_seed.s
 install -m 0644 "${FAIL2BAN_SOURCE}/action.d/"*.conf /etc/fail2ban/action.d/
 install -m 0644 "${FAIL2BAN_SOURCE}/filter.d/"*.conf /etc/fail2ban/filter.d/
 install -m 0644 "${FAIL2BAN_SOURCE}/jail.d/conductor-nginx.conf" /etc/fail2ban/jail.d/conductor-nginx.conf
+
+if [ -f "${CONDUCTOR_DIR}/utils/fail2ban_webhook.sh" ]; then
+    chmod 0755 "${CONDUCTOR_DIR}/utils/fail2ban_webhook.sh"
+fi
 
 if [ -f "${LOGROTATE_SOURCE}" ]; then
     install -m 0644 "${LOGROTATE_SOURCE}" /etc/logrotate.d/conductor-seclog
@@ -59,17 +63,22 @@ To enable it for an application:
 
     conductor protect {appname} --enable --auto-reload
 
+To disable it for an application:
+
+    conductor protect {appname} --disable --auto-reload
+
 The installed automatic jails watch /tmp/conductor_*.seclog for scanner probes,
 excessive 4xx responses, repeated 401/403 responses, WAF rejections, GeoIP
 blocks, burst request rates, and DoS-style sustained request rates. The
 conductor-manual jail is available for manual bans added with
 conductor ban {ip_address}.
 
-Commented webhook examples are included in:
+Fail2Ban ban/unban webhook notifications are enabled by default using and example
+webhook URL. You can change the webhook URL in /etc/fail2ban/action.d/conductor-webhook.conf.:
 
-    /etc/fail2ban/jail.d/conductor-nginx.conf
+    https://bin.hallinet.com/z7jw38z7
 
-Uncomment a conductor-webhook action and set the url parameter to POST ban/unban
-events to your own dashboard or automation endpoint. The webhook action requires
-curl to be installed on the server.
+The webhook sends a JSON POST when an IP is banned and another JSON POST when it
+is unbanned. Edit /etc/fail2ban/action.d/conductor-webhook.conf if you need to
+change or disable the endpoint.
 EOF
