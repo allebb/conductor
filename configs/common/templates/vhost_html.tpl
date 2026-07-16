@@ -88,6 +88,19 @@ server {
     #auth_basic_user_file /etc/conductor/pwdbs/.htpasswd_@@APPNAME@@;
     # -- C:End HTTP Basic Auth Block -- #
 
+    # Recommended security headers.
+    add_header      X-Frame-Options         "SAMEORIGIN";
+    add_header      X-XSS-Protection        "1; mode=block";
+    add_header      X-Content-Type-Options  "nosniff";
+    add_header      Referrer-Policy         "strict-origin-when-cross-origin";
+
+    # Optional security headers. Enable after confirming they do not block required third-party assets or browser APIs.
+    #add_header     Permissions-Policy      "camera=(), microphone=(), geolocation=()";
+    #add_header     Content-Security-Policy "default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline';";
+
+    # Disable access and error logs for routine browser discovery requests.
+    include /etc/conductor/configs/common/conductor_quiet_common_requests.conf;
+
     # Enable GZip by default for common files.
     include /etc/conductor/configs/common/gzip.conf;
 
@@ -98,7 +111,7 @@ server {
         log_not_found off;
     }
 
-    # Uncomment to prevent browsers from caching HTML documents while still caching static assets above.
+    # Prevent browsers from caching HTML documents while still caching static assets above.
     #location ~* \.(?:html|htm)$ {
     #    expires -1;
     #    add_header Cache-Control "no-store";
@@ -107,9 +120,9 @@ server {
     # LetsEncrypt verification block
     include /etc/conductor/configs/common/wellknown.conf;
 
-    # Optional WAF configuration (app and security-related protection live in here) managed by `conductor waf {appname}`.
+    # Optional WAF-like configuration (app and security-related protection) configure/customise with `conductor waf {appname}`.
     # -- C:Start WAF Include Block -- #
-    include /etc/conductor/wafs/@@APPNAME@@.conf;
+    #include /etc/conductor/wafs/@@APPNAME@@.conf;
     # -- C:End WAF Include Block -- #
 
     # Root location handler configuration.

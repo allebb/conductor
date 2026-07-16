@@ -255,6 +255,9 @@ sudo mkdir /var/conductor/logs
 sudo mkdir /var/conductor/backups
 sudo mkdir /var/conductor/tmp
 sudo mkdir /var/conductor/geoip
+sudo mkdir /var/conductor/cache
+sudo mkdir /var/conductor/cache/nginx-proxy
+sudo chown -R www-data:www-data /var/conductor/cache
 sudo mkdir /etc/conductor/pwdbs
 sudo chmod 755 /etc/conductor/pwdbs
 sudo mkdir /etc/conductor/wafs

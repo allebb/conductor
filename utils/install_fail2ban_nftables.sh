@@ -60,8 +60,9 @@ To enable it for an application:
     conductor protect {appname} --enable --auto-reload
 
 The installed automatic jails watch /tmp/conductor_*.seclog for scanner probes,
-excessive 4xx responses, repeated 401/403 responses, and very high request
-rates. The conductor-manual jail is available for manual bans added with
+excessive 4xx responses, repeated 401/403 responses, WAF rejections, GeoIP
+blocks, burst request rates, and DoS-style sustained request rates. The
+conductor-manual jail is available for manual bans added with
 conductor ban {ip_address}.
 
 Commented webhook examples are included in:

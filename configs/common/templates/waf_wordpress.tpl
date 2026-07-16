@@ -1,74 +1,60 @@
 # Conductor managed WAF include for @@APPNAME@@
-#
-# This file is included inside the application's Nginx server{} block.
-# Add per-application WAF, access-control, and file-protection rules here.
 
-# Optional per-vhost access controls.
+##########################################################################
+# Explicit Access (IP) Access Controls                                   #
+#========================================================================#
+# Optional (explicit) per-vhost access controls.
 #allow 203.0.113.0/24;
 #allow 2001:db8::/32;
 #deny all;
+##########################################################################
 
-# Example GeoIP country block. Enable the geoip2 lookup in
-# /etc/conductor/configs/common/conductor_nginx.conf, then add ISO 3166-1
-# alpha-2 country codes to the regex for this vhost.
-#
+
+##########################################################################
+# Geolocation (Country Code/ISO 3166-1) IP-base Blocking                 #
+#========================================================================#
+# In the below example, we are blocking China (CN) and Russian (RU) IP addresses.
 # if ($conductor_geoip_country_code ~ ^(CN|RU)$) {
+#     # We return 444 response (an a blank page) but consistent attempts to access the site/application
+#     # will trigger an IP ban (by Fail2Ban) for this user if Fail2Ban is enabled for this virtual host!
+#     # To enable Fail2Ban protection, for this Vhost run: conductor protect @@APPNAME@@ --enable
 #     return 444;
 # }
+##########################################################################
 
-# Recommended security headers.
-add_header      X-Frame-Options         "SAMEORIGIN";
-add_header      X-XSS-Protection        "1; mode=block";
-add_header      X-Content-Type-Options  "nosniff";
-add_header      Referrer-Policy         "strict-origin-when-cross-origin";
 
-# Optional security headers. Enable after confirming they do not block required plugins, themes, or browser APIs.
-#add_header     Permissions-Policy      "camera=(), microphone=(), geolocation=()";
-#add_header     Content-Security-Policy "default-src 'self'; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';";
+##########################################################################
+# Default "shared" rulesets.                                             #
+#========================================================================#
+# Blocks common web search engines (search indexing)
+#include /etc/conductor/configs/common/block_common_crawlers.conf;
+# Blocks common AI-bots (eg. AI-training/reasearch)
+include /etc/conductor/configs/common/block_common_bots.conf;
+# Blocks common SQL-like injection attacks
+include /etc/conductor/configs/common/block_common_sql_injection.conf;
+# Blocks attempts to traverse the web filesystem.
+include /etc/conductor/configs/common/block_common_path_traversal.conf;
+# Blocks access to common files (eg. wp-config.php, /node_modules/ etc.)
+include /etc/conductor/configs/common/block_common_files.conf;
+##########################################################################
 
-# Disable access and error logs for requests to these common files.
-location = /favicon.ico { allow all; access_log off; log_not_found off; }
-location = /robots.txt  { allow all; access_log off; log_not_found off; }
 
-# Deny access to .htaccess, .git and other hidden files by default.
-# LetsEncrypt ACME challenges are handled by Conductor; other /.well-known/ paths may be served by the app.
-location ~ /\.(?!well-known(?:/|$)).* {
-    deny all;
-    access_log off;
-    log_not_found off;
-    return 404;
-}
+##########################################################################
+# Custom (user/application-specific) rulesets.                           #
+#========================================================================#
+# -- C:Start Custom WAF Rules Block -- #
 
-# Deny access to common WordPress and backup files that should never be served directly.
-location = /wp-config.php {
-    deny all;
-    access_log off;
-    log_not_found off;
-    return 404;
-}
 
-location ~* (^|/)readme(?:\.(?:txt|md|markdown|html?))?$ {
-    deny all;
-    access_log off;
-    log_not_found off;
-    return 404;
-}
 
-location = /license.txt {
-    deny all;
-    access_log off;
-    log_not_found off;
-    return 404;
-}
+# -- C:END Custom WAF Rules Block -- #
+##########################################################################
 
-location ~* \.(?:sql|sqlite|bak|old|orig|save|swp|dist|conf|ini)$ {
-    deny all;
-    access_log off;
-    log_not_found off;
-    return 404;
-}
 
-# Uncomment to disable XML-RPC if the site does not need Jetpack, pingbacks, or remote publishing.
+##########################################################################
+# Wordpress-specific (recommended) rulesets.                             #
+#========================================================================#
+# Uncomment to disable XML-RPC if the site does not need Jetpack, pingbacks, or remot
+e publishing.
 #location = /xmlrpc.php {
 #    deny all;
 #    access_log off;
@@ -87,3 +73,17 @@ location ~* /(?:uploads|files)/.*\.php$ {
 location ~* /wp-includes/.*\.php$ {
     deny all;
 }
+##########################################################################
+
+
+##########################################################################
+# Fancy "error" (WAF-denied) error pages                                 #
+#========================================================================#
+# Local (styled/informative) page for requests rejected by Conductor WAF rules.
+# Disable (comment out) if you don't want to expose that the WAF intercepted!
+error_page 406 /.406.html;
+location = /.406.html {
+    internal;
+    add_header Cache-Control "no-store";
+}
+##########################################################################

@@ -78,6 +78,14 @@ if (isset($commands[1])) {
             $conductor->editApplicationConfig();
             $conductor->endWithSuccess();
             break;
+        case "dump":
+            $conductor->dumpApplicationConfig();
+            $conductor->endWithSuccess();
+            break;
+        case "load":
+            $conductor->loadApplicationConfig();
+            $conductor->endWithSuccess();
+            break;
         case "enable":
             $conductor->enableApplication();
             $conductor->endWithSuccess();
@@ -189,6 +197,8 @@ function displayHelp($conductor)
     $conductor->writeln('                      Edit, enable or disable the application WAF include');
     $conductor->writeln('  new {name}          Prepares and deploys a new application');
     $conductor->writeln('  edit {name}         Open a text editor to update the vhost config.');
+    $conductor->writeln('  dump {name} [--waf] Write the vhost or WAF config to STDOUT.');
+    $conductor->writeln('  load {name} [--waf] Read the vhost or WAF config from STDIN.');
     $conductor->writeln('  enable {name}       Enables an application vhost config.');
     $conductor->writeln('  disable {name}      Disables an application vhost config.');
     $conductor->writeln('  cron {name}         Open a text editor to update the application crontab.');

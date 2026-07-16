@@ -264,7 +264,8 @@ cd /etc/conductor
 sudo git checkout "${BRANCH_INSTALL}"
 cd -
 
-sudo mkdir -p /var/conductor/{applications,certificates,logs,backups,tmp,geoip}
+sudo mkdir -p /var/conductor/{applications,certificates,logs,backups,tmp,geoip,cache/nginx-proxy}
+sudo chown -R www-data:www-data /var/conductor/cache
 sudo mkdir -p /etc/conductor/pwdbs
 sudo chmod 755 /etc/conductor/pwdbs
 sudo mkdir -p /etc/conductor/wafs

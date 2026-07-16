@@ -14,6 +14,7 @@ In "interactive" mode, Conductor asks a series of questions when a new applicati
 * ``--target`` - Proxy templates only: upstream HTTP(S) target with a host and port, eg. ``--target="http://127.24.54.54:8000"``.
 * ``--genkey`` - This will generate an SSH (deployment) key that can be used by this application.
 * ``--auto-reload`` - After creating the application, test the Nginx configuration and gracefully reload Nginx without prompting. This can also be used with ``conductor enable``, ``conductor disable``, and ``conductor letsencrypt``. Conductor also supports the global ``auto-reload-nginx`` setting in ``/etc/conductor.conf``; it defaults to ``true``.
+* ``--waf`` - With ``conductor dump`` or ``conductor load``, target the application's WAF-like configuration file instead of the virtual host configuration.
 
 So for example, setting up a standard Laravel type project you could use:
 

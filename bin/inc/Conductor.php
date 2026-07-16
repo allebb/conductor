@@ -280,9 +280,16 @@ class Conductor extends CliApplication
         }
 
         $this->writeln();
+        $this->writeln('Nginx configuration');
+        $this->writeln('  Vhosts enabled:  ' . $stats['nginx_configuration']['virtual_hosts']['enabled']);
+        $this->writeln('  Vhosts disabled: ' . $stats['nginx_configuration']['virtual_hosts']['disabled']);
+        $this->writeln('  Streams enabled:        ' . $stats['nginx_configuration']['streams']['enabled']);
+        $this->writeln('  Streams disabled:       ' . $stats['nginx_configuration']['streams']['disabled']);
+
+        $this->writeln();
         $this->writeln('Configured IP addresses');
         foreach ($stats['configured_ip_addresses'] as $address) {
-            $this->writeln('  ' . $address);
+            $this->writeln('  * ' . $address);
         }
 
         $this->writeln();
@@ -306,9 +313,84 @@ class Conductor extends CliApplication
                 'nginx_daemon_uptime_seconds' => $this->wholeSeconds($nginx_daemon_uptime_seconds),
             ],
             'nginx_status' => $this->nginxStatusData(),
+            'nginx_configuration' => $this->nginxConfigurationStats(),
             'configured_ip_addresses' => $this->configuredIpAddresses(),
             'public_detected_ip' => $this->publicDetectedIpAddress(),
         ];
+    }
+
+    /**
+     * Count enabled and disabled Nginx virtual host and stream configuration files.
+     * @return array
+     */
+    private function nginxConfigurationStats()
+    {
+        return [
+            'virtual_hosts' => $this->countConfigurationFiles(
+                isset($this->conf->paths->appconfs) ? $this->conf->paths->appconfs : null,
+                ['conf'],
+                ['disabled']
+            ),
+            'streams' => $this->countConfigurationFiles(
+                $this->streamsConfigurationDirectory(),
+                ['conf'],
+                ['disabled', 'conf.example']
+            ),
+        ];
+    }
+
+    /**
+     * Return the configured stream directory, falling back to the documented default.
+     * @return string
+     */
+    private function streamsConfigurationDirectory()
+    {
+        if (isset($this->conf->paths->streams)) {
+            return rtrim($this->conf->paths->streams, '/');
+        }
+
+        return '/etc/conductor/streams';
+    }
+
+    /**
+     * Count files by extension in a configuration directory.
+     * @param string|null $directory
+     * @param array $enabled_extensions
+     * @param array $disabled_extensions
+     * @return array
+     */
+    private function countConfigurationFiles($directory, $enabled_extensions, $disabled_extensions)
+    {
+        $counts = [
+            'enabled' => 0,
+            'disabled' => 0,
+        ];
+
+        if (!$directory || !is_dir($directory)) {
+            return $counts;
+        }
+
+        foreach (scandir($directory) as $entry) {
+            if ($entry === '.' || $entry === '..' || !is_file(rtrim($directory, '/') . '/' . $entry)) {
+                continue;
+            }
+
+            foreach ($enabled_extensions as $extension) {
+                if (substr($entry, -strlen('.' . $extension)) === '.' . $extension) {
+                    $counts['enabled']++;
+                    continue 2;
+                }
+            }
+
+            foreach ($disabled_extensions as $extension) {
+                if (substr($entry, -strlen('.' . $extension)) === '.' . $extension) {
+                    $counts['disabled']++;
+                    continue 2;
+                }
+            }
+        }
+
+        return $counts;
     }
 
     /**
@@ -732,6 +814,8 @@ class Conductor extends CliApplication
             'waf',
             'new',
             'edit',
+            'dump',
+            'load',
             'enable',
             'disable',
             'cron',
@@ -760,6 +844,8 @@ class Conductor extends CliApplication
     {
         return [
             'edit',
+            'dump',
+            'load',
             'enable',
             'disable',
             'cron',
@@ -809,6 +895,8 @@ class Conductor extends CliApplication
             'auth' => ['--enable', '--disable', '--auto-reload'],
             'protect' => ['--enable', '--disable', '--auto-reload'],
             'waf' => ['--enable', '--disable', '--auto-reload'],
+            'dump' => ['--waf'],
+            'load' => ['--waf'],
         ];
 
         if (!isset($options[$command])) {
@@ -1237,6 +1325,73 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Write an application virtualhost or WAF config to STDOUT.
+     * @return void
+     */
+    public function dumpApplicationConfig()
+    {
+        $this->appNameRequired();
+        $config_path = $this->applicationCliConfigPath($this->isFlagSet('waf'));
+
+        echo file_get_contents($config_path);
+    }
+
+    /**
+     * Read an application virtualhost or WAF config from STDIN, validate Nginx, and reload on success.
+     * @return void
+     */
+    public function loadApplicationConfig()
+    {
+        $this->appNameRequired();
+        $is_waf = $this->isFlagSet('waf');
+        $config_path = $this->applicationCliConfigPath($is_waf);
+        $replacement_config = $this->readStdin();
+
+        if ($replacement_config === '') {
+            $this->writeln('No configuration content was provided on STDIN.');
+            $this->endWithError();
+        }
+
+        $original_config = file_get_contents($config_path);
+        file_put_contents($config_path, $replacement_config);
+
+        if (!$this->runNginxConfigurationTest()) {
+            file_put_contents($config_path, $original_config);
+            $this->writeln();
+            $this->writeln('Nginx configuration test failed; restored the previous ' . ($is_waf ? 'WAF' : 'virtualhost') . ' configuration.');
+            $this->writeln();
+            $this->endWithNginxConfigError();
+        }
+
+        $this->writeln('Updated ' . ($is_waf ? 'WAF' : 'virtualhost') . ' configuration: ' . $config_path);
+        $this->promptGracefulNginxReload(($is_waf ? 'WAF' : 'virtualhost') . ' configuration change', true, false);
+    }
+
+    /**
+     * Return the config path used by dump/load commands.
+     * @param bool $waf
+     * @return string
+     */
+    private function applicationCliConfigPath($waf)
+    {
+        if ($waf) {
+            $this->applicationConfigPath();
+            return $this->ensureApplicationWafConfig();
+        }
+
+        return $this->applicationConfigPath();
+    }
+
+    /**
+     * Read all piped content from STDIN.
+     * @return string
+     */
+    protected function readStdin()
+    {
+        return stream_get_contents(STDIN);
+    }
+
+    /**
      * Ensure the application WAF file exists and return its path.
      * @return string
      */
@@ -1289,6 +1444,13 @@ class Conductor extends CliApplication
             '#',
             '# This file is included inside the application Nginx server{} block.',
             '# Add per-application WAF, access-control, and file-protection rules here.',
+            '',
+            '# Local page for requests rejected by Conductor WAF rules.',
+            'error_page 406 /.406.html;',
+            'location = /.406.html {',
+            '    internal;',
+            '    add_header Cache-Control "no-store";',
+            '}',
             '',
         ]);
     }
@@ -2081,10 +2243,11 @@ class Conductor extends CliApplication
      * Validate Nginx and optionally reload it gracefully.
      * @param string $change_description
      * @param bool $auto_reload
+     * @param bool $test_configuration
      */
-    private function promptGracefulNginxReload($change_description = 'change', $auto_reload = false)
+    private function promptGracefulNginxReload($change_description = 'change', $auto_reload = false, $test_configuration = true)
     {
-        if (!$this->runNginxConfigurationTest()) {
+        if ($test_configuration && !$this->runNginxConfigurationTest()) {
             $this->endWithNginxConfigError();
         }
 
@@ -2887,18 +3050,8 @@ class Conductor extends CliApplication
         }
 
         if ($is_proxy_template) {
-            foreach ([502, 503, 504] as $status_code) {
-                $proxy_error_template = $this->conf->paths->templates . '/templates/' . $status_code . '.html.tpl';
-                if (!file_exists($proxy_error_template)) {
-                    $this->writeln('The proxy error page template was not found: ' . $proxy_error_template);
-                    $this->endWithError();
-                }
-
-                $error_page_path = $this->appdir . '/.' . $status_code . '.html';
-                copy($proxy_error_template, $error_page_path);
-                $error_page = file_get_contents($error_page_path);
-                $error_page = str_replace('@@APPNAME@@', $this->appname, $error_page);
-                file_put_contents($error_page_path, $error_page);
+            foreach ([406, 502, 503, 504] as $status_code) {
+                $this->createApplicationErrorPage($status_code, $this->appdir);
             }
         } else {
             $conductor_page_template = $this->conf->paths->templates . '/templates/conductor.html.tpl';
@@ -2917,6 +3070,8 @@ class Conductor extends CliApplication
             $conductor_page = file_get_contents($conductor_page_path);
             $conductor_page = str_replace('@@APPNAME@@', $this->appname, $conductor_page);
             file_put_contents($conductor_page_path, $conductor_page);
+
+            $this->createApplicationErrorPage(406, $document_root);
         }
 
         $this->writeln('Setting ownership permissions on application files...');
@@ -2937,6 +3092,27 @@ class Conductor extends CliApplication
 
         $this->migrateLaravel($environment);
         $this->promptGracefulNginxReload('new application', $this->isFlagSet('auto-reload'));
+    }
+
+    /**
+     * Create an application-specific hidden error page from the bundled template.
+     * @param int $status_code
+     * @param string $document_root
+     * @return void
+     */
+    private function createApplicationErrorPage($status_code, $document_root)
+    {
+        $error_template = $this->conf->paths->templates . '/templates/' . $status_code . '.html.tpl';
+        if (!file_exists($error_template)) {
+            $this->writeln('The application error page template was not found: ' . $error_template);
+            $this->endWithError();
+        }
+
+        $error_page_path = rtrim($document_root, '/') . '/.' . $status_code . '.html';
+        copy($error_template, $error_page_path);
+        $error_page = file_get_contents($error_page_path);
+        $error_page = str_replace('@@APPNAME@@', $this->appname, $error_page);
+        file_put_contents($error_page_path, $error_page);
     }
 
     /**

@@ -101,6 +101,60 @@ final class ConductorTest extends TestCase
         );
     }
 
+    public function testStatsDataCountsVirtualHostAndStreamConfigurationFiles(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-stats-configs-' . uniqid();
+        $appconfs = $root . '/appconfs';
+        $streams = $root . '/streams';
+        mkdir($root);
+        mkdir($appconfs);
+        mkdir($streams);
+
+        file_put_contents($appconfs . '/alpha.conf', '');
+        file_put_contents($appconfs . '/bravo.conf', '');
+        file_put_contents($appconfs . '/charlie.disabled', '');
+        file_put_contents($appconfs . '/ignored.txt', '');
+        file_put_contents($streams . '/tls.conf', '');
+        file_put_contents($streams . '/ssh.disabled', '');
+        file_put_contents($streams . '/nextcloud.conf.example', '');
+        file_put_contents($streams . '/notes.txt', '');
+
+        $conductor = $this->makeConductorWithConfig((object) [
+            'paths' => (object) [
+                'appconfs' => $appconfs,
+                'streams' => $streams,
+            ],
+        ]);
+
+        $method = (new ReflectionClass(Conductor::class))->getMethod('nginxConfigurationStats');
+        $stats = $method->invoke($conductor);
+
+        $this->assertSame([
+            'enabled' => 2,
+            'disabled' => 1,
+        ], $stats['virtual_hosts']);
+        $this->assertSame([
+            'enabled' => 1,
+            'disabled' => 2,
+        ], $stats['streams']);
+
+        foreach ([
+            $appconfs . '/alpha.conf',
+            $appconfs . '/bravo.conf',
+            $appconfs . '/charlie.disabled',
+            $appconfs . '/ignored.txt',
+            $streams . '/tls.conf',
+            $streams . '/ssh.disabled',
+            $streams . '/nextcloud.conf.example',
+            $streams . '/notes.txt',
+        ] as $file) {
+            @unlink($file);
+        }
+        @rmdir($streams);
+        @rmdir($appconfs);
+        @rmdir($root);
+    }
+
     public function testValidateProxyTargetAcceptsHttpHostsWithPorts(): void
     {
         $conductor = $this->makeConductor();
@@ -752,6 +806,240 @@ final class ConductorTest extends TestCase
         @rmdir($waf);
         @rmdir($templates);
         @rmdir($root);
+    }
+
+    public function testDumpApplicationConfigWritesRawVirtualhostOrWafConfig(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-dump-config-' . uniqid();
+        $configs = $root . '/configs';
+        $waf = $root . '/waf';
+        mkdir($root);
+        mkdir($configs);
+        mkdir($waf);
+
+        file_put_contents($configs . '/myapp.conf', "server { return 204; }\n");
+        file_put_contents($waf . '/myapp.conf', "# waf\n");
+
+        $conductor = new class extends Conductor {
+            private bool $waf = false;
+
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+
+            public function isFlagSet($flag)
+            {
+                return $flag == 'waf' && $this->waf;
+            }
+
+            public function useWaf()
+            {
+                $this->waf = true;
+            }
+        };
+
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'apps' => $root,
+                'appconfs' => $configs,
+                'wafs' => $waf,
+            ],
+        ]);
+
+        ob_start();
+        $conductor->dumpApplicationConfig();
+        $this->assertSame("server { return 204; }\n", ob_get_clean());
+
+        $conductor->useWaf();
+
+        ob_start();
+        $conductor->dumpApplicationConfig();
+        $this->assertSame("# waf\n", ob_get_clean());
+
+        @unlink($configs . '/myapp.conf');
+        @unlink($waf . '/myapp.conf');
+        @rmdir($waf);
+        @rmdir($configs);
+        @rmdir($root);
+    }
+
+    public function testLoadApplicationConfigReadsStdinValidatesAndWritesVirtualhostConfig(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-load-config-' . uniqid();
+        $configs = $root . '/configs';
+        mkdir($root);
+        mkdir($configs);
+
+        $config_path = $configs . '/myapp.conf';
+        file_put_contents($config_path, "server { return 204; }\n");
+
+        $conductor = new class extends Conductor {
+            public array $calls = [];
+            public array $questions = [];
+            private string $stdin = "server { return 418; }\n";
+
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+
+            public function callWithOutput($command, &$output)
+            {
+                $this->calls[] = $command;
+                $output = [];
+                return 0;
+            }
+
+            public function call($command)
+            {
+                $this->calls[] = $command;
+                return '';
+            }
+
+            public function input($question, $default = '', $options = [])
+            {
+                $this->questions[] = $question;
+                return self::OPTION_NO;
+            }
+
+            protected function readStdin()
+            {
+                return $this->stdin;
+            }
+
+            public function writeln($line = '')
+            {
+            }
+        };
+
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'auto-reload-nginx' => false,
+            'paths' => (object) [
+                'apps' => $root,
+                'appconfs' => $configs,
+            ],
+            'binaries' => (object) [
+                'nginx' => '/usr/sbin/nginx',
+            ],
+            'services' => (object) [
+                'nginx' => (object) [
+                    'reload' => 'service nginx reload',
+                ],
+            ],
+        ]);
+
+        $conductor->loadApplicationConfig();
+
+        $this->assertSame("server { return 418; }\n", file_get_contents($config_path));
+        $this->assertSame(['/usr/sbin/nginx -t 2>&1', 'service nginx reload'], $conductor->calls);
+        $this->assertSame([], $conductor->questions);
+
+        @unlink($config_path);
+        @rmdir($configs);
+        @rmdir($root);
+    }
+
+    public function testDefaultWafTemplatesIncludeSharedBotBlocks(): void
+    {
+        foreach (['html', 'laravel', 'proxy', 'wordpress'] as $template) {
+            $waf_content = file_get_contents(__DIR__ . '/../configs/common/templates/waf_' . $template . '.tpl');
+            $vhost_content = file_get_contents(__DIR__ . '/../configs/common/templates/vhost_' . $template . '.tpl');
+
+            $this->assertStringContainsString(
+                'include /etc/conductor/configs/common/block_common_crawlers.conf;',
+                $waf_content
+            );
+            $this->assertStringContainsString(
+                'include /etc/conductor/configs/common/block_common_bots.conf;',
+                $waf_content
+            );
+            $this->assertStringContainsString(
+                'include /etc/conductor/configs/common/block_common_sql_injection.conf;',
+                $waf_content
+            );
+            $this->assertStringContainsString(
+                'include /etc/conductor/configs/common/block_common_path_traversal.conf;',
+                $waf_content
+            );
+            $this->assertStringContainsString(
+                'include /etc/conductor/configs/common/block_common_files.conf;',
+                $waf_content
+            );
+            $this->assertStringContainsString('error_page 406 /.406.html;', $waf_content);
+            $this->assertStringNotContainsString('error_page 406 /.406.html;', $vhost_content);
+            $this->assertStringContainsString('X-Frame-Options', $vhost_content);
+            $this->assertStringContainsString(
+                'include /etc/conductor/configs/common/conductor_quiet_common_requests.conf;',
+                $vhost_content
+            );
+            $this->assertStringNotContainsString('X-Frame-Options', $waf_content);
+            $this->assertStringNotContainsString('location = /favicon.ico', $waf_content);
+            $this->assertStringContainsString('#include /etc/conductor/wafs/@@APPNAME@@.conf;', $vhost_content);
+            $this->assertStringNotContainsString('    include /etc/conductor/wafs/@@APPNAME@@.conf;', $vhost_content);
+        }
+
+        $crawler_block = file_get_contents(__DIR__ . '/../configs/common/block_common_crawlers.conf');
+        $bot_block = file_get_contents(__DIR__ . '/../configs/common/block_common_bots.conf');
+        $sql_injection_block = file_get_contents(__DIR__ . '/../configs/common/block_common_sql_injection.conf');
+        $path_traversal_block = file_get_contents(__DIR__ . '/../configs/common/block_common_path_traversal.conf');
+        $file_block = file_get_contents(__DIR__ . '/../configs/common/block_common_files.conf');
+        $quiet_common_requests = file_get_contents(__DIR__ . '/../configs/common/conductor_quiet_common_requests.conf');
+        $waf_error_page = file_get_contents(__DIR__ . '/../configs/common/templates/406.html.tpl');
+
+        $this->assertStringContainsString('Googlebot', $crawler_block);
+        $this->assertStringContainsString('Bingbot', $crawler_block);
+        $this->assertStringContainsString('GPTBot', $bot_block);
+        $this->assertStringContainsString('ClaudeBot', $bot_block);
+        $this->assertStringContainsString('union', $sql_injection_block);
+        $this->assertStringContainsString('information_schema', $sql_injection_block);
+        $this->assertStringContainsString('etc/passwd', $path_traversal_block);
+        $this->assertStringContainsString('%2e%2e', $path_traversal_block);
+        $this->assertStringContainsString('wp-config.php', $file_block);
+        $this->assertStringContainsString('node_modules', $file_block);
+        $this->assertStringContainsString('well-known', $file_block);
+        $this->assertStringContainsString('location = /favicon.ico', $quiet_common_requests);
+        $this->assertStringContainsString('location = /robots.txt', $quiet_common_requests);
+        foreach ([$crawler_block, $bot_block, $sql_injection_block, $path_traversal_block, $file_block] as $block) {
+            $this->assertStringContainsString('return 406;', $block);
+        }
+        $this->assertStringContainsString('Request rejected.', $waf_error_page);
+        $this->assertStringContainsString('@@APPNAME@@', $waf_error_page);
+    }
+
+    public function testProxyVhostUsesSharedProxyErrorPageInclude(): void
+    {
+        $proxy_vhost = file_get_contents(__DIR__ . '/../configs/common/templates/vhost_proxy.tpl');
+        $proxy_error_pages = file_get_contents(__DIR__ . '/../configs/common/conductor_proxy_error_pages.conf');
+
+        $this->assertStringContainsString(
+            'include /etc/conductor/configs/common/conductor_proxy_error_pages.conf;',
+            $proxy_vhost
+        );
+        $this->assertStringNotContainsString('error_page 502 /.502.html;', $proxy_vhost);
+        $this->assertStringContainsString('error_page 502 /.502.html;', $proxy_error_pages);
+        $this->assertStringContainsString('error_page 503 /.503.html;', $proxy_error_pages);
+        $this->assertStringContainsString('error_page 504 /.504.html;', $proxy_error_pages);
+    }
+
+    public function testProxyCacheExampleUsesSharedCacheZone(): void
+    {
+        $nginx_common = file_get_contents(__DIR__ . '/../configs/common/conductor_nginx.conf');
+        $proxy_vhost = file_get_contents(__DIR__ . '/../configs/common/templates/vhost_proxy.tpl');
+
+        $this->assertStringContainsString('proxy_cache_path /var/conductor/cache/nginx-proxy', $nginx_common);
+        $this->assertStringContainsString('keys_zone=conductor_proxy:32m', $nginx_common);
+        $this->assertStringContainsString('#proxy_cache conductor_proxy;', $proxy_vhost);
     }
 
     public function testCompleteSuggestsCommandsOptionsAndApplicationNames(): void

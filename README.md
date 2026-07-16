@@ -97,7 +97,7 @@ A simple command that displays the names of the currently deployed applications 
 
 #### ```conductor stats```
 
-Displays operating system uptime, Nginx daemon uptime, the default virtual host's ``/nginx_status`` details, all configured server IP addresses, and the public IP detected from ``ip.hallinet.com``. Use ``conductor stats --format=json`` for machine-readable output.
+Displays operating system uptime, Nginx daemon uptime, the default virtual host's ``/nginx_status`` details, enabled/disabled virtual host counts, enabled/disabled stream configuration counts, all configured server IP addresses, and the public IP detected from ``ip.hallinet.com``. Stream configs count ``*.conf`` as enabled and both ``*.disabled`` and ``*.conf.example`` as disabled. Use ``conductor stats --format=json`` for machine-readable output.
 
 #### ```conductor new {app name}```
 
@@ -150,6 +150,8 @@ The installer enables a top-level Nginx include for custom TCP/UDP stream config
 
 Conductor copies commented ``.conf.example`` files into that directory during installation. Rename an example to ``.conf`` to enable it, or add your own as required. Each enabled stream file should include its own top-level ``stream { ... }`` block. Whilst this is optional and the conductor CLI doesn't provide any management of these (you have to manage them manually), this has been added for those that use Conductor more as a reverse-proxy/load-balancer and can be extremely useful especially when you are using split DNS and proxying internal and external traffic and need a common gateway address. The directory configuration (auto-loading of ``.conf`` files) works in the same way that the other Conductor http/virtual hosts files work and therefore adds commonality and eases administration.
 
+Proxy templates also include a commented cache example. The shared ``conductor_proxy`` cache zone is defined in ``/etc/conductor/configs/common/conductor_nginx.conf`` and stores cached responses under ``/var/conductor/cache/nginx-proxy``. Uncomment the proxy cache lines in a proxy vhost when you want that site to use it.
+
 ### Optional Fail2Ban and nftables protection
 
 Conductor includes an optional installer for Fail2Ban and nftables (software firewall) and will monitor for suspitious activity and block bad actos. It is not run by the main installer, so you can add it after Conductor is installed, if you wish by running:
@@ -164,13 +166,21 @@ Each Nginx vhost template includes a commented security log line:
 #access_log /tmp/conductor_{appname}.seclog conductor_security;
 ```
 
-Run ``sudo conductor protect {app name} --enable`` for any application/website vhost you want Fail2Ban to monitor. Use ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes. The Fail2Ban templates watch ``/tmp/conductor_*.seclog`` and the installer creates an empty ``/tmp/conductor_fail2ban_seed.seclog`` so Fail2Ban can start before any app security logs exist. They install five automatic jails:
+Run ``sudo conductor protect {app name} --enable`` for any application/website vhost you want Fail2Ban to monitor. Use ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes. The Fail2Ban templates watch ``/tmp/conductor_*.seclog`` and the installer creates an empty ``/tmp/conductor_fail2ban_seed.seclog`` so Fail2Ban can start before any app security logs exist.
 
-* excessive 4xx responses: 80 hits in 10 minutes, banned for 30 minutes.
-* repeated 401 responses: 20 hits in 10 minutes, banned for 1 hour.
-* repeated 403 responses: 30 hits in 10 minutes, banned for 2 hours.
-* scanner probes for common sensitive paths: 5 hits in 10 minutes, banned for 1 hour.
-* high total request rate: 600 hits in 1 minute, banned for 24 hours.
+The installer enables these default jails:
+
+| Jail | Trigger | Default ban |
+| --- | --- | --- |
+| ``conductor-manual`` | Manual bans created with ``conductor ban {ip_address}`` | Permanent until explicitly unbanned or purged |
+| ``conductor-nginx-scanner`` | 5 scanner probes for common sensitive paths in 10 minutes | 1 hour |
+| ``conductor-nginx-4xx`` | 80 non-auth/non-WAF/non-GeoIP 4xx responses in 10 minutes | 30 minutes |
+| ``conductor-nginx-401`` | 20 HTTP 401 responses in 10 minutes | 1 hour |
+| ``conductor-nginx-403`` | 30 HTTP 403 responses in 10 minutes | 2 hours |
+| ``conductor-nginx-waf-violation`` | 20 HTTP 406 WAF rejections in 10 minutes | 3 days |
+| ``conductor-nginx-geoip-block`` | 2000 HTTP 444 GeoIP blocks in 1 minute | 24 hours |
+| ``conductor-nginx-burst`` | 800 total requests in 30 seconds | 10 minutes |
+| ``conductor-nginx-dos`` | 2000 total requests in 1 minute | 24 hours |
 
 > These values can be manually adjusted to fit your personal requirements by editting the default configurations that are installed to ``/etc/conductor/configs/common/fail2ban/``.
 
@@ -281,6 +291,8 @@ Add ``--auto-reload`` to gracefully reload Nginx automatically after the configu
 
 Opens the application's WAF configuration file at ``/etc/conductor/wafs/{app name}.conf``. This file is included inside the application's Nginx virtual host and can contain per-application WAF, access-control, and file-protection rules.
 
+New WAF files include ``/etc/conductor/configs/common/block_common_crawlers.conf``, ``/etc/conductor/configs/common/block_common_bots.conf``, ``/etc/conductor/configs/common/block_common_sql_injection.conf``, ``/etc/conductor/configs/common/block_common_path_traversal.conf``, and ``/etc/conductor/configs/common/block_common_files.conf`` by default. These shared snippets block common search-engine crawlers, common AI search/training/user-agent bots, common SQL injection probes, common path traversal/local file inclusion probes in paths or query strings, and common sensitive files/directories such as ``wp-config.php``, readme/license files, backup/config files, ``node_modules/``, ``.git/``, and ``.env`` files. Matching requests return ``406 Not Acceptable`` and render the local ``.406.html`` WAF rejection page. Remove or comment an include in the per-application WAF file if that application should allow the matching traffic.
+
 ```shell
 sudo conductor waf {app name}
 sudo conductor waf {app name} --enable
@@ -288,6 +300,20 @@ sudo conductor waf {app name} --disable
 ```
 
 The command tests Nginx after edits or enable/disable changes. Add ``--auto-reload`` to ``--enable`` or ``--disable`` to gracefully reload Nginx automatically after the configuration test passes. Without it, Conductor asks whether to reload and defaults to yes.
+
+#### ```conductor dump {app name}``` and ```conductor load {app name}```
+
+Writes an application's active virtual host configuration to STDOUT, or replaces it from STDIN. Use ``--waf`` to target the application's WAF-like configuration file instead.
+
+```shell
+sudo conductor dump {app name} > /tmp/{random}.tmp
+sudo conductor load {app name} < /tmp/{random}.tmp
+
+sudo conductor dump {app name} --waf > /tmp/{random}.tmp
+sudo conductor load {app name} --waf < /tmp/{random}.tmp
+```
+
+``load`` writes the new content, runs ``nginx -t``, restores the previous file if the test fails, and gracefully reloads Nginx automatically after a successful test. This is intended for web applications or automation that need to read, edit, and write Conductor-managed configuration through the CLI without opening an interactive editor.
 
 #### ```conductor update {app name}```
 The upgrade command does three things, firstly it gives you the option of putting your application into 'offline mode' of which is up to you (you're prompted for your decision here), before it upgrades anything an automatic 'snapshot' is taken and stored separately to enable you to 'roll-back' later if required.. So next if Conductor finds that the application was previously deployed by Git or has a ```.git``` directory it will attempt to do a ```git fetch --all``` and then a ```git reset --hard origin/master``` to pull in the latest changes. If no git directory is found, Conductor assumes you're doing a 'manual upgrade' and prompts you at this point to upload the new files into your application's root directory... once this is complete you should confirm that the files have all been uploaded... Next Conductor will now execute any database migrations and then clear the application cache as well as dump the autoloader and finally (if you choose to 'take the application offline' during the upgrade process) it will now be automatically put back on-line!

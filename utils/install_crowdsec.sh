@@ -133,7 +133,16 @@ enabled = false
 [conductor-nginx-403]
 enabled = false
 
-[conductor-nginx-rate]
+[conductor-nginx-waf-violation]
+enabled = false
+
+[conductor-nginx-geoip-block]
+enabled = false
+
+[conductor-nginx-burst]
+enabled = false
+
+[conductor-nginx-dos]
 enabled = false
 EOF
 
