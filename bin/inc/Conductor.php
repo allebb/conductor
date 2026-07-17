@@ -2780,6 +2780,20 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Execute a command and stop if it fails.
+     * @param string $command
+     * @param string $error_message
+     * @return void
+     */
+    private function callOrFail($command, $error_message)
+    {
+        if ($this->callWithExitCode($command) !== 0) {
+            $this->writeln($error_message);
+            $this->endWithError();
+        }
+    }
+
+    /**
      * Check whether a directory has no visible or hidden entries.
      * @param string $directory
      * @return bool
@@ -3435,6 +3449,7 @@ class Conductor extends CliApplication
         $this->createApplicationWafConfig(strtolower($vhost_template), $placeholders);
 
         mkdir($this->appdir, 0755);
+        $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
         mkdir($this->conf->paths->applogs . '/' . $this->appname, 0755);
         $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->conf->paths->applogs . '/' . $this->appname);
         $this->call('/usr/bin/chmod 755 ' .$this->conf->paths->appconfs . '/' . $this->appname . '.conf');
@@ -3464,8 +3479,14 @@ class Conductor extends CliApplication
                 $this->endWithError();
             }
 
-            $this->call($this->gitWithDeploymentKey($this->conf->binaries->git . ' clone ' . escapeshellarg($gitrepo) . ' .', $this->appdir));
-            $this->call($this->gitWithDeploymentKey($this->conf->binaries->git . ' checkout ' . escapeshellarg($gitbranch), $this->appdir));
+            $this->callOrFail(
+                $this->gitWithDeploymentKey($this->conf->binaries->git . ' clone ' . escapeshellarg($gitrepo) . ' .', $this->appdir),
+                'Git clone failed; aborting application deployment.'
+            );
+            $this->callOrFail(
+                $this->gitWithDeploymentKey($this->conf->binaries->git . ' checkout ' . escapeshellarg($gitbranch), $this->appdir),
+                'Git checkout failed; aborting application deployment.'
+            );
             $this->call('/usr/bin/conductor envars ' . $this->appname . ' APP_ENV="' . $environment . '"');
             if (file_exists($this->appdir . '/vendor')) {
                 $this->writeln('Skipping dependencies are the \'vendor\' directory exists!');

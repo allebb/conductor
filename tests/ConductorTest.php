@@ -114,12 +114,15 @@ final class ConductorTest extends TestCase
         $source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');
 
         $clone_position = strpos($source, '$this->conf->binaries->git . \' clone \'');
+        $appdir_chown_position = strpos($source, '$this->call(\'chown -R \' . $this->conf->permissions->webuser . \':\' . $this->conf->permissions->webgroup . \' \' . $this->appdir);');
         $env_position = strpos($source, '/usr/bin/conductor envars', $clone_position);
         $error_pages_position = strpos($source, '$this->createApplicationErrorPage($status_code, $error_page_root);', $clone_position);
 
         $this->assertNotFalse($clone_position);
+        $this->assertNotFalse($appdir_chown_position);
         $this->assertNotFalse($env_position);
         $this->assertNotFalse($error_pages_position);
+        $this->assertLessThan($clone_position, $appdir_chown_position);
         $this->assertGreaterThan($clone_position, $env_position);
         $this->assertGreaterThan($clone_position, $error_pages_position);
         $this->assertStringContainsString('if (!$this->isDirectoryEmpty($this->appdir))', $source);
@@ -127,6 +130,8 @@ final class ConductorTest extends TestCase
         $this->assertStringContainsString('$gitbranch = $this->getOption(\'git-branch\', \'main\');', $source);
         $this->assertStringContainsString('Git branch [main]:', $source);
         $this->assertStringContainsString('$gitbranch = \'main\';', $source);
+        $this->assertStringContainsString('Git clone failed; aborting application deployment.', $source);
+        $this->assertStringContainsString('Git checkout failed; aborting application deployment.', $source);
     }
 
     public function testGitCommandsUseDeploymentKeyAsWebUser(): void
