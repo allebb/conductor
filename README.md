@@ -281,7 +281,7 @@ This is the same optional log file path used by Conductor's Fail2Ban support, so
 sudo bash /etc/conductor/utils/install_crowdsec.sh --bouncer=nftables
 ```
 
-If ``crowdsec`` is not already available from apt, the script will add the official CrowdSec package repository. Use ``--skip-repo-bootstrap`` if you prefer to add and audit package repositories manually.
+If ``crowdsec`` or a CrowdSec firewall bouncer package is not already available from apt, the script will add the official CrowdSec package repository. The installer accepts either the CrowdSec nftables-specific bouncer package or Debian's generic ``crowdsec-firewall-bouncer`` package when the distro provides that instead. Use ``--skip-repo-bootstrap`` if you prefer to add and audit package repositories manually.
 
 CrowdSec and Fail2Ban can be used together. If CrowdSec is installed, CrowdSec will handle the automatic bans instead of Fail2Ban. The CrowdSec installer will offer to disable Conductor's automatic Fail2Ban jails and keep only the ``conductor-manual`` jail enabled for ``conductor ban`` and ``conductor unban`` commands.
 

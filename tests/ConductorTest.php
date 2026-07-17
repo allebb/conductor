@@ -525,6 +525,8 @@ final class ConductorTest extends TestCase
         $this->assertStringContainsString('Version', $output);
         $this->assertMatchesRegularExpression('/CertBot\s+1\.2\.3/', $output);
         $this->assertMatchesRegularExpression('/MySQL\s+N\/A/', $output);
+        $this->assertMatchesRegularExpression('/nftables\s+N\/A/', $output);
+        $this->assertStringNotContainsString('nftable ', $output);
         $this->assertMatchesRegularExpression('/Crowdsec\s+N\/A/', $output);
     }
 
@@ -2081,6 +2083,16 @@ final class ConductorTest extends TestCase
             $this->assertStringContainsString('(?:\S+T\S+\s+)?<HOST>\s+\S+\s+', $filter, basename($filter_path));
             $this->assertStringNotContainsString('(?:\S+\s+)?<HOST>', $filter, basename($filter_path));
         }
+    }
+
+    public function testCrowdSecInstallerFallsBackToGenericFirewallBouncerPackage(): void
+    {
+        $installer = file_get_contents(__DIR__ . '/../utils/install_crowdsec.sh');
+
+        $this->assertStringContainsString('for package in crowdsec-firewall-bouncer-nftables crowdsec-firewall-bouncer', $installer);
+        $this->assertStringContainsString('OFFICIAL_REPO_BOOTSTRAPPED="no"', $installer);
+        $this->assertStringContainsString('OFFICIAL_REPO_BOOTSTRAPPED="yes"', $installer);
+        $this->assertStringContainsString('No CrowdSec nftables firewall bouncer package was found. Checked crowdsec-firewall-bouncer-nftables and crowdsec-firewall-bouncer.', $installer);
     }
 
     public function testMainInstallersInstallConductorLogrotateRules(): void

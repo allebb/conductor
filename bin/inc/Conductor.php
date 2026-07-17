@@ -196,7 +196,7 @@ class Conductor extends CliApplication
             'PHP8.1' => ['binary' => 'php8.1', 'arguments' => ['--version']],
             'PHP8.4' => ['binary' => 'php8.4', 'arguments' => ['--version']],
             'PHP8.5' => ['binary' => 'php8.5', 'arguments' => ['--version']],
-            'nftable' => ['binary' => 'nftables', 'arguments' => ['--version']],
+            'nftables' => ['binary' => 'nftables', 'arguments' => ['--version']],
             'Fail2Ban' => ['binary' => 'fail2ban', 'arguments' => ['--version']],
             'Crowdsec' => ['binary' => 'crowdsec', 'arguments' => ['-version']],
         ];

@@ -13,7 +13,7 @@ Usage:
 Options:
   --bouncer=auto|nftables|none
       Firewall bouncer to install. Default: auto. The auto mode installs the
-      nftables bouncer.
+      nftables firewall bouncer.
 
   --skip-repo-bootstrap
       Do not add the official CrowdSec package repository if crowdsec is not
@@ -30,6 +30,7 @@ EOF
 
 BOUNCER="auto"
 BOOTSTRAP_REPO="yes"
+OFFICIAL_REPO_BOOTSTRAPPED="no"
 
 for arg in "$@"; do
     case "$arg" in
@@ -98,6 +99,7 @@ install_official_repo() {
     rm -f "${tmp_script}"
     trap - EXIT
     apt-get update
+    OFFICIAL_REPO_BOOTSTRAPPED="yes"
 }
 
 choose_bouncer_package() {
@@ -106,13 +108,16 @@ choose_bouncer_package() {
             echo ""
             return
             ;;
-        nftables)
-            echo "crowdsec-firewall-bouncer-nftables"
-            return
-            ;;
     esac
 
-    echo "crowdsec-firewall-bouncer-nftables"
+    for package in crowdsec-firewall-bouncer-nftables crowdsec-firewall-bouncer; do
+        if apt_package_available "${package}"; then
+            echo "${package}"
+            return
+        fi
+    done
+
+    echo ""
 }
 
 disable_conductor_automatic_fail2ban_jails() {
@@ -167,12 +172,18 @@ fi
 BOUNCER_PACKAGE="$(choose_bouncer_package)"
 PACKAGES="crowdsec"
 
-if [ -n "${BOUNCER_PACKAGE}" ]; then
-    if ! apt_package_available "${BOUNCER_PACKAGE}"; then
-        echo "The nftables bouncer package was not found. Re-run with --bouncer=none to install CrowdSec without a firewall bouncer."
-        exit 1
+if [ -z "${BOUNCER_PACKAGE}" ] && [ "${BOUNCER}" != "none" ]; then
+    if [ "${BOOTSTRAP_REPO}" = "yes" ] && [ "${OFFICIAL_REPO_BOOTSTRAPPED}" = "no" ]; then
+        install_official_repo
+        BOUNCER_PACKAGE="$(choose_bouncer_package)"
     fi
+fi
+
+if [ -n "${BOUNCER_PACKAGE}" ]; then
     PACKAGES="${PACKAGES} ${BOUNCER_PACKAGE}"
+elif [ "${BOUNCER}" != "none" ]; then
+    echo "No CrowdSec nftables firewall bouncer package was found. Checked crowdsec-firewall-bouncer-nftables and crowdsec-firewall-bouncer. Re-run with --bouncer=none to install CrowdSec without a firewall bouncer."
+    exit 1
 fi
 
 DEBIAN_FRONTEND=noninteractive apt-get install -y ${PACKAGES}
