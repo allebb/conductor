@@ -101,6 +101,146 @@ final class ConductorTest extends TestCase
         @rmdir($root);
     }
 
+    public function testDeploymentKeyOutputMentionsReadOnlyDeploymentKeyAndConductorGitignore(): void
+    {
+        $source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');
+
+        $this->assertStringContainsString('as a read-only deployment key', $source);
+        $this->assertStringContainsString('adding /.conductor to your repository .gitignore before cloning', $source);
+    }
+
+    public function testGitDeployKeepsCloneDirectoryEmptyBeforeClone(): void
+    {
+        $source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');
+
+        $clone_position = strpos($source, '$this->conf->binaries->git . \' clone \'');
+        $env_position = strpos($source, '/usr/bin/conductor envars', $clone_position);
+        $error_pages_position = strpos($source, '$this->createApplicationErrorPage($status_code, $error_page_root);', $clone_position);
+
+        $this->assertNotFalse($clone_position);
+        $this->assertNotFalse($env_position);
+        $this->assertNotFalse($error_pages_position);
+        $this->assertGreaterThan($clone_position, $env_position);
+        $this->assertGreaterThan($clone_position, $error_pages_position);
+        $this->assertStringContainsString('if (!$this->isDirectoryEmpty($this->appdir))', $source);
+        $this->assertStringNotContainsString('$this->call(\'rm -Rf \' . $this->appname);', $source);
+        $this->assertStringContainsString('$gitbranch = $this->getOption(\'git-branch\', \'main\');', $source);
+        $this->assertStringContainsString('Git branch [main]:', $source);
+        $this->assertStringContainsString('$gitbranch = \'main\';', $source);
+    }
+
+    public function testGitCommandsUseDeploymentKeyAsWebUser(): void
+    {
+        $conductor = new class extends Conductor {
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+        };
+
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'apps' => '/var/conductor/applications',
+                'deploykeys' => '/var/www/.ssh',
+            ],
+            'permissions' => (object) [
+                'webuser' => 'www-data',
+            ],
+        ]);
+
+        $reflection->getMethod('setAppName')->invoke($conductor);
+        $command = $reflection->getMethod('gitWithDeploymentKey')->invoke(
+            $conductor,
+            'git clone ' . escapeshellarg('git@github.com:user/repo.git') . ' .',
+            '/var/conductor/applications/myapp'
+        );
+
+        $this->assertStringContainsString("sudo -u 'www-data' ssh-agent bash -c", $command);
+        $this->assertStringContainsString("cd '\\''/var/conductor/applications/myapp'\\''; ssh-add '\\''/var/www/.ssh/myapp.deploykey'\\''; git clone '\\''git@github.com:user/repo.git'\\'' .", $command);
+
+        $source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');
+        $this->assertStringContainsString('reset --hard @{u}', $source);
+        $this->assertStringNotContainsString('current_branch=$(', $source);
+        $this->assertStringNotContainsString('origin/master', $source);
+    }
+
+    public function testApplicationConductorConfigWritesRestoreMetadataAndEnvVars(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-app-config-' . uniqid();
+        $apps = $root . '/apps';
+        $configs = $root . '/configs';
+        mkdir($apps, 0755, true);
+        mkdir($configs, 0755, true);
+        mkdir($apps . '/myapp', 0755, true);
+        file_put_contents($configs . '/myapp_envars.json', json_encode([
+            'APP_ENV' => 'staging',
+            'QUEUE_CONNECTION' => 'redis',
+        ]));
+
+        $conductor = new class extends Conductor {
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+
+            public function writeln($line = '')
+            {
+            }
+        };
+
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'apps' => $apps,
+                'appconfs' => $configs,
+            ],
+            'mysql' => (object) [
+                'host' => '127.0.0.1',
+            ],
+        ]);
+
+        $set_app_name = $reflection->getMethod('setAppName');
+        $set_app_name->invoke($conductor);
+
+        $write_config = $reflection->getMethod('writeApplicationConductorConfig');
+        $write_config->invoke(
+            $conductor,
+            'staging',
+            $apps . '/myapp',
+            'example.com www.example.com',
+            Conductor::OPTION_YES,
+            'secret'
+        );
+
+        $config = json_decode(file_get_contents($apps . '/myapp/.conductor/config.json'), true);
+        $this->assertSame('myapp', $config['appname']);
+        $this->assertSame('staging', $config['environment_type']);
+        $this->assertSame($apps . '/myapp', $config['root_path']);
+        $this->assertSame('db_myapp', $config['mysql_db_name']);
+        $this->assertSame('myapp', $config['mysql_db_user']);
+        $this->assertSame('secret', $config['mysql_db_pass']);
+        $this->assertSame('127.0.0.1', $config['mysql_db_host']);
+        $this->assertSame('example.com www.example.com', $config['fqdn']);
+        $this->assertSame('redis', $config['env']['QUEUE_CONNECTION']);
+
+        @unlink($apps . '/myapp/.conductor/config.json');
+        @rmdir($apps . '/myapp/.conductor');
+        @unlink($configs . '/myapp_envars.json');
+        @rmdir($apps . '/myapp');
+        @rmdir($apps);
+        @rmdir($configs);
+        @rmdir($root);
+    }
+
     public function testVersionsDisplaysDetectedVersionsAndNAForMissingBinaries(): void
     {
         $binary = tempnam(sys_get_temp_dir(), 'conductor-certbot-');
@@ -160,6 +300,20 @@ final class ConductorTest extends TestCase
             '#^https://download\.db-ip\.com/free/dbip-country-lite-\d{4}-\d{2}\.mmdb\.gz$#',
             $downloads[0]
         );
+    }
+
+    public function testGeoIpDatabaseCommandUsesUpdateFlag(): void
+    {
+        $entrypoint = file_get_contents(__DIR__ . '/../bin/conductor.php');
+        $source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');
+        $readme = file_get_contents(__DIR__ . '/../README.md');
+
+        $this->assertStringContainsString('$conductor->geoIpDbControl();', $entrypoint);
+        $this->assertStringContainsString('geoipdb --update', $entrypoint);
+        $this->assertStringContainsString('geoipdb\' => [\'--update\', \'--url=\']', $source);
+        $this->assertStringContainsString('$this->isFlagSet(\'update\')', $source);
+        $this->assertStringContainsString('sudo conductor geoipdb --update', $readme);
+        $this->assertStringNotContainsString('geoipdb update', $entrypoint . $source . $readme);
     }
 
     public function testStatsDataCountsVirtualHostAndStreamConfigurationFiles(): void

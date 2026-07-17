@@ -351,7 +351,7 @@ if [ "$PROXY_ONLY" -eq 1 ]; then
 fi
 
 echo "Downloading GeoIP country database..."
-sudo conductor geoipdb update
+sudo conductor geoipdb --update
 
 ################################################################################
 # PHP-FPM Security Fix

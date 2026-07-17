@@ -50,12 +50,7 @@ if (isset($commands[1])) {
             $conductor->endWithSuccess();
             break;
         case "geoipdb":
-            if (!isset($commands[2])) {
-                displayHelp($conductor);
-                $conductor->endWithError();
-                break;
-            }
-            $conductor->geoIpDbControl($commands[2]);
+            $conductor->geoIpDbControl();
             $conductor->endWithSuccess();
             break;
         case "auth":
@@ -191,7 +186,7 @@ function displayHelp($conductor)
     $conductor->writeln('  stats [--format=json]');
     $conductor->writeln('                      Display system, Nginx and IP address details');
     $conductor->writeln('  test                Test the Nginx configuration');
-    $conductor->writeln('  geoipdb update      Download/update the GeoIP country database');
+    $conductor->writeln('  geoipdb --update    Download/update the GeoIP country database');
     $conductor->writeln('  auth {name} --enable|--disable');
     $conductor->writeln('  auth {name} set {username} {password}');
     $conductor->writeln('  auth {name} delete {username}');

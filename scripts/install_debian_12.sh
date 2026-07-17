@@ -355,7 +355,7 @@ if [ "$PROXY_ONLY" -eq 1 ]; then
 fi
 
 echo "Downloading GeoIP country database..."
-sudo conductor geoipdb update
+sudo conductor geoipdb --update
 
 echo "Configuring PHP-FPM for Nginx..."
 # Change cgi.fix_pathinfo=1 to cgi.fix_pathinfo=0

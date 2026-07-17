@@ -69,17 +69,17 @@ Out of the box this script will install and configure the following packages usi
 
 The current Debian installers will also ask whether you want to install:
 
-* MySQL/MariaDB
+* MySQL
 * Redis
 * Supervisor
 * Additional PHP versions for hosted applications
 
-If you choose not to install MySQL/MariaDB locally, Conductor will not ask database provisioning questions when creating or deleting applications.
+If you choose not to install MySQL locally, Conductor will not ask database provisioning questions when creating or deleting applications.
 
 Optional post-install hardening:
 
-* Fail2Ban
-* nftables
+* Fail2Ban (recommended)
+* nftables (recommended)
 * CrowdSec
 
 How to use it
@@ -98,7 +98,7 @@ A simple command that displays the names of the currently deployed applications 
 
 #### ```conductor stats```
 
-Displays operating system uptime, Nginx daemon uptime, the default virtual host's ``/nginx_status`` details, enabled/disabled virtual host counts, enabled/disabled stream configuration counts, all configured server IP addresses, and the public IP detected from ``ip.hallinet.com``. Stream configs count ``*.conf`` as enabled and both ``*.disabled`` and ``*.conf.example`` as disabled. Use ``conductor stats --format=json`` for machine-readable output.
+Displays operating system uptime, Nginx daemon uptime, Nginx connection details, enabled/disabled virtual host counts, enabled/disabled stream configuration counts, all configured server IP addresses, and the public IP. Use ``conductor stats --format=json`` for machine-readable output.
 
 #### ```conductor new {app name}```
 
@@ -127,9 +127,9 @@ sudo conductor new {app name} --fqdn="example.com" --template=proxy --target="ht
 
 The ``--target`` value is only valid for proxy templates and must be an HTTP(S) URL with a host and explicit port number.
 
-Proxy applications do not ask for a hosted directory because the virtual host serves from the application root. Conductor will also create custom ``502.html``, ``503.html``, and ``504.html`` pages in ``/var/conductor/applications/{app name}/.conductor/error_pages/`` and configure Nginx to show them if the backend application is unreachable. If those copied pages or the ``.conductor/error_pages`` directory are deleted, Nginx falls back to the shared proxy error pages in ``/var/conductor/error-pages/``.
+Proxy applications do not ask for a hosted directory because the virtual host serves from the application root. Conductor will also create custom ``502.html``, ``503.html``, and ``504.html`` pages in ``/var/conductor/applications/{app name}/.conductor/error_pages/`` and configure Nginx to show them if the backend application is unreachable. If those copied pages or the ``.conductor/error_pages`` directory are deleted, Nginx falls back to the shared (default) proxy error pages in ``/var/conductor/error-pages/``.
 
-All vhost templates include custom ``401.html``, ``403.html``, ``404.html``, and ``500.html`` error pages by default. Conductor creates local copies in the vhost's ``.conductor/error_pages`` directory first and falls back to shared versions in ``/var/conductor/error-pages/`` if a local page or directory is removed. Comment out ``include /etc/conductor/configs/common/conductor_error_pages.conf;`` in a vhost if the application should handle these responses itself.
+All vhost templates include custom ``401.html``, ``403.html``, ``404.html``, and ``500.html`` error pages by default. Conductor creates local copies in the vhost's ``.conductor/error_pages`` directory (so you can customise them per-site if you wish) first and falls back to shared (default) versions in ``/var/conductor/error-pages/`` if a local page or directory is removed. Comment out ``include /etc/conductor/configs/common/conductor_error_pages.conf;`` in a vhost if the application should handle these responses itself.
 
 For non-proxy applications, Conductor creates a ``conductor.html`` placeholder page in the application's document root and adds it as the last index file. This confirms that the virtual host is ready; you can safely delete ``conductor.html`` after (or before) deploying your own site or application.
 
@@ -157,7 +157,7 @@ Proxy templates also include a commented cache example. The shared ``conductor_p
 
 ### Optional Fail2Ban and nftables protection
 
-Conductor includes an optional installer for Fail2Ban and nftables (software firewall) and will monitor for suspitious activity and block bad actos. It is not run by the main installer, so you can add it after Conductor is installed, if you wish by running:
+Conductor includes an optional installer for Fail2Ban and nftables (software firewall) and will monitor for suspitious activity and block bad actors if required. It is not run by the main installer, so you can add it after Conductor is installed, if you wish by running:
 
 ```shell
 sudo bash /etc/conductor/utils/install_fail2ban_nftables.sh
@@ -169,9 +169,9 @@ Each Nginx vhost template includes a commented security log line:
 #access_log /tmp/conductor_{appname}.seclog conductor_security;
 ```
 
-Run ``sudo conductor protect {app name} --enable`` for any application/website vhost you want Fail2Ban to monitor. Use ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes. The Fail2Ban templates watch ``/tmp/conductor_*.seclog`` and the installer creates an empty ``/tmp/conductor_fail2ban_seed.seclog`` so Fail2Ban can start before any app security logs exist.
+Run ``sudo conductor protect {app name} --enable`` for any application/website vhost you want Fail2Ban to monitor. Use ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes. The Fail2Ban templates watch ``/tmp/conductor_*.seclog``.
 
-The installer enables these default jails:
+The installer enables these default jails, you can adjust the triggers and ban period as you see fit though:
 
 | Jail | Trigger | Default ban |
 | --- | --- | --- |
@@ -185,11 +185,11 @@ The installer enables these default jails:
 | ``conductor-nginx-burst`` | 800 total requests in 30 seconds | 10 minutes |
 | ``conductor-nginx-dos`` | 2000 total requests in 1 minute | 24 hours |
 
-Each Conductor Fail2Ban jail also posts JSON ban/unban events to ``https://bin.hallinet.com/z7jw38z7`` using the installed ``conductor-webhook`` action. The payload includes the event type, jail/action name, IP address, and ban duration for ban events. Edit ``/etc/fail2ban/action.d/conductor-webhook.conf`` if you need to change or disable the endpoint.
+Each Conductor Fail2Ban jail also posts JSON ban/unban events to ``https://bin.hallinet.com/z7jw38z7`` (just a default, you should customise this to something you manage) using the installed ``conductor-webhook`` action. The payload includes the event type, jail/action name, IP address, and ban duration for ban events. Edit ``/etc/fail2ban/action.d/conductor-webhook.conf`` if you need to change or disable the endpoint.
 
 > These values can be manually adjusted to fit your personal requirements by editting the default configurations that are installed to ``/etc/conductor/configs/common/fail2ban/``.
 
-The security log format records the timestamp, client IP, Conductor application id, status code, request line, and user agent to keep things "lean" while still making ban webhooks attributable to a site/application. The ``/tmp`` path is often memory-backed on modern Linux systems, but not always; check ``findmnt /tmp`` if this matters for your server. The main installer installs logrotate rules for the normal per-vhost ``access.log`` and ``error.log`` files under ``/var/conductor/logs/*/``, plus matching security logs at 10MB with three compressed rotations.
+The security log format records the timestamp, client IP, Conductor application id, status code, request line, and user agent to keep things "lean" while still making ban webhooks attributable to a site/application. The ``/tmp`` path is often memory-backed (which is perfect) on modern Linux systems, but not always; check ``findmnt /tmp`` if this matters for your server. The main installer installs logrotate rules for the normal per-vhost ``access.log`` and ``error.log`` files under ``/var/conductor/logs/*/``, plus matching security logs at 10MB with three compressed rotations.
 
 Once Fail2Ban support is installed, Conductor can manage bans directly:
 
@@ -206,12 +206,43 @@ sudo conductor unban 203.0.113.10
 
 Manual bans are added to the ``conductor-manual`` jail and remain in place until explicitly unbanned or purged. ``ban purge`` clears all IP addresses currently banned by Fail2Ban, including bans created by non-Conductor jails.
 
-### Optional Nginx GeoIP country blocking
+#### nftables default firewall behaviour
 
-The Debian installers include the Nginx GeoIP2 module and create ``/var/conductor/geoip``. To download or refresh the free DB-IP country database, run:
+The optional Fail2Ban+nftables installer keeps nftables passive by default. In other words, nftables is installed and available as the firewall backend used by Fail2Ban to block offending IP addresses, but Conductor does not automatically change the server into a "deny all inbound traffic" firewall. This avoids accidentally locking you out of an existing server.
+
+After you have installed the optional Fail2Ban+nftables support, you can choose to make nftables block all inbound ports by default and then explicitly allow only the ports you need. At minimum, keep your SSH port open (TCP/22 by default) so you do not lock yourself out, plus HTTP and HTTPS for web traffic:
 
 ```shell
-sudo conductor geoipdb update
+sudo nft flush ruleset
+sudo nft add table inet filter
+sudo nft 'add chain inet filter input { type filter hook input priority 0; policy drop; }'
+sudo nft 'add chain inet filter forward { type filter hook forward priority 0; policy drop; }'
+sudo nft 'add chain inet filter output { type filter hook output priority 0; policy accept; }'
+sudo nft add rule inet filter input ct state established,related accept
+sudo nft add rule inet filter input iif lo accept
+sudo nft add rule inet filter input tcp dport '{ 22, 80, 443 }' ct state new accept
+sudo nft add rule inet filter input ip protocol icmp accept
+sudo nft add rule inet filter input ip6 nexthdr ipv6-icmp accept
+sudo sh -c 'nft list ruleset > /etc/nftables.conf'
+sudo systemctl enable --now nftables
+sudo systemctl restart fail2ban
+```
+
+If your SSH daemon listens on a non-standard port, replace ``22`` with your actual SSH port before applying the rules. If you later edit ``/etc/nftables.conf`` manually, reload the persisted rules and restart Fail2Ban so its dynamic ban rules are recreated on top of the base firewall:
+
+```shell
+sudo nft -f /etc/nftables.conf
+sudo systemctl restart fail2ban
+```
+
+LetsEncrypt verification does not need an extra public firewall port. Conductor runs Certbot's HTTP-01 standalone listener on local port ``8998`` and Nginx proxies public ``/.well-known/acme-challenge/`` requests from normal HTTP port ``80`` to ``127.0.0.1:8998``. Keep TCP/80 open publicly for certificate issue/renewal, but do not expose TCP/8998.
+
+### Optional Nginx GeoIP country blocking
+
+The Debian installers include the Nginx GeoIP2 module and creates ``/var/conductor/geoip``. To download or refresh the free DB-IP country database, run:
+
+```shell
+sudo conductor geoipdb --update
 ```
 
 This writes ``/var/conductor/geoip/dbip-country-lite.mmdb``. The common Nginx configuration includes a commented shared ``geoip2`` lookup, and each vhost template includes a commented block showing how to drop requests from selected countries for that specific vhost. Uncomment the shared lookup, uncomment the per-vhost block, add the ISO country codes you want to block, then run ``sudo nginx -t`` and reload Nginx.
@@ -327,7 +358,7 @@ sudo conductor load {app name} --waf < /tmp/{random}.tmp
 ``load`` writes the new content, runs ``nginx -t``, restores the previous file if the test fails, and gracefully reloads Nginx automatically after a successful test. This is intended for web applications or automation that need to read, edit, and write Conductor-managed configuration through the CLI without opening an interactive editor.
 
 #### ```conductor update {app name}```
-The upgrade command does three things, firstly it gives you the option of putting your application into 'offline mode' of which is up to you (you're prompted for your decision here), before it upgrades anything an automatic 'snapshot' is taken and stored separately to enable you to 'roll-back' later if required.. So next if Conductor finds that the application was previously deployed by Git or has a ```.git``` directory it will attempt to do a ```git fetch --all``` and then a ```git reset --hard origin/master``` to pull in the latest changes. If no git directory is found, Conductor assumes you're doing a 'manual upgrade' and prompts you at this point to upload the new files into your application's root directory... once this is complete you should confirm that the files have all been uploaded... Next Conductor will now execute any database migrations and then clear the application cache as well as dump the autoloader and finally (if you choose to 'take the application offline' during the upgrade process) it will now be automatically put back on-line!
+The upgrade command does three things, firstly it gives you the option of putting your application into 'offline mode' of which is up to you (you're prompted for your decision here), before it upgrades anything an automatic 'snapshot' is taken and stored separately to enable you to 'roll-back' later if required.. So next if Conductor finds that the application was previously deployed by Git or has a ```.git``` directory it will use the application's SSH deployment key to run a ```git fetch --all``` and then a ```git reset --hard @{u}``` to pull in the latest changes from the currently checked-out branch's configured upstream. If no git directory is found, Conductor assumes you're doing a 'manual upgrade' and prompts you at this point to upload the new files into your application's root directory... once this is complete you should confirm that the files have all been uploaded... Next Conductor will now execute any database migrations and then clear the application cache as well as dump the autoloader and finally (if you choose to 'take the application offline' during the upgrade process) it will now be automatically put back on-line!
 
 #### ```conductor rollback {app name}```
 This is basically the opposite of ```conductor upgrade {app name}```, this uses that last snapshot that was automatically taken the last time that you preformed an ```conductor upgrade {app name}``` on your application.
@@ -437,7 +468,7 @@ It is recommended to automate the GeoIP database updates (expecially if you've k
 We recommend adding this line to the crontab so that updates are applied monthly (first day of the month at 00:14):
 
 ```shell
-14 0 1 * * /usr/bin/conductor geoipdb update
+14 0 1 * * /usr/bin/conductor geoipdb --update
 ```
 
 Automating Xcaler community WAF ruleset updates

@@ -848,8 +848,6 @@ class Conductor extends CliApplication
                 return $this->filterCompletionCandidates(['start', 'stop', 'status', 'restart', 'reload'], $current);
             case 'ban':
                 return $this->filterCompletionCandidates(['list', 'purge'], $current);
-            case 'geoipdb':
-                return $this->filterCompletionCandidates(['update'], $current);
             case 'waf':
                 if ($current_index == 2) {
                     return $this->filterCompletionCandidates(array_merge(['rulesets'], $this->completionApplicationNames()), $current);
@@ -968,7 +966,7 @@ class Conductor extends CliApplication
             'test' => ['--auto-reload'],
             'letsencrypt' => ['--enable', '--disable', '--delete', '--force-renew', '--auto-reload'],
             'update' => ['--down='],
-            'geoipdb' => ['--url='],
+            'geoipdb' => ['--update', '--url='],
             'auth' => ['--enable', '--disable', '--auto-reload'],
             'protect' => ['--enable', '--disable', '--auto-reload'],
             'waf' => ['--enable', '--disable', '--auto-reload', '--update-community'],
@@ -1785,16 +1783,15 @@ class Conductor extends CliApplication
 
     /**
      * Action GeoIP database management commands.
-     * @param string $action
      */
-    public function geoIpDbControl($action)
+    public function geoIpDbControl()
     {
-        if ($action == 'update') {
+        if ($this->isFlagSet('update')) {
             $this->updateGeoIpDatabase();
             return;
         }
 
-        $this->writeln('Unknown GeoIP database command: ' . $action);
+        $this->writeln('No GeoIP database action was specified. Use --update to download/update the GeoIP country database.');
         $this->endWithError();
     }
 
@@ -2555,6 +2552,49 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Write application metadata needed for future automated restores.
+     * @param string $environment
+     * @param string $root_path
+     * @param string $fqdn
+     * @param string $mysql_req
+     * @param string|null $mysql_password
+     * @return void
+     */
+    private function writeApplicationConductorConfig($environment, $root_path, $fqdn, $mysql_req, $mysql_password = null)
+    {
+        $conductor_directory = rtrim($this->appdir, '/') . '/.conductor';
+        if (!is_dir($conductor_directory) && !mkdir($conductor_directory, 0755, true)) {
+            $this->writeln('Unable to create Conductor application config directory: ' . $conductor_directory);
+            $this->endWithError();
+        }
+
+        $env_vars = [];
+        $env_conf = $this->conf->paths->appconfs . '/' . $this->appname . '_envars.json';
+        if (file_exists($env_conf)) {
+            $decoded_env = json_decode(file_get_contents($env_conf), true);
+            if (is_array($decoded_env)) {
+                $env_vars = $decoded_env;
+            }
+        }
+
+        $has_mysql = strtolower($mysql_req) == self::OPTION_YES;
+        $config = [
+            'appname' => $this->appname,
+            'environment_type' => $environment,
+            'root_path' => $root_path,
+            'mysql_db_name' => $has_mysql ? 'db_' . $this->appname : null,
+            'mysql_db_user' => $has_mysql ? $this->appname : null,
+            'mysql_db_pass' => $has_mysql ? $mysql_password : null,
+            'mysql_db_host' => $has_mysql && isset($this->conf->mysql->host) ? $this->conf->mysql->host : null,
+            'fqdn' => $fqdn,
+            'env' => $env_vars,
+        ];
+
+        file_put_contents($conductor_directory . '/config.json',
+            json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);
+    }
+
+    /**
      * Destroys the database and user for the current application.
      * @return void
      */
@@ -2598,8 +2638,39 @@ class Conductor extends CliApplication
      */
     private function gitPull()
     {
-        $this->call($this->conf->binaries->git . ' --git-dir=' . $this->appdir . '/.git --work-tree=' . $this->appdir . ' fetch --all');
-        $this->call($this->conf->binaries->git . ' --git-dir=' . $this->appdir . '/.git --work-tree=' . $this->appdir . ' reset --hard origin/master');
+        $this->call($this->gitWithDeploymentKey($this->conf->binaries->git . ' fetch --all', $this->appdir));
+        $this->call($this->gitWithDeploymentKey($this->conf->binaries->git . ' reset --hard @{u}', $this->appdir));
+    }
+
+    /**
+     * Build a Git command that uses the application's deployment key as the configured web user.
+     * @param string $git_command
+     * @param string $working_directory
+     * @return string
+     */
+    private function gitWithDeploymentKey($git_command, $working_directory)
+    {
+        $deploy_key_path = $this->conf->paths->deploykeys . '/' . $this->appname . '.deploykey';
+        $web_user = isset($this->conf->permissions->webuser) ? $this->conf->permissions->webuser : 'www-data';
+        $script = 'cd ' . escapeshellarg($working_directory) . '; ssh-add ' . escapeshellarg($deploy_key_path) . '; ' . $git_command;
+
+        return 'sudo -u ' . escapeshellarg($web_user) . ' ssh-agent bash -c ' . escapeshellarg($script);
+    }
+
+    /**
+     * Check whether a directory has no visible or hidden entries.
+     * @param string $directory
+     * @return bool
+     */
+    private function isDirectoryEmpty($directory)
+    {
+        foreach (new DirectoryIterator($directory) as $entry) {
+            if (!$entry->isDot()) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -2971,7 +3042,8 @@ class Conductor extends CliApplication
         $this->writeln();
         $this->writeln(file_get_contents($public_key_path));
         $this->writeln();
-        $this->writeln('Copy and paste the above public key content to your remote service(s) as required.');
+        $this->writeln('Copy and paste the above public key content to your remote service(s) as a read-only deployment key.');
+        $this->writeln('We also highly recommend adding /.conductor to your repository .gitignore before cloning, so future Conductor-managed settings are not tracked or reset during deployments.');
         $this->writeln();
     }
 
@@ -3143,6 +3215,7 @@ class Conductor extends CliApplication
 
         $option_yes_no_set = [self::OPTION_YES, self::OPTION_NO];
         $generate_keys = self::OPTION_YES;
+        $deployment_key_generated = false;
 
         $vhost_template = $this->getOption('template', $this->conf->admin->default_template);
         $is_proxy_template = strtolower($vhost_template) == 'proxy';
@@ -3158,7 +3231,7 @@ class Conductor extends CliApplication
             $this->endWithError();
         }
 
-        $gitbranch = $this->getOption('git-branch', 'master');
+        $gitbranch = $this->getOption('git-branch', 'main');
         if (!$this->getOption('fqdn')) {
             // Entering interactive mode...
             $domain = $this->input('Domains (FQDN\'s) to map this application to:');
@@ -3194,10 +3267,19 @@ class Conductor extends CliApplication
         $apppath = rtrim($apppath, '/');
 
         if (strtolower($deploy_git) == self::OPTION_YES) {
+            if (strtolower($generate_keys) == self::OPTION_YES) {
+                $this->writeln('Generating a deployment (SSH) key pair...');
+                $this->createDeploymentKey();
+                $deployment_key_generated = true;
+            }
+
             if (!isset($gitrepo)) {
                 $this->writeln();
                 $gitrepo = $this->input('Git repository URI (eg. git@github.com:user/repo.git):');
-                $gitbranch = $this->input('Git branch [master]: ');
+                $gitbranch = $this->input('Git branch [main]: ');
+                if (!$gitbranch) {
+                    $gitbranch = 'main';
+                }
                 $this->writeln();
             }
         }
@@ -3250,18 +3332,19 @@ class Conductor extends CliApplication
         $this->call('chown -R root:root ' . $cron_file);
         $this->call('chmod 744 ' . $cron_file);
 
-        // Load  the application environment configuration in to the application configuration (which will create the initial ENV configuration)...
-        //$this->updateEnvVars();
-        $this->call('/usr/bin/conductor envars ' . $this->appname . ' APP_ENV="' . $environment . '"');
-
         // Enable the site by reloading Nginx.
         //$this->call($this->conf->services->nginx->reload);
 
         if (strtolower($deploy_git) == self::OPTION_YES) {
             $this->writeln('We\'ll now deploy your application using Git...');
-            $this->call('rm -Rf ' . $this->appname);
-            $this->call($this->conf->binaries->git . ' clone ' . $gitrepo . ' ' . $this->appdir);
-            $this->call($this->conf->binaries->git . ' checkout ' . $gitbranch);
+            if (!$this->isDirectoryEmpty($this->appdir)) {
+                $this->writeln('Cannot clone repository because the application directory is not empty: ' . $this->appdir);
+                $this->endWithError();
+            }
+
+            $this->call($this->gitWithDeploymentKey($this->conf->binaries->git . ' clone ' . escapeshellarg($gitrepo) . ' .', $this->appdir));
+            $this->call($this->gitWithDeploymentKey($this->conf->binaries->git . ' checkout ' . escapeshellarg($gitbranch), $this->appdir));
+            $this->call('/usr/bin/conductor envars ' . $this->appname . ' APP_ENV="' . $environment . '"');
             if (file_exists($this->appdir . '/vendor')) {
                 $this->writeln('Skipping dependencies are the \'vendor\' directory exists!');
             } else {
@@ -3269,6 +3352,7 @@ class Conductor extends CliApplication
                 $this->call($this->conf->binaries->composer . ' install --no-dev --optimize-autoloader --working-dir=' . $this->appdir);
             }
         } else {
+            $this->call('/usr/bin/conductor envars ' . $this->appname . ' APP_ENV="' . $environment . '"');
             $this->writeln('To deploy your application, manually copy the files to:');
             $this->writeln();
             $this->writeln($this->appdir . '/');
@@ -3306,9 +3390,6 @@ class Conductor extends CliApplication
             $this->createApplicationErrorPage($status_code, $error_page_root);
         }
 
-        $this->writeln('Setting ownership permissions on application files...');
-        $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
-
         if (strtolower($mysql_req) == self::OPTION_YES) {
             $this->writeln();
             if (!isset($password)) {
@@ -3317,7 +3398,13 @@ class Conductor extends CliApplication
             $this->createMySQL($password);
         }
 
-        if (strtolower($generate_keys) == self::OPTION_YES) {
+        $this->writeApplicationConductorConfig($environment, $this->appdir, $domain, $mysql_req,
+            isset($password) ? $password : null);
+
+        $this->writeln('Setting ownership permissions on application files...');
+        $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
+
+        if (strtolower($generate_keys) == self::OPTION_YES && !$deployment_key_generated) {
             $this->writeln('Generating a deployment (SSH) key pair...');
             $this->createDeploymentKey();
         }
