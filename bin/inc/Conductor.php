@@ -2743,15 +2743,18 @@ class Conductor extends CliApplication
      */
     private function migrateLaravel($environment = 'production')
     {
-        if (file_exists($this->appdir . '/artisan')) {
-            if (version_compare($this->laravelApplicationVersion($this->appname), "4.2", ">=")) {
-                $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan migrate --force --env=' . $environment);
-            } else {
-                $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan migrate --env=' . $environment);
-            }
-            $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan cache:clear --env=' . $environment);
-            $this->call($this->conf->binaries->composer . ' dump-autoload -o --working-dir=' . $this->appdir);
+        if (!$this->isLaravelApplication()) {
+            return;
         }
+
+        if (!file_exists($this->appdir . '/.env')) {
+            $this->writeln('No .env file found, skipping migrations...');
+            return;
+        }
+
+        $this->call($this->conf->binaries->php . ' ' . escapeshellarg($this->appdir . '/artisan') . ' migrate --force --env=' . escapeshellarg($environment));
+        $this->call($this->conf->binaries->php . ' ' . escapeshellarg($this->appdir . '/artisan') . ' cache:clear --env=' . escapeshellarg($environment));
+        $this->call($this->composerForApplication('dump-autoload -o'));
     }
 
     /**
@@ -2791,6 +2794,46 @@ class Conductor extends CliApplication
             $this->writeln($error_message);
             $this->endWithError();
         }
+    }
+
+    /**
+     * Build a command that runs as the configured web user.
+     * @param string $command
+     * @return string
+     */
+    private function asWebUser($command)
+    {
+        $web_user = isset($this->conf->permissions->webuser) ? $this->conf->permissions->webuser : 'www-data';
+
+        return 'sudo -u ' . escapeshellarg($web_user) . ' ' . $command;
+    }
+
+    /**
+     * Build a Composer command for the current application as the configured web user.
+     * @param string $arguments
+     * @return string
+     */
+    private function composerForApplication($arguments)
+    {
+        return $this->asWebUser($this->conf->binaries->composer . ' ' . $arguments . ' --working-dir=' . escapeshellarg($this->appdir));
+    }
+
+    /**
+     * Check whether the current application appears to be Laravel-based.
+     * @return bool
+     */
+    private function isLaravelApplication()
+    {
+        return file_exists($this->appdir . '/artisan');
+    }
+
+    /**
+     * Print a consistent message when a Laravel-only operation is not applicable.
+     * @return void
+     */
+    private function writeNotLaravelMessage()
+    {
+        $this->writeln('The application does not appear to be a Laravel-based application, skipping this operation!');
     }
 
     /**
@@ -3491,7 +3534,7 @@ class Conductor extends CliApplication
                 $this->writeln('Skipping dependencies are the \'vendor\' directory exists!');
             } else {
                 $this->writeln('Downloading dependencies...');
-                $this->call($this->conf->binaries->composer . ' install --no-dev --optimize-autoloader --working-dir=' . $this->appdir);
+                $this->call($this->composerForApplication('install --no-dev --optimize-autoloader'));
             }
         } else {
             $this->call('/usr/bin/conductor envars ' . $this->appname . ' APP_ENV="' . $environment . '"');
@@ -3784,7 +3827,7 @@ class Conductor extends CliApplication
             $this->writeln('Pulling latest code from Git...');
             $this->gitPull();
             $this->writeln('Downloading Composer dependencies...');
-            $this->call($this->conf->binaries->composer . ' install --no-dev --optimize-autoloader --working-dir=' . $this->appdir);
+            $this->call($this->composerForApplication('install --no-dev --optimize-autoloader'));
         }
         $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
         $this->migrateLaravel($environment);
@@ -4034,12 +4077,12 @@ class Conductor extends CliApplication
     {
         $this->appNameRequired();
         $this->writeln('Attempting to start the Laravel Application');
-        if (file_exists($this->appdir . '/artisan')) {
-            $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan up');
-        } else {
-            $this->writeln('Could not find the \'artisan\' tool!');
-            $this->endWithError();
+        if (!$this->isLaravelApplication()) {
+            $this->writeNotLaravelMessage();
+            return;
         }
+
+        $this->call($this->conf->binaries->php . ' ' . escapeshellarg($this->appdir . '/artisan') . ' up');
     }
 
     /**
@@ -4050,11 +4093,11 @@ class Conductor extends CliApplication
     {
         $this->appNameRequired();
         $this->writeln('Attempting to stop the Laravel Application');
-        if (file_exists($this->appdir . '/artisan')) {
-            $this->call($this->conf->binaries->php . ' ' . $this->appdir . '/artisan down');
-        } else {
-            $this->writeln('Could not find the \'artisan\' tool!');
-            $this->endWithError();
+        if (!$this->isLaravelApplication()) {
+            $this->writeNotLaravelMessage();
+            return;
         }
+
+        $this->call($this->conf->binaries->php . ' ' . escapeshellarg($this->appdir . '/artisan') . ' down');
     }
 }

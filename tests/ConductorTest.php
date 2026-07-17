@@ -177,6 +177,186 @@ final class ConductorTest extends TestCase
         $this->assertStringNotContainsString('origin/master', $source);
     }
 
+    public function testComposerCommandsRunAsWebUser(): void
+    {
+        $conductor = new class extends Conductor {
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+        };
+
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'apps' => '/var/conductor/applications',
+            ],
+            'permissions' => (object) [
+                'webuser' => 'www-data',
+            ],
+            'binaries' => (object) [
+                'composer' => '/usr/bin/composer',
+            ],
+        ]);
+
+        $reflection->getMethod('setAppName')->invoke($conductor);
+        $command = $reflection->getMethod('composerForApplication')->invoke(
+            $conductor,
+            'install --no-dev --optimize-autoloader'
+        );
+
+        $this->assertSame(
+            "sudo -u 'www-data' /usr/bin/composer install --no-dev --optimize-autoloader --working-dir='/var/conductor/applications/myapp'",
+            $command
+        );
+    }
+
+    public function testLaravelDetectionUsesArtisanFileOnly(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-laravel-detect-' . uniqid();
+        mkdir($root);
+        mkdir($root . '/myapp');
+
+        $conductor = new class extends Conductor {
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+        };
+
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'apps' => $root,
+            ],
+        ]);
+        $reflection->getMethod('setAppName')->invoke($conductor);
+
+        $is_laravel = $reflection->getMethod('isLaravelApplication');
+        $this->assertFalse($is_laravel->invoke($conductor));
+
+        file_put_contents($root . '/myapp/artisan', '#!/usr/bin/env php');
+
+        $this->assertTrue($is_laravel->invoke($conductor));
+
+        @unlink($root . '/myapp/artisan');
+        @rmdir($root . '/myapp');
+        @rmdir($root);
+    }
+
+    public function testLaravelMigrationSkipsWhenEnvFileIsMissing(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-laravel-migrate-' . uniqid();
+        mkdir($root);
+        mkdir($root . '/myapp');
+        file_put_contents($root . '/myapp/artisan', '#!/usr/bin/env php');
+
+        $conductor = new class extends Conductor {
+            public array $calls = [];
+            public array $lines = [];
+
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+
+            public function call($command)
+            {
+                $this->calls[] = $command;
+                return '';
+            }
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'apps' => $root,
+            ],
+            'permissions' => (object) [
+                'webuser' => 'www-data',
+            ],
+            'binaries' => (object) [
+                'php' => '/usr/bin/php',
+                'composer' => '/usr/bin/composer',
+            ],
+        ]);
+        $reflection->getMethod('setAppName')->invoke($conductor);
+        $reflection->getMethod('migrateLaravel')->invoke($conductor, 'production');
+
+        $this->assertSame([], $conductor->calls);
+        $this->assertContains('No .env file found, skipping migrations...', $conductor->lines);
+
+        @unlink($root . '/myapp/artisan');
+        @rmdir($root . '/myapp');
+        @rmdir($root);
+    }
+
+    public function testStartLaravelApplicationSkipsNonLaravelApplications(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-laravel-start-' . uniqid();
+        mkdir($root);
+        mkdir($root . '/myapp');
+
+        $conductor = new class extends Conductor {
+            public array $calls = [];
+            public array $lines = [];
+
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+
+            public function call($command)
+            {
+                $this->calls[] = $command;
+                return '';
+            }
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+
+        (new ReflectionClass(Conductor::class))->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'apps' => $root,
+            ],
+            'binaries' => (object) [
+                'php' => '/usr/bin/php',
+            ],
+        ]);
+
+        $conductor->startLaravelApplication();
+
+        $this->assertSame([], $conductor->calls);
+        $this->assertContains('The application does not appear to be a Laravel-based application, skipping this operation!', $conductor->lines);
+
+        @rmdir($root . '/myapp');
+        @rmdir($root);
+    }
+
     public function testApplicationConductorConfigWritesRestoreMetadataAndEnvVars(): void
     {
         $root = sys_get_temp_dir() . '/conductor-app-config-' . uniqid();
