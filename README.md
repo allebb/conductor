@@ -100,6 +100,10 @@ A simple command that displays the names of the currently deployed applications 
 
 Displays operating system uptime, Nginx daemon uptime, Nginx connection details, enabled/disabled virtual host counts, enabled/disabled stream configuration counts, all configured server IP addresses, and the public IP. Use ``conductor stats --format=json`` for machine-readable output.
 
+#### ```conductor metrics```
+
+Displays Conductor metrics in Prometheus text exposition format, suitable for node_exporter's textfile collector and Grafana dashboards. See [Grafana_integration.md](Grafana_integration.md) for setup examples.
+
 #### ```conductor new {app name}```
 
 When you first want to deploy a new instance of a Laravel application on to your server, you are required to SSH in (or you could write a web-based application to speak to the **conductor(( behind if you wanted too) to your server and then execute the following command:-

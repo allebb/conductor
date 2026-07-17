@@ -370,6 +370,87 @@ final class ConductorTest extends TestCase
         @rmdir($root);
     }
 
+    public function testApplicationStatsCountsVisibleApplicationDirectories(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-app-stats-' . uniqid();
+        mkdir($root);
+        mkdir($root . '/alpha');
+        mkdir($root . '/bravo');
+        mkdir($root . '/.hidden');
+        file_put_contents($root . '/not-a-directory', '');
+
+        $conductor = $this->makeConductorWithConfig((object) [
+            'paths' => (object) [
+                'apps' => $root,
+            ],
+        ]);
+
+        $method = (new ReflectionClass(Conductor::class))->getMethod('applicationStats');
+
+        $this->assertSame(['total' => 2], $method->invoke($conductor));
+
+        @unlink($root . '/not-a-directory');
+        @rmdir($root . '/.hidden');
+        @rmdir($root . '/bravo');
+        @rmdir($root . '/alpha');
+        @rmdir($root);
+    }
+
+    public function testPrometheusMetricsExposeNumericStatsAndSkipNAValues(): void
+    {
+        $stats = [
+            'system' => [
+                'operating_system_uptime_seconds' => 123,
+                'nginx_daemon_uptime_seconds' => 45,
+            ],
+            'memory' => [
+                'utilisation_percent' => 50,
+                'used_mb' => 128,
+                'available_mb' => 384,
+                'total_mb' => 512,
+            ],
+            'nginx_configuration' => [
+                'virtual_hosts' => [
+                    'enabled' => 2,
+                    'disabled' => 1,
+                ],
+                'streams' => [
+                    'enabled' => 1,
+                    'disabled' => 3,
+                ],
+            ],
+            'applications' => [
+                'total' => 4,
+            ],
+            'configured_ip_addresses' => [
+                'eth0 192.0.2.10/24',
+                'N/A',
+            ],
+            'nginx_status' => [
+                'active_connections' => 5,
+                'accepted_connections' => 100,
+                'handled_connections' => 99,
+                'requests' => 250,
+                'reading' => 1,
+                'writing' => 2,
+                'waiting' => 3,
+            ],
+        ];
+
+        $method = (new ReflectionClass(Conductor::class))->getMethod('prometheusMetrics');
+        $metrics = $method->invoke($this->makeConductor(), $stats);
+
+        $this->assertStringContainsString("# TYPE conductor_up gauge\nconductor_up 1", $metrics);
+        $this->assertStringContainsString("conductor_system_uptime_seconds 123\n", $metrics);
+        $this->assertStringContainsString("conductor_memory_used_bytes 134217728\n", $metrics);
+        $this->assertStringContainsString("conductor_nginx_virtual_hosts_enabled 2\n", $metrics);
+        $this->assertStringContainsString("conductor_applications_total 4\n", $metrics);
+        $this->assertStringContainsString("conductor_configured_ip_addresses_total 1\n", $metrics);
+        $this->assertStringContainsString("conductor_nginx_status_available 1\n", $metrics);
+        $this->assertStringContainsString("conductor_nginx_requests_total 250\n", $metrics);
+        $this->assertStringNotContainsString('N/A', $metrics);
+    }
+
     public function testStatsParsesMemoryUtilisationFromMeminfo(): void
     {
         $conductor = $this->makeConductor();
@@ -397,6 +478,17 @@ final class ConductorTest extends TestCase
         $this->assertStringContainsString("'   Utilisation: ' . \$stats['memory']['utilisation_percent'] . '%'", $source);
         $this->assertStringContainsString("'   Used:         ' . \$stats['memory']['used_mb'] . 'MB'", $source);
         $this->assertStringContainsString("'   Available:   ' . \$stats['memory']['available_mb'] . 'MB'", $source);
+    }
+
+    public function testMetricsCommandIsExposedInCliHelpAndCompletion(): void
+    {
+        $entrypoint = file_get_contents(__DIR__ . '/../bin/conductor.php');
+        $source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');
+
+        $this->assertStringContainsString('case "metrics":', $entrypoint);
+        $this->assertStringContainsString('$conductor->metrics();', $entrypoint);
+        $this->assertStringContainsString('metrics             Display Prometheus textfile metrics', $entrypoint);
+        $this->assertStringContainsString("'metrics',", $source);
     }
 
     public function testValidateProxyTargetAcceptsHttpHostsWithPorts(): void

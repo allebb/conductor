@@ -45,6 +45,10 @@ if (isset($commands[1])) {
             $conductor->stats();
             $conductor->endWithSuccess();
             break;
+        case "metrics":
+            $conductor->metrics();
+            $conductor->endWithSuccess();
+            break;
         case "test":
             $conductor->testNginxConfiguration();
             $conductor->endWithSuccess();
@@ -185,6 +189,7 @@ function displayHelp($conductor)
     $conductor->writeln('  versions            Display installed component versions');
     $conductor->writeln('  stats [--format=json]');
     $conductor->writeln('                      Display system, Nginx and IP address details');
+    $conductor->writeln('  metrics             Display Prometheus textfile metrics');
     $conductor->writeln('  test                Test the Nginx configuration');
     $conductor->writeln('  geoipdb --update    Download/update the GeoIP country database');
     $conductor->writeln('  auth {name} --enable|--disable');

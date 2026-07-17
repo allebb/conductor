@@ -303,6 +303,15 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Display Prometheus textfile metrics for Conductor-managed services.
+     * @return void
+     */
+    public function metrics()
+    {
+        $this->writeln($this->prometheusMetrics($this->statsData()));
+    }
+
+    /**
      * Collect the full stats payload used by text and JSON output.
      * @return array
      */
@@ -321,9 +330,121 @@ class Conductor extends CliApplication
             'memory' => $this->memoryStats(),
             'nginx_status' => $this->nginxStatusData(),
             'nginx_configuration' => $this->nginxConfigurationStats(),
+            'applications' => $this->applicationStats(),
             'configured_ip_addresses' => $this->configuredIpAddresses(),
             'public_detected_ip' => $this->publicDetectedIpAddress(),
         ];
+    }
+
+    /**
+     * Return application inventory counts.
+     * @return array
+     */
+    private function applicationStats()
+    {
+        $applications = [
+            'total' => 0,
+        ];
+
+        if (!isset($this->conf->paths->apps) || !is_dir($this->conf->paths->apps)) {
+            return $applications;
+        }
+
+        foreach (new DirectoryIterator($this->conf->paths->apps) as $application) {
+            if ($application->isDir() && $application->getBasename()[0] != '.') {
+                $applications['total']++;
+            }
+        }
+
+        return $applications;
+    }
+
+    /**
+     * Convert structured stats into Prometheus text exposition format.
+     * @param array $stats
+     * @return string
+     */
+    private function prometheusMetrics($stats)
+    {
+        $metrics = [];
+        $this->addPrometheusMetric($metrics, 'conductor_up', 'Conductor metrics command completed successfully.', 'gauge', 1);
+        $this->addPrometheusMetric($metrics, 'conductor_system_uptime_seconds', 'Operating system uptime in seconds.', 'gauge', $stats['system']['operating_system_uptime_seconds'] ?? null);
+        $this->addPrometheusMetric($metrics, 'conductor_nginx_uptime_seconds', 'Nginx master process uptime in seconds.', 'gauge', $stats['system']['nginx_daemon_uptime_seconds'] ?? null);
+
+        $this->addPrometheusMetric($metrics, 'conductor_memory_utilisation_percent', 'Memory utilisation percentage.', 'gauge', $stats['memory']['utilisation_percent'] ?? null);
+        $this->addPrometheusMetric($metrics, 'conductor_memory_used_bytes', 'Used memory in bytes.', 'gauge', $this->megabytesToBytes($stats['memory']['used_mb'] ?? null));
+        $this->addPrometheusMetric($metrics, 'conductor_memory_available_bytes', 'Available memory in bytes.', 'gauge', $this->megabytesToBytes($stats['memory']['available_mb'] ?? null));
+        $this->addPrometheusMetric($metrics, 'conductor_memory_total_bytes', 'Total memory in bytes.', 'gauge', $this->megabytesToBytes($stats['memory']['total_mb'] ?? null));
+
+        $this->addPrometheusMetric($metrics, 'conductor_nginx_virtual_hosts_enabled', 'Enabled Conductor Nginx virtual host configuration files.', 'gauge', $stats['nginx_configuration']['virtual_hosts']['enabled'] ?? null);
+        $this->addPrometheusMetric($metrics, 'conductor_nginx_virtual_hosts_disabled', 'Disabled Conductor Nginx virtual host configuration files.', 'gauge', $stats['nginx_configuration']['virtual_hosts']['disabled'] ?? null);
+        $this->addPrometheusMetric($metrics, 'conductor_nginx_streams_enabled', 'Enabled Conductor Nginx stream configuration files.', 'gauge', $stats['nginx_configuration']['streams']['enabled'] ?? null);
+        $this->addPrometheusMetric($metrics, 'conductor_nginx_streams_disabled', 'Disabled Conductor Nginx stream configuration files.', 'gauge', $stats['nginx_configuration']['streams']['disabled'] ?? null);
+        $this->addPrometheusMetric($metrics, 'conductor_applications_total', 'Conductor application directories.', 'gauge', $stats['applications']['total'] ?? null);
+        $this->addPrometheusMetric($metrics, 'conductor_configured_ip_addresses_total', 'Configured host IP addresses detected by Conductor.', 'gauge', $this->configuredIpAddressCount($stats['configured_ip_addresses'] ?? []));
+
+        $nginx_status_available = !(isset($stats['nginx_status']['available']) && $stats['nginx_status']['available'] === false);
+        $this->addPrometheusMetric($metrics, 'conductor_nginx_status_available', 'Whether Nginx stub_status data was available.', 'gauge', $nginx_status_available ? 1 : 0);
+        $this->addPrometheusMetric($metrics, 'conductor_nginx_connections_active', 'Active Nginx connections.', 'gauge', $stats['nginx_status']['active_connections'] ?? null);
+        $this->addPrometheusMetric($metrics, 'conductor_nginx_connections_accepted_total', 'Accepted Nginx connections.', 'counter', $stats['nginx_status']['accepted_connections'] ?? null);
+        $this->addPrometheusMetric($metrics, 'conductor_nginx_connections_handled_total', 'Handled Nginx connections.', 'counter', $stats['nginx_status']['handled_connections'] ?? null);
+        $this->addPrometheusMetric($metrics, 'conductor_nginx_requests_total', 'Nginx requests.', 'counter', $stats['nginx_status']['requests'] ?? null);
+        $this->addPrometheusMetric($metrics, 'conductor_nginx_connections_reading', 'Nginx connections reading request headers.', 'gauge', $stats['nginx_status']['reading'] ?? null);
+        $this->addPrometheusMetric($metrics, 'conductor_nginx_connections_writing', 'Nginx connections writing responses.', 'gauge', $stats['nginx_status']['writing'] ?? null);
+        $this->addPrometheusMetric($metrics, 'conductor_nginx_connections_waiting', 'Idle keepalive Nginx connections.', 'gauge', $stats['nginx_status']['waiting'] ?? null);
+
+        return implode(PHP_EOL, $metrics) . PHP_EOL;
+    }
+
+    /**
+     * Add one Prometheus metric when the value is numeric.
+     * @param array $metrics
+     * @param string $name
+     * @param string $help
+     * @param string $type
+     * @param mixed $value
+     * @return void
+     */
+    private function addPrometheusMetric(&$metrics, $name, $help, $type, $value)
+    {
+        if (!is_numeric($value)) {
+            return;
+        }
+
+        $metrics[] = '# HELP ' . $name . ' ' . str_replace(["\r", "\n"], ' ', $help);
+        $metrics[] = '# TYPE ' . $name . ' ' . $type;
+        $metrics[] = $name . ' ' . $value;
+    }
+
+    /**
+     * Convert MB values to bytes for Prometheus conventions.
+     * @param mixed $megabytes
+     * @return int|null
+     */
+    private function megabytesToBytes($megabytes)
+    {
+        if (!is_numeric($megabytes)) {
+            return null;
+        }
+
+        return (int) $megabytes * 1024 * 1024;
+    }
+
+    /**
+     * Count real configured IP address entries, excluding N/A placeholders.
+     * @param array $addresses
+     * @return int
+     */
+    private function configuredIpAddressCount($addresses)
+    {
+        $count = 0;
+        foreach ($addresses as $address) {
+            if (strpos($address, 'N/A') !== 0) {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     /**
@@ -881,6 +1002,7 @@ class Conductor extends CliApplication
             'list',
             'versions',
             'stats',
+            'metrics',
             'test',
             'geoipdb',
             'auth',
