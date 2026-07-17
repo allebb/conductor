@@ -113,7 +113,7 @@ final class ConductorTest extends TestCase
     {
         $source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');
 
-        $clone_position = strpos($source, '$this->conf->binaries->git . \' clone \'');
+        $clone_position = strpos($source, '$this->conf->binaries->git . \' clone --branch \'');
         $appdir_chown_position = strpos($source, '$this->call(\'chown -R \' . $this->conf->permissions->webuser . \':\' . $this->conf->permissions->webgroup . \' \' . $this->appdir);');
         $env_position = strpos($source, '/usr/bin/conductor envars', $clone_position);
         $error_pages_position = strpos($source, '$this->createApplicationErrorPage($status_code, $error_page_root);', $clone_position);
@@ -127,11 +127,14 @@ final class ConductorTest extends TestCase
         $this->assertGreaterThan($clone_position, $error_pages_position);
         $this->assertStringContainsString('if (!$this->isDirectoryEmpty($this->appdir))', $source);
         $this->assertStringNotContainsString('$this->call(\'rm -Rf \' . $this->appname);', $source);
-        $this->assertStringContainsString('$gitbranch = $this->getOption(\'git-branch\', \'main\');', $source);
         $this->assertStringContainsString('Git branch [main]:', $source);
+        $this->assertStringContainsString('$gitbranch = trim($this->getOption(\'git-branch\', \'main\'));', $source);
+        $this->assertStringContainsString('$gitrepo = trim($this->input(\'Git repository URI (eg. git@github.com:user/repo.git):\'));', $source);
+        $this->assertStringContainsString('$gitbranch = trim($this->input(\'Git branch [main]: \'));', $source);
         $this->assertStringContainsString('$gitbranch = \'main\';', $source);
-        $this->assertStringContainsString('Git clone failed; aborting application deployment.', $source);
-        $this->assertStringContainsString('Git checkout failed; aborting application deployment.', $source);
+        $this->assertStringContainsString('git . \' clone --branch \' . escapeshellarg($gitbranch)', $source);
+        $this->assertStringContainsString('Git clone failed; check the repository URI and branch, then try again.', $source);
+        $this->assertStringNotContainsString('Git checkout failed; aborting application deployment.', $source);
     }
 
     public function testGitCommandsUseDeploymentKeyAsWebUser(): void

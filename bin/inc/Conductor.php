@@ -3367,7 +3367,10 @@ class Conductor extends CliApplication
             $this->endWithError();
         }
 
-        $gitbranch = $this->getOption('git-branch', 'main');
+        $gitbranch = trim($this->getOption('git-branch', 'main'));
+        if (!$gitbranch) {
+            $gitbranch = 'main';
+        }
         if (!$this->getOption('fqdn')) {
             // Entering interactive mode...
             $domain = $this->input('Domains (FQDN\'s) to map this application to:');
@@ -3395,7 +3398,7 @@ class Conductor extends CliApplication
 
             if ($this->getOption('git-uri')) {
                 $deploy_git = self::OPTION_YES;
-                $gitrepo = $this->getOption('git-uri');
+                $gitrepo = trim($this->getOption('git-uri'));
             }
         }
 
@@ -3411,8 +3414,8 @@ class Conductor extends CliApplication
 
             if (!isset($gitrepo)) {
                 $this->writeln();
-                $gitrepo = $this->input('Git repository URI (eg. git@github.com:user/repo.git):');
-                $gitbranch = $this->input('Git branch [main]: ');
+                $gitrepo = trim($this->input('Git repository URI (eg. git@github.com:user/repo.git):'));
+                $gitbranch = trim($this->input('Git branch [main]: '));
                 if (!$gitbranch) {
                     $gitbranch = 'main';
                 }
@@ -3480,12 +3483,8 @@ class Conductor extends CliApplication
             }
 
             $this->callOrFail(
-                $this->gitWithDeploymentKey($this->conf->binaries->git . ' clone ' . escapeshellarg($gitrepo) . ' .', $this->appdir),
-                'Git clone failed; aborting application deployment.'
-            );
-            $this->callOrFail(
-                $this->gitWithDeploymentKey($this->conf->binaries->git . ' checkout ' . escapeshellarg($gitbranch), $this->appdir),
-                'Git checkout failed; aborting application deployment.'
+                $this->gitWithDeploymentKey($this->conf->binaries->git . ' clone --branch ' . escapeshellarg($gitbranch) . ' ' . escapeshellarg($gitrepo) . ' .', $this->appdir),
+                'Git clone failed; check the repository URI and branch, then try again.'
             );
             $this->call('/usr/bin/conductor envars ' . $this->appname . ' APP_ENV="' . $environment . '"');
             if (file_exists($this->appdir . '/vendor')) {
