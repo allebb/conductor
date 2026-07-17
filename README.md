@@ -65,6 +65,7 @@ Out of the box this script will install and configure the following packages usi
 * PHP 8.5 (required by Conductor)
 * Git Client
 * CertBot (LetsEncrypt)
+* Logrotate
 
 The current Debian installers will also ask whether you want to install:
 
@@ -126,7 +127,9 @@ sudo conductor new {app name} --fqdn="example.com" --template=proxy --target="ht
 
 The ``--target`` value is only valid for proxy templates and must be an HTTP(S) URL with a host and explicit port number.
 
-Proxy applications do not ask for a hosted directory because the virtual host serves from the application root. Conductor will also create custom ``.502.html``, ``.503.html``, and ``.504.html`` pages in ``/var/conductor/applications/{app name}/`` and configure Nginx to show them if the backend application is unreachable.
+Proxy applications do not ask for a hosted directory because the virtual host serves from the application root. Conductor will also create custom ``502.html``, ``503.html``, and ``504.html`` pages in ``/var/conductor/applications/{app name}/.conductor/error_pages/`` and configure Nginx to show them if the backend application is unreachable. If those copied pages or the ``.conductor/error_pages`` directory are deleted, Nginx falls back to the shared proxy error pages in ``/var/conductor/error-pages/``.
+
+All vhost templates include custom ``401.html``, ``403.html``, ``404.html``, and ``500.html`` error pages by default. Conductor creates local copies in the vhost's ``.conductor/error_pages`` directory first and falls back to shared versions in ``/var/conductor/error-pages/`` if a local page or directory is removed. Comment out ``include /etc/conductor/configs/common/conductor_error_pages.conf;`` in a vhost if the application should handle these responses itself.
 
 For non-proxy applications, Conductor creates a ``conductor.html`` placeholder page in the application's document root and adds it as the last index file. This confirms that the virtual host is ready; you can safely delete ``conductor.html`` after (or before) deploying your own site or application.
 
@@ -186,7 +189,7 @@ Each Conductor Fail2Ban jail also posts JSON ban/unban events to ``https://bin.h
 
 > These values can be manually adjusted to fit your personal requirements by editting the default configurations that are installed to ``/etc/conductor/configs/common/fail2ban/``.
 
-The security log format records the timestamp, client IP, Conductor application id, status code, request line, and user agent to keep things "lean" while still making ban webhooks attributable to a site/application. The ``/tmp`` path is often memory-backed on modern Linux systems, but not always; check ``findmnt /tmp`` if this matters for your server. A logrotate rule is installed to rotate matching security logs at 10MB and keep three compressed rotations.
+The security log format records the timestamp, client IP, Conductor application id, status code, request line, and user agent to keep things "lean" while still making ban webhooks attributable to a site/application. The ``/tmp`` path is often memory-backed on modern Linux systems, but not always; check ``findmnt /tmp`` if this matters for your server. The main installer installs logrotate rules for the normal per-vhost ``access.log`` and ``error.log`` files under ``/var/conductor/logs/*/``, plus matching security logs at 10MB with three compressed rotations.
 
 Once Fail2Ban support is installed, Conductor can manage bans directly:
 
@@ -297,7 +300,9 @@ Add ``--auto-reload`` to gracefully reload Nginx automatically after the configu
 
 Opens the application's WAF configuration file at ``/etc/conductor/wafs/{app name}.conf``. This file is included inside the application's Nginx virtual host and can contain per-application WAF, access-control, and file-protection rules.
 
-New WAF files include ``/etc/conductor/configs/common/block_common_crawlers.conf``, ``/etc/conductor/configs/common/block_common_bots.conf``, ``/etc/conductor/configs/common/block_common_sql_injection.conf``, ``/etc/conductor/configs/common/block_common_path_traversal.conf``, and ``/etc/conductor/configs/common/block_common_files.conf`` by default. These shared snippets block common search-engine crawlers, common AI search/training/user-agent bots, common SQL injection probes, common path traversal/local file inclusion probes in paths or query strings, and common sensitive files/directories such as ``wp-config.php``, readme/license files, backup/config files, ``node_modules/``, ``.git/``, and ``.env`` files. Matching requests return ``406 Not Acceptable`` and render the local ``.406.html`` WAF rejection page. Remove or comment an include in the per-application WAF file if that application should allow the matching traffic.
+New WAF files include ``/etc/conductor/configs/common/xcaler_community_search_engines.conf``, ``/etc/conductor/configs/common/xcaler_community_ai_bots.conf``, ``/etc/conductor/configs/common/xcaler_community_sql_injection.conf``, ``/etc/conductor/configs/common/xcaler_community_path_traversal.conf``, and ``/etc/conductor/configs/common/xcaler_community_common_paths.conf`` by default. These shared snippets block common search-engine crawlers, common AI search/training/user-agent bots, common SQL injection probes, common path traversal/local file inclusion probes in paths or query strings, and common sensitive files/directories such as ``wp-config.php``, readme/license files, backup/config files, ``node_modules/``, ``.git/``, and ``.env`` files. Matching requests return ``406 Not Acceptable`` and render the shared WAF rejection page from ``/var/conductor/error-pages/406.html``. Remove or comment an include in the per-application WAF file if that application should allow the matching traffic.
+
+Run ``sudo conductor waf rulesets --update-community`` to download the latest Xcaler community lists from ``https://lists.xcaler.com/`` into ``/etc/conductor/configs/common/xcaler_community_{type}.conf``. The command prints ``updated!`` or ``failed!`` for each ruleset file, validates the Nginx configuration, reverts the downloaded rulesets if validation fails, and gracefully reloads Nginx when validation succeeds.
 
 ```shell
 sudo conductor waf {app name}
@@ -434,6 +439,18 @@ We recommend adding this line to the crontab so that updates are applied monthly
 ```shell
 14 0 1 * * /usr/bin/conductor geoipdb update
 ```
+
+Automating Xcaler community WAF ruleset updates
+-----------------------------------------------
+If you use the bundled Xcaler community WAF rulesets, we recommend updating them regularly so new common probes and bot patterns are picked up automatically.
+
+For example, add this line to the crontab to update the community rulesets once a week, every Sunday at 02:30:
+
+```shell
+30 2 * * 0 /usr/bin/conductor waf rulesets --update-community
+```
+
+The command validates the Nginx configuration after downloading the rulesets, reverts automatically if validation fails, and gracefully reloads Nginx when the updated rulesets pass.
 
 The use of different PHP versions
 ---------------------------

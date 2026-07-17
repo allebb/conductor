@@ -274,6 +274,12 @@ class Conductor extends CliApplication
         $this->writeln('  Nginx daemon uptime:     ' . $stats['system']['nginx_daemon_uptime']);
 
         $this->writeln();
+        $this->writeln('Memory');
+        $this->writeln('   Utilisation: ' . $stats['memory']['utilisation_percent'] . '%');
+        $this->writeln('   Used:         ' . $stats['memory']['used_mb'] . 'MB');
+        $this->writeln('   Available:   ' . $stats['memory']['available_mb'] . 'MB');
+
+        $this->writeln();
         $this->writeln('Nginx status');
         foreach ($this->formatNginxStatusLines($stats['nginx_status']) as $line) {
             $this->writeln('  ' . $line);
@@ -312,6 +318,7 @@ class Conductor extends CliApplication
                 'nginx_daemon_uptime' => $this->formatDuration($nginx_daemon_uptime_seconds),
                 'nginx_daemon_uptime_seconds' => $this->wholeSeconds($nginx_daemon_uptime_seconds),
             ],
+            'memory' => $this->memoryStats(),
             'nginx_status' => $this->nginxStatusData(),
             'nginx_configuration' => $this->nginxConfigurationStats(),
             'configured_ip_addresses' => $this->configuredIpAddresses(),
@@ -391,6 +398,59 @@ class Conductor extends CliApplication
         }
 
         return $counts;
+    }
+
+    /**
+     * Read current memory utilisation from procfs.
+     * @return array
+     */
+    private function memoryStats()
+    {
+        if (!is_readable('/proc/meminfo')) {
+            return [
+                'utilisation_percent' => 'N/A',
+                'used_mb' => 'N/A',
+                'available_mb' => 'N/A',
+                'total_mb' => 'N/A',
+            ];
+        }
+
+        return $this->parseMemoryStats(file_get_contents('/proc/meminfo'));
+    }
+
+    /**
+     * Parse Linux meminfo data into whole MB values.
+     * @param string $meminfo
+     * @return array
+     */
+    private function parseMemoryStats($meminfo)
+    {
+        $values = [];
+        foreach (explode("\n", $meminfo) as $line) {
+            if (preg_match('/^([A-Za-z_()]+):\s+(\d+)\s+kB$/', trim($line), $matches)) {
+                $values[$matches[1]] = (int) $matches[2];
+            }
+        }
+
+        if (!isset($values['MemTotal']) || $values['MemTotal'] <= 0) {
+            return [
+                'utilisation_percent' => 'N/A',
+                'used_mb' => 'N/A',
+                'available_mb' => 'N/A',
+                'total_mb' => 'N/A',
+            ];
+        }
+
+        $total_kb = $values['MemTotal'];
+        $available_kb = $values['MemAvailable'] ?? ($values['MemFree'] ?? 0);
+        $used_kb = max(0, $total_kb - $available_kb);
+
+        return [
+            'utilisation_percent' => (int) round(($used_kb / $total_kb) * 100),
+            'used_mb' => (int) round($used_kb / 1024),
+            'available_mb' => (int) round($available_kb / 1024),
+            'total_mb' => (int) round($total_kb / 1024),
+        ];
     }
 
     /**
@@ -733,6 +793,16 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Download a URL. Kept overridable for tests.
+     * @param string $url
+     * @return string|null
+     */
+    protected function downloadUrl($url)
+    {
+        return $this->httpGet($url);
+    }
+
+    /**
      * Print shell completion candidates for the external completion script.
      * @return void
      */
@@ -780,6 +850,12 @@ class Conductor extends CliApplication
                 return $this->filterCompletionCandidates(['list', 'purge'], $current);
             case 'geoipdb':
                 return $this->filterCompletionCandidates(['update'], $current);
+            case 'waf':
+                if ($current_index == 2) {
+                    return $this->filterCompletionCandidates(array_merge(['rulesets'], $this->completionApplicationNames()), $current);
+                }
+
+                return [];
             case 'auth':
                 if ($current_index == 3) {
                     return $this->filterCompletionCandidates(['set', 'delete'], $current);
@@ -895,7 +971,7 @@ class Conductor extends CliApplication
             'geoipdb' => ['--url='],
             'auth' => ['--enable', '--disable', '--auto-reload'],
             'protect' => ['--enable', '--disable', '--auto-reload'],
-            'waf' => ['--enable', '--disable', '--auto-reload'],
+            'waf' => ['--enable', '--disable', '--auto-reload', '--update-community'],
             'dump' => ['--waf'],
             'load' => ['--waf'],
         ];
@@ -1089,6 +1165,140 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Manage WAF configuration and shared rulesets.
+     * @return void
+     */
+    public function wafControl()
+    {
+        if ($this->getCommand(2) == 'rulesets') {
+            if ($this->isFlagSet('update-community')) {
+                $this->updateXcalerCommunityRulesets();
+                return;
+            }
+
+            $this->writeln('Usage: conductor waf rulesets --update-community');
+            $this->endWithError();
+        }
+
+        $this->appNameRequired();
+
+        if ($this->isFlagSet('enable') && $this->isFlagSet('disable')) {
+            $this->writeln('Usage: conductor waf {name} --enable|--disable [--auto-reload]');
+            $this->writeln('       conductor waf rulesets --update-community');
+            $this->endWithError();
+        }
+
+        if ($this->isFlagSet('enable')) {
+            $this->updateApplicationWafConfig(true);
+            return;
+        }
+
+        if ($this->isFlagSet('disable')) {
+            $this->updateApplicationWafConfig(false);
+            return;
+        }
+
+        $this->editApplicationWafConfig();
+    }
+
+    /**
+     * Download and replace Xcaler community rulesets.
+     * @return void
+     */
+    private function updateXcalerCommunityRulesets()
+    {
+        $directory = $this->commonConfigurationDirectory();
+        if (!is_dir($directory) && !mkdir($directory, 0755, true)) {
+            $this->writeln('Unable to create common configuration directory: ' . $directory);
+            $this->endWithError();
+        }
+
+        $backups = [];
+        $updated_any = false;
+
+        foreach ($this->xcalerCommunityRulesetTypes() as $type) {
+            $filename = 'xcaler_community_' . $type . '.conf';
+            $url = 'https://lists.xcaler.com/xcaler_' . $type . '.list';
+            $target = $directory . '/' . $filename;
+            $backups[$target] = [
+                'exists' => file_exists($target),
+                'content' => file_exists($target) ? file_get_contents($target) : null,
+            ];
+            $body = $this->downloadUrl($url);
+            $updated = false;
+
+            if ($body !== null && trim($body) !== '') {
+                $updated = file_put_contents($target, $body) !== false;
+            }
+
+            if ($updated) {
+                $updated_any = true;
+            }
+
+            $this->writeln($filename . ': ' . ($updated ? 'updated!' : 'failed!'));
+        }
+
+        if (!$updated_any) {
+            return;
+        }
+
+        if (!$this->runNginxConfigurationTest()) {
+            $this->restoreFilesFromBackups($backups);
+            $this->writeln('Tests failed, reverting rulesets back to previous ruleset configuration!');
+            return;
+        }
+
+        $this->reloadNginxGracefully();
+    }
+
+    /**
+     * Community ruleset type slugs.
+     * @return array
+     */
+    private function xcalerCommunityRulesetTypes()
+    {
+        return [
+            'search_engines',
+            'ai_bots',
+            'sql_injection',
+            'path_traversal',
+            'common_paths',
+        ];
+    }
+
+    /**
+     * Return the common configuration directory.
+     * @return string
+     */
+    private function commonConfigurationDirectory()
+    {
+        if (isset($this->conf->paths->templates)) {
+            return rtrim($this->conf->paths->templates, '/');
+        }
+
+        return '/etc/conductor/configs/common';
+    }
+
+    /**
+     * Restore files captured before a batch update.
+     * @param array $backups
+     * @return void
+     */
+    private function restoreFilesFromBackups($backups)
+    {
+        foreach ($backups as $path => $backup) {
+            if ($backup['exists']) {
+                file_put_contents($path, $backup['content']);
+                continue;
+            }
+
+            if (file_exists($path)) {
+                unlink($path);
+            }
+        }
+    }
+
+    /**
      * Manage optional security logging protection for an application.
      * @return void
      */
@@ -1113,32 +1323,6 @@ class Conductor extends CliApplication
 
         $this->writeln('Usage: conductor protect {name} --enable|--disable [--auto-reload]');
         $this->endWithError();
-    }
-
-    /**
-     * Manage an application's WAF include file and vhost include toggle.
-     * @return void
-     */
-    public function wafControl()
-    {
-        $this->appNameRequired();
-
-        if ($this->isFlagSet('enable') && $this->isFlagSet('disable')) {
-            $this->writeln('Usage: conductor waf {name} [--enable|--disable] [--auto-reload]');
-            $this->endWithError();
-        }
-
-        if ($this->isFlagSet('enable')) {
-            $this->updateApplicationWafConfig(true);
-            return;
-        }
-
-        if ($this->isFlagSet('disable')) {
-            $this->updateApplicationWafConfig(false);
-            return;
-        }
-
-        $this->editApplicationWafConfig();
     }
 
     /**
@@ -1398,6 +1582,8 @@ class Conductor extends CliApplication
      */
     private function ensureApplicationWafConfig()
     {
+        $this->ensureSharedWafErrorPage();
+
         $directory = $this->wafDirectory();
         if (!is_dir($directory) && !mkdir($directory, 0755, true)) {
             $this->writeln('Unable to create WAF configuration directory: ' . $directory);
@@ -1441,18 +1627,12 @@ class Conductor extends CliApplication
     private function defaultWafConfigContent()
     {
         return implode(PHP_EOL, [
-            '# Conductor managed WAF include for ' . $this->appname,
+            '# Conductor managed (Xcaler) WAF configured for ' . $this->appname,
             '#',
             '# This file is included inside the application Nginx server{} block.',
             '# Add per-application WAF, access-control, and file-protection rules here.',
             '',
-            '# Local page for requests rejected by Conductor WAF rules.',
-            'error_page 406 /.406.html;',
-            'location = /.406.html {',
-            '    internal;',
-            '    add_header Cache-Control "no-store";',
-            '    add_header X-Application-Id $conductor_application always;',
-            '}',
+            'include /etc/conductor/configs/common/conductor_waf_error_pages.conf;',
             '',
         ]);
     }
@@ -1465,6 +1645,8 @@ class Conductor extends CliApplication
      */
     private function createApplicationWafConfig($template, $placeholders)
     {
+        $this->ensureSharedWafErrorPage();
+
         $directory = $this->wafDirectory();
         if (!is_dir($directory) && !mkdir($directory, 0755, true)) {
             $this->writeln('Unable to create WAF configuration directory: ' . $directory);
@@ -3095,9 +3277,10 @@ class Conductor extends CliApplication
         }
 
         if ($is_proxy_template) {
-            foreach ([406, 502, 503, 504] as $status_code) {
+            foreach ([502, 503, 504] as $status_code) {
                 $this->createApplicationErrorPage($status_code, $this->appdir);
             }
+            $error_page_root = $this->appdir;
         } else {
             $conductor_page_template = $this->conf->paths->templates . '/templates/conductor.html.tpl';
             if (!file_exists($conductor_page_template)) {
@@ -3116,7 +3299,11 @@ class Conductor extends CliApplication
             $conductor_page = str_replace('@@APPNAME@@', $this->appname, $conductor_page);
             file_put_contents($conductor_page_path, $conductor_page);
 
-            $this->createApplicationErrorPage(406, $document_root);
+            $error_page_root = $document_root;
+        }
+
+        foreach ([401, 403, 404, 500] as $status_code) {
+            $this->createApplicationErrorPage($status_code, $error_page_root);
         }
 
         $this->writeln('Setting ownership permissions on application files...');
@@ -3140,24 +3327,83 @@ class Conductor extends CliApplication
     }
 
     /**
-     * Create an application-specific hidden error page from the bundled template.
+     * Create an application-specific error page from the bundled template.
      * @param int $status_code
      * @param string $document_root
      * @return void
      */
     private function createApplicationErrorPage($status_code, $document_root)
     {
+        $this->ensureSharedErrorPage($status_code);
+
         $error_template = $this->conf->paths->templates . '/templates/' . $status_code . '.html.tpl';
         if (!file_exists($error_template)) {
             $this->writeln('The application error page template was not found: ' . $error_template);
             $this->endWithError();
         }
 
-        $error_page_path = rtrim($document_root, '/') . '/.' . $status_code . '.html';
+        $error_page_directory = rtrim($document_root, '/') . '/.conductor/error_pages';
+        if (!is_dir($error_page_directory) && !mkdir($error_page_directory, 0755, true)) {
+            $this->writeln('Unable to create local error page directory: ' . $error_page_directory);
+            $this->endWithError();
+        }
+
+        $error_page_path = $error_page_directory . '/' . $status_code . '.html';
         copy($error_template, $error_page_path);
         $error_page = file_get_contents($error_page_path);
         $error_page = str_replace('@@APPNAME@@', $this->appname, $error_page);
         file_put_contents($error_page_path, $error_page);
+    }
+
+    /**
+     * Ensure the shared WAF rejection page exists outside application directories.
+     * @return void
+     */
+    private function ensureSharedWafErrorPage()
+    {
+        $this->ensureSharedErrorPage(406);
+    }
+
+    /**
+     * Ensure a shared error page exists outside application directories.
+     * @param int $status_code
+     * @return void
+     */
+    private function ensureSharedErrorPage($status_code)
+    {
+        $shared_directory = $this->sharedWafErrorPageDirectory();
+        if (!is_dir($shared_directory) && !mkdir($shared_directory, 0755, true)) {
+            $this->writeln('Unable to create shared error page directory: ' . $shared_directory);
+            $this->endWithError();
+        }
+
+        $shared_page = $shared_directory . '/' . $status_code . '.html';
+        if (file_exists($shared_page)) {
+            return;
+        }
+
+        $error_template = $this->conf->paths->templates . '/templates/' . $status_code . '.html.tpl';
+        if (!file_exists($error_template)) {
+            $this->writeln('The shared error page template was not found: ' . $error_template);
+            $this->endWithError();
+        }
+
+        copy($error_template, $shared_page);
+        @chown($shared_page, $this->conf->permissions->webuser);
+        @chgrp($shared_page, $this->conf->permissions->webgroup);
+    }
+
+    /**
+     * Return the shared error page directory.
+     * @return string
+     */
+    private function sharedWafErrorPageDirectory()
+    {
+        if (isset($this->conf->paths->errorpages)) {
+            return rtrim($this->conf->paths->errorpages, '/');
+        }
+
+        return '/var/conductor/error-pages';
     }
 
     /**

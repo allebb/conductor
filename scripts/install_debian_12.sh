@@ -182,7 +182,7 @@ check_required_tcp_ports "${REQUIRED_PORTS[@]}"
 # @todo
 
 sudo apt-get update
-sudo apt-get -y install software-properties-common debconf-i18n bash-completion curl
+sudo apt-get -y install software-properties-common debconf-i18n bash-completion curl logrotate
 
 # We now install Nginx
 sudo apt-get -y install nginx libnginx-mod-http-geoip2
@@ -268,6 +268,7 @@ sudo mkdir /var/conductor/logs
 sudo mkdir /var/conductor/backups
 sudo mkdir /var/conductor/tmp
 sudo mkdir /var/conductor/geoip
+sudo mkdir /var/conductor/error-pages
 sudo mkdir /var/conductor/cache
 sudo mkdir /var/conductor/cache/nginx-proxy
 sudo chown -R www-data:www-data /var/conductor/cache
@@ -294,6 +295,22 @@ sudo chown -R www-data:www-data /var/www/.ssh
 # Create a blank default file.
 sudo cp /etc/conductor/templates/index.html /var/www/html
 sudo chown www-data:www-data /var/www/html/index.html
+sudo cp /etc/conductor/configs/common/templates/401.html.tpl /var/conductor/error-pages/401.html
+sudo cp /etc/conductor/configs/common/templates/403.html.tpl /var/conductor/error-pages/403.html
+sudo cp /etc/conductor/configs/common/templates/404.html.tpl /var/conductor/error-pages/404.html
+sudo cp /etc/conductor/configs/common/templates/406.html.tpl /var/conductor/error-pages/406.html
+sudo cp /etc/conductor/configs/common/templates/500.html.tpl /var/conductor/error-pages/500.html
+sudo cp /etc/conductor/configs/common/templates/502.html.tpl /var/conductor/error-pages/502.html
+sudo cp /etc/conductor/configs/common/templates/503.html.tpl /var/conductor/error-pages/503.html
+sudo cp /etc/conductor/configs/common/templates/504.html.tpl /var/conductor/error-pages/504.html
+sudo chown www-data:www-data /var/conductor/error-pages/401.html
+sudo chown www-data:www-data /var/conductor/error-pages/403.html
+sudo chown www-data:www-data /var/conductor/error-pages/404.html
+sudo chown www-data:www-data /var/conductor/error-pages/406.html
+sudo chown www-data:www-data /var/conductor/error-pages/500.html
+sudo chown www-data:www-data /var/conductor/error-pages/502.html
+sudo chown www-data:www-data /var/conductor/error-pages/503.html
+sudo chown www-data:www-data /var/conductor/error-pages/504.html
 
 # Copy the SSL params settings to the server...
 sudo cp /etc/conductor/templates/ssl-params.conf /etc/nginx/snippets;
@@ -309,6 +326,8 @@ sudo chmod +x /etc/conductor/bin/*
 sudo chmod +x /etc/conductor/utils/*
 sudo /etc/conductor/utils/install_nginx_streams.sh
 sudo install -m 0644 /etc/conductor/configs/common/completion/conductor.bash /etc/bash_completion.d/conductor
+sudo install -d -m 0755 /etc/logrotate.d
+sudo install -m 0644 /etc/conductor/configs/common/logrotate/* /etc/logrotate.d/
 
 # Lets symlink the main conductor script...
 sudo ln -s /etc/conductor/bin/conductor.php /usr/bin/conductor

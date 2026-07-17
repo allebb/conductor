@@ -1,0 +1,10 @@
+/var/conductor/logs/*/access.log /var/conductor/logs/*/error.log {
+    daily
+    rotate 14
+    missingok
+    notifempty
+    copytruncate
+    compress
+    delaycompress
+    su www-data www-data
+}

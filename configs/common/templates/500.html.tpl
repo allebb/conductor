@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
-    <title>502 Bad Gateway</title>
+    <title>500 Server Error</title>
     <style>
         :root {
             color-scheme: light;
@@ -125,10 +125,10 @@
 <body>
     <main>
         <div class="heading">
-            <h1>Bad gateway.</h1>
-            <p class="status">HTTP 502</p>
+            <h1>Server error.</h1>
+            <p class="status">HTTP 500</p>
         </div>
-        <p>The proxy/load-balancer is running, but it could not get a valid response from the upstream service.</p>
+        <p>The server encountered an unexpected condition and could not complete the request.</p>
     </main>
 </body>
 </html>

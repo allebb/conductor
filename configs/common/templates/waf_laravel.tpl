@@ -1,4 +1,4 @@
-# Conductor managed WAF include for @@APPNAME@@
+# Conductor managed (Xcaler) WAF configured for @@APPNAME@@
 
 ##########################################################################
 # Explicit Access (IP) Access Controls                                   #
@@ -20,6 +20,17 @@
 #     # To enable Fail2Ban protection, for this Vhost run: conductor protect @@APPNAME@@ --enable
 #     return 444;
 # }
+#
+# In the below example, we are explicitly allowing only users from England/UK.
+# Country-level GeoIP databases return GB for the United Kingdom.
+# if ($conductor_geoip_country_code !~ ^GB$) {
+#     return 444;
+# }
+#
+# In the below example, we are explicitly allowing only users from GB, US and DE.
+# if ($conductor_geoip_country_code !~ ^(GB|US|DE)$) {
+#     return 444;
+# }
 ##########################################################################
 
 
@@ -27,15 +38,15 @@
 # Default "shared" rulesets.                                             #
 #========================================================================#
 # Blocks common web search engines (search indexing)
-#include /etc/conductor/configs/common/block_common_crawlers.conf;
+#include /etc/conductor/configs/common/xcaler_community_search_engines.conf;
 # Blocks common AI-bots (eg. AI-training/reasearch)
-include /etc/conductor/configs/common/block_common_bots.conf;
+include /etc/conductor/configs/common/xcaler_community_ai_bots.conf;
 # Blocks common SQL-like injection attacks
-include /etc/conductor/configs/common/block_common_sql_injection.conf;
+include /etc/conductor/configs/common/xcaler_community_sql_injection.conf;
 # Blocks attempts to traverse the web filesystem.
-include /etc/conductor/configs/common/block_common_path_traversal.conf;
+include /etc/conductor/configs/common/xcaler_community_path_traversal.conf;
 # Blocks access to common files (eg. wp-config.php, /node_modules/ etc.)
-include /etc/conductor/configs/common/block_common_files.conf;
+include /etc/conductor/configs/common/xcaler_community_common_paths.conf;
 ##########################################################################
 
 
@@ -64,12 +75,5 @@ include /etc/conductor/configs/common/block_common_files.conf;
 ##########################################################################
 # Fancy "error" (WAF-denied) error pages                                 #
 #========================================================================#
-# Local (styled/informative) page for requests rejected by Conductor WAF rules.
-# Disable (comment out) if you don't want to expose that the WAF intercepted!
-error_page 406 /.406.html;
-location = /.406.html {
-    internal;
-    add_header Cache-Control "no-store";
-    add_header X-Application-Id $conductor_application always;
-}
+include /etc/conductor/configs/common/conductor_waf_error_pages.conf;
 ##########################################################################

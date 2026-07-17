@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
-    <title>502 Bad Gateway</title>
+    <title>401 Authorization Required</title>
     <style>
         :root {
             color-scheme: light;
@@ -13,9 +13,9 @@
             --muted: #666666;
             --border: #d7d2c8;
             --code: #eeece7;
-            --danger: #c82333;
-            --danger-soft: #fff1f2;
-            --danger-ring: rgba(200, 35, 51, 0.24);
+            --danger: #8a5a00;
+            --danger-soft: #fff7d6;
+            --danger-ring: rgba(138, 90, 0, 0.24);
         }
 
         * {
@@ -125,10 +125,10 @@
 <body>
     <main>
         <div class="heading">
-            <h1>Bad gateway.</h1>
-            <p class="status">HTTP 502</p>
+            <h1>Authorization required.</h1>
+            <p class="status">HTTP 401</p>
         </div>
-        <p>The proxy/load-balancer is running, but it could not get a valid response from the upstream service.</p>
+        <p>This area requires valid credentials before the request can continue.</p>
     </main>
 </body>
 </html>

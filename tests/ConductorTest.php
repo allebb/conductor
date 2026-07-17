@@ -216,6 +216,35 @@ final class ConductorTest extends TestCase
         @rmdir($root);
     }
 
+    public function testStatsParsesMemoryUtilisationFromMeminfo(): void
+    {
+        $conductor = $this->makeConductor();
+        $method = (new ReflectionClass(Conductor::class))->getMethod('parseMemoryStats');
+
+        $stats = $method->invoke($conductor, implode("\n", [
+            'MemTotal:        2048000 kB',
+            'MemFree:          128000 kB',
+            'MemAvailable:     512000 kB',
+            'Buffers:           64000 kB',
+            'Cached:           256000 kB',
+        ]));
+
+        $this->assertSame(75, $stats['utilisation_percent']);
+        $this->assertSame(1500, $stats['used_mb']);
+        $this->assertSame(500, $stats['available_mb']);
+        $this->assertSame(2000, $stats['total_mb']);
+    }
+
+    public function testStatsTextOutputIncludesMemorySection(): void
+    {
+        $source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');
+
+        $this->assertStringContainsString("\$this->writeln('Memory');", $source);
+        $this->assertStringContainsString("'   Utilisation: ' . \$stats['memory']['utilisation_percent'] . '%'", $source);
+        $this->assertStringContainsString("'   Used:         ' . \$stats['memory']['used_mb'] . 'MB'", $source);
+        $this->assertStringContainsString("'   Available:   ' . \$stats['memory']['available_mb'] . 'MB'", $source);
+    }
+
     public function testValidateProxyTargetAcceptsHttpHostsWithPorts(): void
     {
         $conductor = $this->makeConductor();
@@ -607,9 +636,11 @@ final class ConductorTest extends TestCase
         $root = sys_get_temp_dir() . '/conductor-waf-config-' . uniqid();
         $configs = $root . '/configs';
         $waf = $root . '/waf';
+        $error_pages = $root . '/error-pages';
         mkdir($root);
         mkdir($configs);
         mkdir($waf);
+        mkdir($error_pages);
 
         $config = $configs . '/myapp.conf';
         file_put_contents($config, implode(PHP_EOL, [
@@ -648,6 +679,12 @@ final class ConductorTest extends TestCase
             'paths' => (object) [
                 'appconfs' => $configs,
                 'wafs' => $waf,
+                'errorpages' => $error_pages,
+                'templates' => __DIR__ . '/../configs/common',
+            ],
+            'permissions' => (object) [
+                'webuser' => get_current_user(),
+                'webgroup' => get_current_user(),
             ],
             'binaries' => (object) [
                 'nginx' => '/usr/sbin/nginx',
@@ -668,9 +705,160 @@ final class ConductorTest extends TestCase
         $this->assertStringContainsString('    include /etc/conductor/wafs/myapp.conf;', file_get_contents($config));
 
         @unlink($waf . '/myapp.conf');
+        @unlink($error_pages . '/406.html');
         @unlink($config);
+        @rmdir($error_pages);
         @rmdir($waf);
         @rmdir($configs);
+        @rmdir($root);
+    }
+
+    public function testWafRulesetsUpdateCommunityDownloadsRulesetsAndReloadsNginx(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-waf-rulesets-' . uniqid();
+        mkdir($root);
+
+        $conductor = new class(['conductor', 'waf', 'rulesets', '--update-community']) extends Conductor {
+            public array $lines = [];
+            public array $urls = [];
+            public array $commands = [];
+
+            public function __construct($argv)
+            {
+                \CliApplication::__construct($argv);
+            }
+
+            protected function downloadUrl($url)
+            {
+                $this->urls[] = $url;
+
+                if (str_contains($url, 'xcaler_ai_bots.list')) {
+                    return null;
+                }
+
+                return '# downloaded from ' . $url . "\n";
+            }
+
+            public function callWithOutput($command, &$output)
+            {
+                $this->commands[] = $command;
+                $output = [];
+                return 0;
+            }
+
+            public function call($command)
+            {
+                $this->commands[] = $command;
+                return '';
+            }
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+
+        (new ReflectionClass(Conductor::class))->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'templates' => $root,
+            ],
+            'binaries' => (object) [
+                'nginx' => '/usr/sbin/nginx',
+            ],
+            'services' => (object) [
+                'nginx' => (object) [
+                    'reload' => 'service nginx reload',
+                ],
+            ],
+        ]);
+
+        $conductor->wafControl();
+
+        foreach ([
+            'search_engines',
+            'sql_injection',
+            'path_traversal',
+            'common_paths',
+        ] as $type) {
+            $path = $root . '/xcaler_community_' . $type . '.conf';
+            $this->assertFileExists($path);
+            $this->assertStringContainsString('https://lists.xcaler.com/xcaler_' . $type . '.list', file_get_contents($path));
+            @unlink($path);
+        }
+
+        $this->assertFileDoesNotExist($root . '/xcaler_community_ai_bots.conf');
+        $this->assertContains('https://lists.xcaler.com/xcaler_ai_bots.list', $conductor->urls);
+        $this->assertContains('xcaler_community_search_engines.conf: updated!', $conductor->lines);
+        $this->assertContains('xcaler_community_ai_bots.conf: failed!', $conductor->lines);
+        $this->assertContains('/usr/sbin/nginx -t 2>&1', $conductor->commands);
+        $this->assertContains('service nginx reload', $conductor->commands);
+
+        @rmdir($root);
+    }
+
+    public function testWafRulesetsUpdateCommunityRevertsWhenNginxTestFails(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-waf-rulesets-fail-' . uniqid();
+        mkdir($root);
+        file_put_contents($root . '/xcaler_community_search_engines.conf', "# previous\n");
+
+        $conductor = new class(['conductor', 'waf', 'rulesets', '--update-community']) extends Conductor {
+            public array $lines = [];
+            public array $commands = [];
+
+            public function __construct($argv)
+            {
+                \CliApplication::__construct($argv);
+            }
+
+            protected function downloadUrl($url)
+            {
+                return '# invalid downloaded ruleset from ' . $url . "\n";
+            }
+
+            public function callWithOutput($command, &$output)
+            {
+                $this->commands[] = $command;
+                $output = ['nginx: configuration file test failed'];
+                return 1;
+            }
+
+            public function call($command)
+            {
+                $this->commands[] = $command;
+                return '';
+            }
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+
+        (new ReflectionClass(Conductor::class))->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'templates' => $root,
+            ],
+            'binaries' => (object) [
+                'nginx' => '/usr/sbin/nginx',
+            ],
+            'services' => (object) [
+                'nginx' => (object) [
+                    'reload' => 'service nginx reload',
+                ],
+            ],
+        ]);
+
+        $conductor->wafControl();
+
+        $this->assertSame("# previous\n", file_get_contents($root . '/xcaler_community_search_engines.conf'));
+        foreach (['ai_bots', 'sql_injection', 'path_traversal', 'common_paths'] as $type) {
+            $this->assertFileDoesNotExist($root . '/xcaler_community_' . $type . '.conf');
+        }
+        $this->assertContains('Tests failed, reverting rulesets back to previous ruleset configuration!', $conductor->lines);
+        $this->assertNotContains('service nginx reload', $conductor->commands);
+
+        @unlink($root . '/xcaler_community_search_engines.conf');
         @rmdir($root);
     }
 
@@ -843,16 +1031,24 @@ final class ConductorTest extends TestCase
         $root = sys_get_temp_dir() . '/conductor-waf-template-' . uniqid();
         $templates = $root . '/templates';
         $waf = $root . '/waf';
+        $error_pages = $root . '/error-pages';
         mkdir($root);
         mkdir($templates);
         mkdir($waf);
+        mkdir($error_pages);
 
         file_put_contents($templates . '/waf_html.tpl', "location = /test-@@APPNAME@@ { return 204; }\n");
+        file_put_contents($templates . '/406.html.tpl', "Request rejected.\n");
 
         $conductor = $this->makeConductorWithConfig((object) [
             'paths' => (object) [
                 'templates' => $root,
                 'wafs' => $waf,
+                'errorpages' => $error_pages,
+            ],
+            'permissions' => (object) [
+                'webuser' => get_current_user(),
+                'webgroup' => get_current_user(),
             ],
         ]);
         (new ReflectionClass(Conductor::class))->getProperty('appname')->setValue($conductor, 'myapp');
@@ -863,7 +1059,10 @@ final class ConductorTest extends TestCase
         $this->assertSame("location = /test-myapp { return 204; }\n", file_get_contents($waf . '/myapp.conf'));
 
         @unlink($waf . '/myapp.conf');
+        @unlink($error_pages . '/406.html');
+        @unlink($templates . '/406.html.tpl');
         @unlink($templates . '/waf_html.tpl');
+        @rmdir($error_pages);
         @rmdir($waf);
         @rmdir($templates);
         @rmdir($root);
@@ -874,9 +1073,11 @@ final class ConductorTest extends TestCase
         $root = sys_get_temp_dir() . '/conductor-dump-config-' . uniqid();
         $configs = $root . '/configs';
         $waf = $root . '/waf';
+        $error_pages = $root . '/error-pages';
         mkdir($root);
         mkdir($configs);
         mkdir($waf);
+        mkdir($error_pages);
 
         file_put_contents($configs . '/myapp.conf', "server { return 204; }\n");
         file_put_contents($waf . '/myapp.conf', "# waf\n");
@@ -910,6 +1111,12 @@ final class ConductorTest extends TestCase
                 'apps' => $root,
                 'appconfs' => $configs,
                 'wafs' => $waf,
+                'errorpages' => $error_pages,
+                'templates' => __DIR__ . '/../configs/common',
+            ],
+            'permissions' => (object) [
+                'webuser' => get_current_user(),
+                'webgroup' => get_current_user(),
             ],
         ]);
 
@@ -925,6 +1132,8 @@ final class ConductorTest extends TestCase
 
         @unlink($configs . '/myapp.conf');
         @unlink($waf . '/myapp.conf');
+        @unlink($error_pages . '/406.html');
+        @rmdir($error_pages);
         @rmdir($waf);
         @rmdir($configs);
         @rmdir($root);
@@ -1011,38 +1220,48 @@ final class ConductorTest extends TestCase
         @rmdir($root);
     }
 
-    public function testDefaultWafTemplatesIncludeSharedBotBlocks(): void
+    public function testDefaultWafTemplatesIncludeSharedProtectionBlocks(): void
     {
         foreach (['html', 'laravel', 'proxy', 'wordpress'] as $template) {
             $waf_content = file_get_contents(__DIR__ . '/../configs/common/templates/waf_' . $template . '.tpl');
             $vhost_content = file_get_contents(__DIR__ . '/../configs/common/templates/vhost_' . $template . '.tpl');
 
             $this->assertStringContainsString(
-                'include /etc/conductor/configs/common/block_common_crawlers.conf;',
+                '# Conductor managed (Xcaler) WAF configured for @@APPNAME@@',
                 $waf_content
             );
             $this->assertStringContainsString(
-                'include /etc/conductor/configs/common/block_common_bots.conf;',
+                'include /etc/conductor/configs/common/xcaler_community_search_engines.conf;',
                 $waf_content
             );
             $this->assertStringContainsString(
-                'include /etc/conductor/configs/common/block_common_sql_injection.conf;',
+                'include /etc/conductor/configs/common/xcaler_community_ai_bots.conf;',
                 $waf_content
             );
             $this->assertStringContainsString(
-                'include /etc/conductor/configs/common/block_common_path_traversal.conf;',
+                'include /etc/conductor/configs/common/xcaler_community_sql_injection.conf;',
                 $waf_content
             );
             $this->assertStringContainsString(
-                'include /etc/conductor/configs/common/block_common_files.conf;',
+                'include /etc/conductor/configs/common/xcaler_community_path_traversal.conf;',
                 $waf_content
             );
-            $this->assertStringContainsString('error_page 406 /.406.html;', $waf_content);
             $this->assertStringContainsString(
-                'add_header X-Application-Id $conductor_application always;',
+                'include /etc/conductor/configs/common/xcaler_community_common_paths.conf;',
                 $waf_content
             );
+            $this->assertStringContainsString('if ($conductor_geoip_country_code !~ ^GB$)', $waf_content);
+            $this->assertStringContainsString('if ($conductor_geoip_country_code !~ ^(GB|US|DE)$)', $waf_content);
+            $this->assertStringContainsString(
+                'include /etc/conductor/configs/common/conductor_waf_error_pages.conf;',
+                $waf_content
+            );
+            $this->assertStringNotContainsString('error_page 406 /.406.html;', $waf_content);
             $this->assertStringNotContainsString('error_page 406 /.406.html;', $vhost_content);
+            $this->assertStringContainsString(
+                'include /etc/conductor/configs/common/conductor_error_pages.conf;',
+                $vhost_content
+            );
             $this->assertStringContainsString(
                 'set             $conductor_application "@@APPNAME@@";',
                 $vhost_content
@@ -1058,12 +1277,14 @@ final class ConductorTest extends TestCase
             $this->assertStringNotContainsString('    include /etc/conductor/wafs/@@APPNAME@@.conf;', $vhost_content);
         }
 
-        $crawler_block = file_get_contents(__DIR__ . '/../configs/common/block_common_crawlers.conf');
-        $bot_block = file_get_contents(__DIR__ . '/../configs/common/block_common_bots.conf');
-        $sql_injection_block = file_get_contents(__DIR__ . '/../configs/common/block_common_sql_injection.conf');
-        $path_traversal_block = file_get_contents(__DIR__ . '/../configs/common/block_common_path_traversal.conf');
-        $file_block = file_get_contents(__DIR__ . '/../configs/common/block_common_files.conf');
+        $crawler_block = file_get_contents(__DIR__ . '/../configs/common/xcaler_community_search_engines.conf');
+        $bot_block = file_get_contents(__DIR__ . '/../configs/common/xcaler_community_ai_bots.conf');
+        $sql_injection_block = file_get_contents(__DIR__ . '/../configs/common/xcaler_community_sql_injection.conf');
+        $path_traversal_block = file_get_contents(__DIR__ . '/../configs/common/xcaler_community_path_traversal.conf');
+        $file_block = file_get_contents(__DIR__ . '/../configs/common/xcaler_community_common_paths.conf');
         $quiet_common_requests = file_get_contents(__DIR__ . '/../configs/common/conductor_quiet_common_requests.conf');
+        $error_pages = file_get_contents(__DIR__ . '/../configs/common/conductor_error_pages.conf');
+        $waf_error_pages = file_get_contents(__DIR__ . '/../configs/common/conductor_waf_error_pages.conf');
         $waf_error_page = file_get_contents(__DIR__ . '/../configs/common/templates/406.html.tpl');
 
         $this->assertStringContainsString('Googlebot', $crawler_block);
@@ -1082,6 +1303,17 @@ final class ConductorTest extends TestCase
         foreach ([$crawler_block, $bot_block, $sql_injection_block, $path_traversal_block, $file_block] as $block) {
             $this->assertStringContainsString('return 406;', $block);
         }
+        foreach ([401, 403, 404, 500] as $status_code) {
+            $this->assertStringContainsString('error_page ' . $status_code . ' @conductor_error_' . $status_code . ';', $error_pages);
+            $this->assertStringContainsString('try_files /.conductor/error_pages/' . $status_code . '.html @conductor_error_' . $status_code . '_shared;', $error_pages);
+            $this->assertStringContainsString('try_files /' . $status_code . '.html =' . $status_code . ';', $error_pages);
+        }
+        $this->assertStringContainsString('root /var/conductor/error-pages;', $error_pages);
+        $this->assertStringContainsString('error_page 406 @conductor_waf_406;', $waf_error_pages);
+        $this->assertStringContainsString('try_files /.conductor/error_pages/406.html @conductor_waf_406_shared;', $waf_error_pages);
+        $this->assertStringContainsString('try_files /406.html =406;', $waf_error_pages);
+        $this->assertStringContainsString('root /var/conductor/error-pages;', $waf_error_pages);
+        $this->assertStringContainsString('add_header X-Application-Id $conductor_application always;', $waf_error_pages);
         $this->assertStringContainsString('Request rejected.', $waf_error_page);
         $this->assertStringNotContainsString('<dt>Application</dt>', $waf_error_page);
         $this->assertStringNotContainsString('<dt>Check</dt>', $waf_error_page);
@@ -1098,13 +1330,61 @@ final class ConductorTest extends TestCase
             $proxy_vhost
         );
         $this->assertStringNotContainsString('error_page 502 /.502.html;', $proxy_vhost);
-        $this->assertStringContainsString('error_page 502 /.502.html;', $proxy_error_pages);
-        $this->assertStringContainsString('error_page 503 /.503.html;', $proxy_error_pages);
-        $this->assertStringContainsString('error_page 504 /.504.html;', $proxy_error_pages);
+        $this->assertStringContainsString('error_page 502 @conductor_proxy_502;', $proxy_error_pages);
+        $this->assertStringContainsString('error_page 503 @conductor_proxy_503;', $proxy_error_pages);
+        $this->assertStringContainsString('error_page 504 @conductor_proxy_504;', $proxy_error_pages);
+        $this->assertStringContainsString('try_files /.conductor/error_pages/502.html @conductor_proxy_502_shared;', $proxy_error_pages);
+        $this->assertStringContainsString('try_files /502.html =502;', $proxy_error_pages);
+        $this->assertStringContainsString('try_files /503.html =503;', $proxy_error_pages);
+        $this->assertStringContainsString('try_files /504.html =504;', $proxy_error_pages);
+        $this->assertStringContainsString('root /var/conductor/error-pages;', $proxy_error_pages);
         $this->assertStringContainsString(
             'add_header X-Application-Id $conductor_application always;',
             $proxy_error_pages
         );
+    }
+
+    public function testInstallersSeedSharedWafErrorPage(): void
+    {
+        foreach ([
+            file_get_contents(__DIR__ . '/../scripts/install_debian_12.sh'),
+            file_get_contents(__DIR__ . '/../scripts/install_debian_13.sh'),
+        ] as $installer) {
+            $this->assertStringContainsString('/var/conductor/error-pages', $installer);
+            $this->assertStringContainsString('/var/conductor/error-pages/401.html', $installer);
+            $this->assertStringContainsString('/var/conductor/error-pages/403.html', $installer);
+            $this->assertStringContainsString('/var/conductor/error-pages/404.html', $installer);
+            $this->assertStringContainsString('/var/conductor/error-pages/406.html', $installer);
+            $this->assertStringContainsString('/var/conductor/error-pages/500.html', $installer);
+            $this->assertStringContainsString('/var/conductor/error-pages/502.html', $installer);
+            $this->assertStringContainsString('/var/conductor/error-pages/503.html', $installer);
+            $this->assertStringContainsString('/var/conductor/error-pages/504.html', $installer);
+        }
+
+        $conductor_source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');
+        $this->assertStringContainsString('ensureSharedWafErrorPage', $conductor_source);
+        $this->assertStringContainsString('ensureSharedErrorPage($status_code)', $conductor_source);
+        $this->assertStringContainsString('/.conductor/error_pages', $conductor_source);
+        $this->assertStringNotContainsString('createApplicationErrorPage(406', $conductor_source);
+    }
+
+    public function testErrorPageTemplatesSitAboveVerticalCenter(): void
+    {
+        foreach ([401, 403, 404, 406, 500, 502, 503, 504] as $status_code) {
+            $template = file_get_contents(__DIR__ . '/../configs/common/templates/' . $status_code . '.html.tpl');
+
+            $this->assertStringContainsString('padding: clamp(72px, 14vh, 132px) 20px 48px;', $template);
+            $this->assertStringContainsString('align-items: start;', $template);
+            $this->assertStringNotContainsString('place-items: center;', $template);
+
+            if ($status_code >= 400 && $status_code < 500 && $status_code !== 406) {
+                $this->assertStringContainsString('--danger: #8a5a00;', $template);
+                $this->assertStringContainsString('--danger-soft: #fff7d6;', $template);
+                continue;
+            }
+
+            $this->assertStringContainsString('--danger: #c82333;', $template);
+        }
     }
 
     public function testProxyCacheExampleUsesSharedCacheZone(): void
@@ -1150,7 +1430,24 @@ final class ConductorTest extends TestCase
         }
 
         $this->assertStringNotContainsString('https://example.com/fail2ban-webhook', $jails);
-        $this->assertStringContainsString('fail2ban nftables logrotate curl', $installer);
+        $this->assertStringContainsString('fail2ban nftables curl', $installer);
+        $this->assertStringNotContainsString('fail2ban nftables logrotate curl', $installer);
+    }
+
+    public function testMainInstallersInstallConductorLogrotateRules(): void
+    {
+        $debian12 = file_get_contents(__DIR__ . '/../scripts/install_debian_12.sh');
+        $debian13 = file_get_contents(__DIR__ . '/../scripts/install_debian_13.sh');
+        $vhost_logrotate = file_get_contents(__DIR__ . '/../configs/common/logrotate/conductor-vhost-logs');
+
+        foreach ([$debian12, $debian13] as $installer) {
+            $this->assertStringContainsString('logrotate', $installer);
+            $this->assertStringContainsString('/etc/conductor/configs/common/logrotate/* /etc/logrotate.d/', $installer);
+        }
+
+        $this->assertStringContainsString('/var/conductor/logs/*/access.log /var/conductor/logs/*/error.log', $vhost_logrotate);
+        $this->assertStringContainsString('copytruncate', $vhost_logrotate);
+        $this->assertStringContainsString('su www-data www-data', $vhost_logrotate);
     }
 
     public function testCompleteSuggestsCommandsOptionsAndApplicationNames(): void

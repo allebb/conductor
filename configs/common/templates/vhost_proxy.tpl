@@ -147,6 +147,9 @@ server {
     #include /etc/conductor/wafs/@@APPNAME@@.conf;
     # -- C:End WAF Include Block -- #
 
+    # Optional custom error pages. Local copies are used first, then shared fallbacks.
+    include /etc/conductor/configs/common/conductor_error_pages.conf;
+
     # Include our generic (haman-readable) proxy error pages!
     include /etc/conductor/configs/common/conductor_proxy_error_pages.conf;
 

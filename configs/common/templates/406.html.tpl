@@ -9,9 +9,10 @@
         :root {
             color-scheme: light;
             --background: #f4f4f2;
+            --surface: rgba(255, 255, 255, 0.76);
             --foreground: #222222;
             --muted: #666666;
-            --border: #d7d2c8;
+            --border: rgba(200, 35, 51, 0.2);
             --code: #eeece7;
             --danger: #c82333;
             --danger-soft: #fff1f2;
@@ -25,10 +26,13 @@
         body {
             margin: 0;
             min-height: 100vh;
-            padding: 48px 20px;
+            padding: clamp(72px, 14vh, 132px) 20px 48px;
             display: grid;
-            place-items: center;
-            background: var(--background);
+            justify-items: center;
+            align-items: start;
+            background:
+                radial-gradient(circle at 20% 10%, rgba(255, 176, 189, 0.55), transparent 36%),
+                linear-gradient(135deg, #fff7f8 0%, #ffe4ea 45%, #ffd7df 100%);
             color: var(--foreground);
             font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
@@ -37,6 +41,11 @@
             width: 100%;
             max-width: 620px;
             margin: 0;
+            padding: 28px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--surface);
+            box-shadow: 0 18px 48px rgba(128, 24, 41, 0.12);
         }
 
         .heading {

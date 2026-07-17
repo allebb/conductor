@@ -12,6 +12,7 @@
     "wafs": "/etc/conductor/wafs",
     "applogs": "/var/conductor/logs",
     "geoip": "/var/conductor/geoip",
+    "errorpages": "/var/conductor/error-pages",
     "pwdbs": "/etc/conductor/pwdbs",
     "templates": "/etc/conductor/configs/common",
     "fpmsocket": "/var/run/php/php8.5-fpm.sock",

@@ -25,9 +25,10 @@
         body {
             margin: 0;
             min-height: 100vh;
-            padding: 48px 20px;
+            padding: clamp(72px, 14vh, 132px) 20px 48px;
             display: grid;
-            place-items: center;
+            justify-items: center;
+            align-items: start;
             background: var(--background);
             color: var(--foreground);
             font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

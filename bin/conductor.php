@@ -199,6 +199,8 @@ function displayHelp($conductor)
     $conductor->writeln('                      Enable or disable optional security logging');
     $conductor->writeln('  waf {name} [--enable|--disable]');
     $conductor->writeln('                      Edit, enable or disable the application WAF include');
+    $conductor->writeln('  waf rulesets --update-community');
+    $conductor->writeln('                      Download/update Xcaler community WAF rulesets');
     $conductor->writeln('  new {name}          Prepares and deploys a new application');
     $conductor->writeln('  edit {name}         Open a text editor to update the vhost config.');
     $conductor->writeln('  dump {name} [--waf] Write the vhost or WAF config to STDOUT.');

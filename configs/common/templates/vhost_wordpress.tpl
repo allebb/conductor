@@ -120,6 +120,9 @@ server {
     #include /etc/conductor/wafs/@@APPNAME@@.conf;
     # -- C:End WAF Include Block -- #
 
+    # Optional custom error pages. Local copies are used first, then shared fallbacks.
+    include /etc/conductor/configs/common/conductor_error_pages.conf;
+
     # Root location handler configuration.
     location / {
         try_files $uri $uri/ /index.php?$args;

@@ -126,6 +126,9 @@ server {
     #include /etc/conductor/wafs/@@APPNAME@@.conf;
     # -- C:End WAF Include Block -- #
 
+    # Optional custom error pages. Local copies are used first, then shared fallbacks.
+    include /etc/conductor/configs/common/conductor_error_pages.conf;
+
     # Root location handler configuration.
     location / {
         # Optional directory listings when no index file exists in a directory.
@@ -135,9 +138,5 @@ server {
 
         try_files $uri $uri/ =404;
     }
-
-    # Optional custom error pages. Create these files before enabling.
-    #error_page 404 /404.html;
-    #error_page 500 502 503 504 /50x.html;
 
 }
