@@ -61,10 +61,6 @@ if (isset($commands[1])) {
             $conductor->authControl();
             $conductor->endWithSuccess();
             break;
-        case "protect":
-            $conductor->protectControl();
-            $conductor->endWithSuccess();
-            break;
         case "waf":
             $conductor->wafControl();
             $conductor->endWithSuccess();
@@ -195,10 +191,8 @@ function displayHelp($conductor)
     $conductor->writeln('  auth {name} --enable|--disable');
     $conductor->writeln('  auth {name} set {username} {password}');
     $conductor->writeln('  auth {name} delete {username}');
-    $conductor->writeln('  protect {name} --enable|--disable');
-    $conductor->writeln('                      Enable or disable optional security logging');
     $conductor->writeln('  waf {name} [--enable|--disable]');
-    $conductor->writeln('                      Edit, enable or disable the application WAF include');
+    $conductor->writeln('                      Edit, enable or disable application WAF/protection');
     $conductor->writeln('  waf rulesets --update-community');
     $conductor->writeln('                      Download/update Xcaler community WAF rulesets');
     $conductor->writeln('  new {name}          Prepares and deploys a new application');

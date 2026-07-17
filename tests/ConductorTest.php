@@ -831,12 +831,15 @@ final class ConductorTest extends TestCase
         ]));
 
         $conductor = new class extends Conductor {
+            public array $calls = [];
+
             public function __construct()
             {
             }
 
             public function callWithOutput($command, &$output)
             {
+                $this->calls[] = $command;
                 $output = [];
                 return 0;
             }
@@ -1140,6 +1143,9 @@ final class ConductorTest extends TestCase
         $config = $configs . '/myapp.conf';
         file_put_contents($config, implode(PHP_EOL, [
             'server {',
+            '    ' . Conductor::PROTECTION_START_MARKER,
+            '    #access_log     /tmp/conductor_myapp.seclog conductor_security;',
+            '    ' . Conductor::PROTECTION_END_MARKER,
             '    ' . Conductor::WAF_START_MARKER,
             '    include /etc/conductor/wafs/myapp.conf;',
             '    ' . Conductor::WAF_END_MARKER,
@@ -1148,12 +1154,15 @@ final class ConductorTest extends TestCase
         file_put_contents($waf . '/myapp.conf', '# waf');
 
         $conductor = new class extends Conductor {
+            public array $calls = [];
+
             public function __construct()
             {
             }
 
             public function callWithOutput($command, &$output)
             {
+                $this->calls[] = $command;
                 $output = [];
                 return 0;
             }
@@ -1197,7 +1206,15 @@ final class ConductorTest extends TestCase
         $this->assertStringContainsString('    #include /etc/conductor/wafs/myapp.conf;', file_get_contents($config));
 
         $method->invoke($conductor, true);
-        $this->assertStringContainsString('    include /etc/conductor/wafs/myapp.conf;', file_get_contents($config));
+        $enabled = file_get_contents($config);
+        $this->assertStringContainsString('    include /etc/conductor/wafs/myapp.conf;', $enabled);
+        $this->assertStringContainsString('    access_log     /tmp/conductor_myapp.seclog conductor_security;', $enabled);
+
+        $method->invoke($conductor, false);
+        $disabled = file_get_contents($config);
+        $this->assertStringContainsString('    #include /etc/conductor/wafs/myapp.conf;', $disabled);
+        $this->assertStringContainsString('    #access_log     /tmp/conductor_myapp.seclog conductor_security;', $disabled);
+        $this->assertSame(3, substr_count(implode(PHP_EOL, $conductor->calls), 'systemctl restart fail2ban 2>&1'));
 
         @unlink($waf . '/myapp.conf');
         @unlink($error_pages . '/406.html');
@@ -1286,6 +1303,7 @@ final class ConductorTest extends TestCase
         $this->assertContains('xcaler_community_search_engines.conf: updated!', $conductor->lines);
         $this->assertContains('xcaler_community_ai_bots.conf: failed!', $conductor->lines);
         $this->assertContains('/usr/sbin/nginx -t 2>&1', $conductor->commands);
+        $this->assertContains('systemctl restart fail2ban 2>&1', $conductor->commands);
         $this->assertContains('service nginx reload', $conductor->commands);
 
         @rmdir($root);
@@ -1352,6 +1370,7 @@ final class ConductorTest extends TestCase
         }
         $this->assertContains('Tests failed, reverting rulesets back to previous ruleset configuration!', $conductor->lines);
         $this->assertNotContains('service nginx reload', $conductor->commands);
+        $this->assertNotContains('systemctl restart fail2ban 2>&1', $conductor->commands);
 
         @unlink($root . '/xcaler_community_search_engines.conf');
         @rmdir($root);
@@ -1715,6 +1734,109 @@ final class ConductorTest extends TestCase
         @rmdir($root);
     }
 
+    public function testLoadWafConfigRestartsFail2BanAfterValidation(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-load-waf-config-' . uniqid();
+        $configs = $root . '/configs';
+        $waf = $root . '/waf';
+        $error_pages = $root . '/error-pages';
+        $templates = $root . '/templates';
+        mkdir($root);
+        mkdir($configs);
+        mkdir($waf);
+        mkdir($error_pages);
+        mkdir($templates);
+        mkdir($templates . '/templates');
+
+        file_put_contents($configs . '/myapp.conf', "server { return 204; }\n");
+        file_put_contents($waf . '/myapp.conf', "# old waf\n");
+        file_put_contents($templates . '/templates/406.html.tpl', "Request rejected.\n");
+
+        $conductor = new class extends Conductor {
+            public array $calls = [];
+            private string $stdin = "# new waf\n";
+
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+
+            public function isFlagSet($flag)
+            {
+                return $flag == 'waf';
+            }
+
+            public function callWithOutput($command, &$output)
+            {
+                $this->calls[] = $command;
+                $output = [];
+                return 0;
+            }
+
+            public function call($command)
+            {
+                $this->calls[] = $command;
+                return '';
+            }
+
+            protected function readStdin()
+            {
+                return $this->stdin;
+            }
+
+            public function writeln($line = '')
+            {
+            }
+        };
+
+        (new ReflectionClass(Conductor::class))->getProperty('conf')->setValue($conductor, (object) [
+            'auto-reload-nginx' => false,
+            'paths' => (object) [
+                'apps' => $root,
+                'appconfs' => $configs,
+                'wafs' => $waf,
+                'errorpages' => $error_pages,
+                'templates' => $templates,
+            ],
+            'permissions' => (object) [
+                'webuser' => get_current_user(),
+                'webgroup' => get_current_user(),
+            ],
+            'binaries' => (object) [
+                'nginx' => '/usr/sbin/nginx',
+            ],
+            'services' => (object) [
+                'nginx' => (object) [
+                    'reload' => 'service nginx reload',
+                ],
+            ],
+        ]);
+
+        $conductor->loadApplicationConfig();
+
+        $this->assertSame("# new waf\n", file_get_contents($waf . '/myapp.conf'));
+        $this->assertSame([
+            '/usr/sbin/nginx -t 2>&1',
+            'systemctl restart fail2ban 2>&1',
+            'service nginx reload',
+        ], $conductor->calls);
+
+        @unlink($configs . '/myapp.conf');
+        @unlink($waf . '/myapp.conf');
+        @unlink($error_pages . '/406.html');
+        @unlink($templates . '/templates/406.html.tpl');
+        @rmdir($templates . '/templates');
+        @rmdir($templates);
+        @rmdir($error_pages);
+        @rmdir($waf);
+        @rmdir($configs);
+        @rmdir($root);
+    }
+
     public function testDefaultWafTemplatesIncludeSharedProtectionBlocks(): void
     {
         foreach (['html', 'laravel', 'proxy', 'wordpress'] as $template) {
@@ -1770,6 +1892,17 @@ final class ConductorTest extends TestCase
             $this->assertStringNotContainsString('location = /favicon.ico', $waf_content);
             $this->assertStringContainsString('#include /etc/conductor/wafs/@@APPNAME@@.conf;', $vhost_content);
             $this->assertStringNotContainsString('    include /etc/conductor/wafs/@@APPNAME@@.conf;', $vhost_content);
+
+            $protection_start = strpos($vhost_content, Conductor::PROTECTION_START_MARKER);
+            $protection_end = strpos($vhost_content, Conductor::PROTECTION_END_MARKER);
+            $waf_start = strpos($vhost_content, Conductor::WAF_START_MARKER);
+            $this->assertNotFalse($protection_start);
+            $this->assertNotFalse($protection_end);
+            $this->assertNotFalse($waf_start);
+            $this->assertLessThan($waf_start, $protection_start);
+            $this->assertLessThan($waf_start, $protection_end);
+            $between_blocks = substr($vhost_content, $protection_end, $waf_start - $protection_end);
+            $this->assertLessThanOrEqual(4, substr_count($between_blocks, PHP_EOL));
         }
 
         $crawler_block = file_get_contents(__DIR__ . '/../configs/common/xcaler_community_search_engines.conf');
@@ -2020,7 +2153,7 @@ final class ConductorTest extends TestCase
         $property->setValue($conductor, new \stdClass());
 
         $conductor->complete();
-        $this->assertContains('protect', $conductor->lines);
+        $this->assertNotContains('protect', $conductor->lines);
 
         $conductor = new class(['conductor', '__complete', 1, 'conductor', 'w']) extends Conductor {
             public array $lines = [];
@@ -2075,21 +2208,6 @@ final class ConductorTest extends TestCase
         $conductor->complete();
         $this->assertContains('--enable', $conductor->lines);
         $this->assertContains('--disable', $conductor->lines);
-
-        $conductor = new class(['conductor', '__complete', 2, 'conductor', 'protect', '--']) extends Conductor {
-            public array $lines = [];
-
-            public function writeln($line = '')
-            {
-                $this->lines[] = $line;
-            }
-        };
-        $property->setValue($conductor, new \stdClass());
-
-        $conductor->complete();
-        $this->assertContains('--enable', $conductor->lines);
-        $this->assertContains('--disable', $conductor->lines);
-        $this->assertContains('--auto-reload', $conductor->lines);
 
         $conductor = new class(['conductor', '__complete', 2, 'conductor', 'waf', '--']) extends Conductor {
             public array $lines = [];

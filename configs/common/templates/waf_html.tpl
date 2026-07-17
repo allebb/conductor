@@ -17,7 +17,7 @@
 # if ($conductor_geoip_country_code ~ ^(CN|RU)$) {
 #     # We return 444 response (an a blank page) but consistent attempts to access the site/application
 #     # will trigger an IP ban (by Fail2Ban) for this user if Fail2Ban is enabled for this virtual host!
-#     # To enable Fail2Ban protection, for this Vhost run: conductor protect @@APPNAME@@ --enable
+#     # To enable Fail2Ban protection, for this vhost run: conductor waf @@APPNAME@@ --enable
 #     return 444;
 # }
 #

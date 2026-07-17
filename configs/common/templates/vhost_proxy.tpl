@@ -100,11 +100,6 @@ server {
     #error_log       @@HLOGS@@error.log;
     rewrite_log     off;
 
-    # Fail2Ban (optional) protection managed by `conductor protect`.
-    # -- C:Start Fail2Ban Protection Block -- #
-    #access_log     /tmp/conductor_@@APPNAME@@.seclog conductor_security;
-    # -- C:End Fail2Ban Protection Block -- #
-
     # Additional per-application optimisations.
     charset                 utf-8;
     client_max_body_size    32m;
@@ -141,6 +136,11 @@ server {
 
     # LetsEncrypt verification block
     include /etc/conductor/configs/common/wellknown.conf;
+
+    # Fail2Ban security logging managed by `conductor waf`.
+    # -- C:Start Fail2Ban Protection Block -- #
+    #access_log     /tmp/conductor_@@APPNAME@@.seclog conductor_security;
+    # -- C:End Fail2Ban Protection Block -- #
 
     # Optional WAF-like configuration (app and security-related protection) configure/customise with `conductor waf {appname}`.
     # -- C:Start WAF Include Block -- #

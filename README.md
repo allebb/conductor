@@ -173,7 +173,7 @@ Each Nginx vhost template includes a commented security log line:
 #access_log /tmp/conductor_{appname}.seclog conductor_security;
 ```
 
-Run ``sudo conductor protect {app name} --enable`` for any application/website vhost you want Fail2Ban to monitor. Use ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes. The Fail2Ban templates watch ``/tmp/conductor_*.seclog``.
+Run ``sudo conductor waf {app name} --enable`` for any application/website vhost you want to enable bundled WAF rules and Fail2Ban/CrowdSec security logging for. Use ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes. The Fail2Ban templates watch ``/tmp/conductor_*.seclog``.
 
 The installer enables these default jails, you can adjust the triggers and ban period as you see fit though:
 
@@ -322,20 +322,9 @@ sudo conductor auth {app name} --disable
 
 Add ``--auto-reload`` to ``--enable`` or ``--disable`` to gracefully reload Nginx automatically after the configuration test passes. Without it, Conductor asks whether to reload (to apply the changes) and defaults to yes.
 
-#### ```conductor protect {app name}```
-
-Enables or disables the optional ``conductor_security`` ``.seclog`` access log line in an application's Nginx virtual host. This is used by the optional Fail2Ban and CrowdSec integrations.
-
-```shell
-sudo conductor protect {app name} --enable
-sudo conductor protect {app name} --disable
-```
-
-Add ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes. Without it, Conductor asks whether to reload and defaults to yes.
-
 #### ```conductor waf {app name}```
 
-Opens the application's WAF configuration file at ``/etc/conductor/wafs/{app name}.conf``. This file is included inside the application's Nginx virtual host and can contain per-application WAF, access-control, and file-protection rules.
+Opens the application's WAF configuration file at ``/etc/conductor/wafs/{app name}.conf``. This file is included inside the application's Nginx virtual host and can contain per-application WAF, access-control, and file-protection rules. ``--enable`` enables both the WAF include and the ``conductor_security`` ``.seclog`` access log used by Fail2Ban/CrowdSec. ``--disable`` disables both the WAF include and the security log.
 
 New WAF files include ``/etc/conductor/configs/common/xcaler_community_search_engines.conf``, ``/etc/conductor/configs/common/xcaler_community_ai_bots.conf``, ``/etc/conductor/configs/common/xcaler_community_sql_injection.conf``, ``/etc/conductor/configs/common/xcaler_community_path_traversal.conf``, and ``/etc/conductor/configs/common/xcaler_community_common_paths.conf`` by default. These shared snippets block common search-engine crawlers, common AI search/training/user-agent bots, common SQL injection probes, common path traversal/local file inclusion probes in paths or query strings, and common sensitive files/directories such as ``wp-config.php``, readme/license files, backup/config files, ``node_modules/``, ``.git/``, and ``.env`` files. Matching requests return ``406 Not Acceptable`` and render the shared WAF rejection page from ``/var/conductor/error-pages/406.html``. Remove or comment an include in the per-application WAF file if that application should allow the matching traffic.
 

@@ -1006,7 +1006,6 @@ class Conductor extends CliApplication
             'test',
             'geoipdb',
             'auth',
-            'protect',
             'waf',
             'new',
             'edit',
@@ -1090,7 +1089,6 @@ class Conductor extends CliApplication
             'update' => ['--down='],
             'geoipdb' => ['--update', '--url='],
             'auth' => ['--enable', '--disable', '--auto-reload'],
-            'protect' => ['--enable', '--disable', '--auto-reload'],
             'waf' => ['--enable', '--disable', '--auto-reload', '--update-community'],
             'ban' => ['--debug'],
             'dump' => ['--waf'],
@@ -1369,6 +1367,7 @@ class Conductor extends CliApplication
             return;
         }
 
+        $this->restartFail2BanForWafChange();
         $this->reloadNginxGracefully();
     }
 
@@ -1420,33 +1419,6 @@ class Conductor extends CliApplication
     }
 
     /**
-     * Manage optional security logging protection for an application.
-     * @return void
-     */
-    public function protectControl()
-    {
-        $this->appNameRequired();
-
-        if ($this->isFlagSet('enable') && $this->isFlagSet('disable')) {
-            $this->writeln('Usage: conductor protect {name} --enable|--disable [--auto-reload]');
-            $this->endWithError();
-        }
-
-        if ($this->isFlagSet('enable')) {
-            $this->updateApplicationProtectionConfig(true);
-            return;
-        }
-
-        if ($this->isFlagSet('disable')) {
-            $this->updateApplicationProtectionConfig(false);
-            return;
-        }
-
-        $this->writeln('Usage: conductor protect {name} --enable|--disable [--auto-reload]');
-        $this->endWithError();
-    }
-
-    /**
      * Enable or disable the HTTP Basic auth block in an application vhost.
      * @param bool $enable
      * @return void
@@ -1489,9 +1461,10 @@ class Conductor extends CliApplication
     /**
      * Enable or disable the optional conductor_security access log line.
      * @param bool $enable
+     * @param bool $reload
      * @return void
      */
-    private function updateApplicationProtectionConfig($enable)
+    private function updateApplicationProtectionConfig($enable, $reload = true)
     {
         $config_path = $this->applicationConfigPath();
         $config = file_get_contents($config_path);
@@ -1523,7 +1496,9 @@ class Conductor extends CliApplication
             $this->ensureFail2BanRunningForProtection();
         }
 
-        $this->promptGracefulNginxReload('protection configuration change', $this->isFlagSet('auto-reload'));
+        if ($reload) {
+            $this->promptGracefulNginxReload('protection configuration change', $this->isFlagSet('auto-reload'));
+        }
     }
 
     /**
@@ -1611,6 +1586,9 @@ class Conductor extends CliApplication
             $this->endWithNginxConfigError();
         }
 
+        $this->updateApplicationProtectionConfig($enable, false);
+
+        $this->restartFail2BanForWafChange();
         $this->promptGracefulNginxReload('WAF configuration change', $this->isFlagSet('auto-reload'));
     }
 
@@ -1626,6 +1604,11 @@ class Conductor extends CliApplication
         system($this->conf->binaries->editor . ' ' . $config_path . ' > `tty`');
         $this->writeln('Checking WAF updates for Nginx configuration issues...');
         $this->writeln();
+        if (!$this->runNginxConfigurationTest()) {
+            $this->endWithNginxConfigError();
+        }
+
+        $this->restartFail2BanForWafChange();
         $this->promptGracefulNginxReload('WAF configuration change');
         $this->writeln();
     }
@@ -1670,7 +1653,25 @@ class Conductor extends CliApplication
         }
 
         $this->writeln('Updated ' . ($is_waf ? 'WAF' : 'virtualhost') . ' configuration: ' . $config_path);
+        if ($is_waf) {
+            $this->restartFail2BanForWafChange();
+        }
         $this->promptGracefulNginxReload(($is_waf ? 'WAF' : 'virtualhost') . ' configuration change', true, false);
+    }
+
+    /**
+     * Restart Fail2Ban after WAF or shared WAF ruleset changes.
+     * @return void
+     */
+    private function restartFail2BanForWafChange()
+    {
+        $output = [];
+        if ($this->callWithOutput('systemctl restart fail2ban 2>&1', $output) === 0) {
+            $this->writeln('Restarted Fail2Ban to apply WAF-related filter changes.');
+            return;
+        }
+
+        $this->writeln('Could not restart Fail2Ban automatically: ' . implode(' ', $output));
     }
 
     /**
