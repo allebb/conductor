@@ -1092,6 +1092,7 @@ class Conductor extends CliApplication
             'auth' => ['--enable', '--disable', '--auto-reload'],
             'protect' => ['--enable', '--disable', '--auto-reload'],
             'waf' => ['--enable', '--disable', '--auto-reload', '--update-community'],
+            'ban' => ['--debug'],
             'dump' => ['--waf'],
             'load' => ['--waf'],
         ];
@@ -2110,7 +2111,7 @@ class Conductor extends CliApplication
         $this->ensureFail2BanClient();
 
         if ($actionOrIp == 'list') {
-            $this->listBannedIps();
+            $this->listBannedIps($this->isFlagSet('debug'));
             return;
         }
 
@@ -2203,7 +2204,7 @@ class Conductor extends CliApplication
     /**
      * Show all IP addresses currently banned by Fail2Ban.
      */
-    private function listBannedIps()
+    private function listBannedIps($debug = false)
     {
         $rows = [];
         $crowdsec_count = $this->localCrowdSecBanCount();
@@ -2213,6 +2214,18 @@ class Conductor extends CliApplication
             if ($this->runFail2BanClient(['get', $jail, 'banip', '--with-time'], $output) !== 0) {
                 $output = [];
                 $this->runFail2BanClient(['get', $jail, 'banip'], $output);
+            }
+
+            if ($debug) {
+                $this->writeln('Raw Fail2Ban banip output for ' . $jail . ':');
+                if (empty($output)) {
+                    $this->writeln('  (empty)');
+                } else {
+                    foreach ($output as $line) {
+                        $this->writeln('  ' . $line);
+                    }
+                }
+                $this->writeln();
             }
 
             $ips = $this->extractIpAddresses(implode(' ', $output));
@@ -2320,7 +2333,7 @@ class Conductor extends CliApplication
      * @param array $output
      * @return int
      */
-    private function runFail2BanClient($arguments, &$output)
+    protected function runFail2BanClient($arguments, &$output)
     {
         $command = 'fail2ban-client';
         foreach ($arguments as $argument) {

@@ -193,7 +193,7 @@ Each Conductor Fail2Ban jail also posts JSON ban/unban events to ``https://bin.h
 
 > These values can be manually adjusted to fit your personal requirements by editting the default configurations that are installed to ``/etc/conductor/configs/common/fail2ban/``.
 
-The security log format records the timestamp, client IP, Conductor application id, status code, request line, and user agent to keep things "lean" while still making ban webhooks attributable to a site/application. The ``/tmp`` path is often memory-backed (which is perfect) on modern Linux systems, but not always; check ``findmnt /tmp`` if this matters for your server. The main installer installs logrotate rules for the normal per-vhost ``access.log`` and ``error.log`` files under ``/var/conductor/logs/*/``, plus matching security logs at 10MB with three compressed rotations.
+The security log format records the timestamp, client IP, Conductor application id, status code, request line, and user agent to keep things "lean" while still making ban webhooks attributable to a site/application. This client IP is the address Nginx sees for the connection. If you access a public hostname from inside the same LAN, router hairpin/NAT reflection can make the request appear to come from your public WAN address instead of your private LAN address. Only configure Nginx real-IP headers when traffic arrives through a trusted proxy whose address ranges you control. The ``/tmp`` path is often memory-backed (which is perfect) on modern Linux systems, but not always; check ``findmnt /tmp`` if this matters for your server. The main installer installs logrotate rules for the normal per-vhost ``access.log`` and ``error.log`` files under ``/var/conductor/logs/*/``, plus matching security logs at 10MB with three compressed rotations.
 
 Once Fail2Ban support is installed, Conductor can manage bans directly:
 
@@ -213,6 +213,8 @@ Manual bans are added to the ``conductor-manual`` jail and remain in place until
 #### nftables default firewall behaviour
 
 The optional Fail2Ban+nftables installer keeps nftables passive by default. In other words, nftables is installed and available as the firewall backend used by Fail2Ban to block offending IP addresses, but Conductor does not automatically change the server into a "deny all inbound traffic" firewall. This avoids accidentally locking you out of an existing server.
+
+Conductor's Fail2Ban jails install nftables ban rules on both the ``input`` and ``forward`` hooks. The ``input`` hook covers normal traffic delivered directly to Nginx on the server. The ``forward`` hook helps in NAT, bridge, container, or lab topologies where HTTP/HTTPS packets traverse forwarding before they reach the web service.
 
 After you have installed the optional Fail2Ban+nftables support, you can choose to make nftables block all inbound ports by default and then explicitly allow only the ports you need. At minimum, keep your SSH port open (TCP/22 by default) so you do not lock yourself out, plus HTTP and HTTPS for web traffic:
 

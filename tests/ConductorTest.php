@@ -27,6 +27,20 @@ final class ConductorTest extends TestCase
         return $conductor;
     }
 
+    private function nginxQuotedRegexForPcre(string $pattern): string
+    {
+        return str_replace(['\\\\', '\\"'], ['\\', '"'], $pattern);
+    }
+
+    private function assertNginxRegexCompiles(string $pattern): void
+    {
+        $pattern = $this->nginxQuotedRegexForPcre($pattern);
+        $delimiter = '~';
+        $regex = $delimiter . str_replace($delimiter, '\\' . $delimiter, $pattern) . $delimiter . 'i';
+
+        $this->assertNotFalse(@preg_match($regex, ''), preg_last_error_msg() . ': ' . $pattern);
+    }
+
     public function testVersionMatchesTheVersionConstant(): void
     {
         $this->assertSame(Conductor::CONDUCTOR_VERSION, $this->makeConductor()->version());
@@ -355,6 +369,53 @@ final class ConductorTest extends TestCase
 
         @rmdir($root . '/myapp');
         @rmdir($root);
+    }
+
+    public function testBanListDebugShowsRawFail2BanOutput(): void
+    {
+        $conductor = new class extends Conductor {
+            public array $lines = [];
+
+            public function __construct()
+            {
+            }
+
+            public function runFail2BanClient($arguments, &$output)
+            {
+                $command = implode(' ', $arguments);
+
+                if ($command == 'status') {
+                    $output = ['Status', '`- Jail list: conductor-nginx-4xx'];
+                    return 0;
+                }
+
+                if ($command == 'get conductor-nginx-4xx banip --with-time') {
+                    $output = ['172.25.87.140 2026-07-17 17:00:00 +0000 1800'];
+                    return 0;
+                }
+
+                if ($command == 'get conductor-nginx-4xx bantime') {
+                    $output = ['1800'];
+                    return 0;
+                }
+
+                $output = [];
+                return 1;
+            }
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+
+        (new ReflectionClass(Conductor::class))->getMethod('listBannedIps')->invoke($conductor, true);
+
+        $output = implode(PHP_EOL, $conductor->lines);
+        $this->assertStringContainsString('Raw Fail2Ban banip output for conductor-nginx-4xx:', $output);
+        $this->assertStringContainsString('172.25.87.140 2026-07-17 17:00:00 +0000 1800', $output);
+        $this->assertStringContainsString('172.25.87.140', $output);
+        $this->assertStringContainsString('30 minute(s)', $output);
     }
 
     public function testApplicationConductorConfigWritesRestoreMetadataAndEnvVars(): void
@@ -1729,6 +1790,7 @@ final class ConductorTest extends TestCase
         $this->assertStringContainsString('information_schema', $sql_injection_block);
         $this->assertStringContainsString('etc/passwd', $path_traversal_block);
         $this->assertStringContainsString('%2e%2e', $path_traversal_block);
+        $this->assertStringContainsString('\.\.\\\\', $path_traversal_block);
         $this->assertStringContainsString('wp-config.php', $file_block);
         $this->assertStringContainsString('node_modules', $file_block);
         $this->assertStringContainsString('well-known', $file_block);
@@ -1736,7 +1798,15 @@ final class ConductorTest extends TestCase
         $this->assertStringContainsString('location = /robots.txt', $quiet_common_requests);
         foreach ([$crawler_block, $bot_block, $sql_injection_block, $path_traversal_block, $file_block] as $block) {
             $this->assertStringContainsString('return 406;', $block);
+            preg_match_all('/~\* "((?:\\\\.|[^"\\\\])*)"/', $block, $matches);
+            foreach ($matches[1] as $pattern) {
+                $this->assertNginxRegexCompiles($pattern);
+            }
         }
+        preg_match('/~\* "((?:\\\\.|[^"\\\\])*)"/', $path_traversal_block, $path_matches);
+        $path_regex = '~' . str_replace('~', '\~', $this->nginxQuotedRegexForPcre($path_matches[1])) . '~i';
+        $this->assertSame(1, preg_match($path_regex, '../etc/passwd'));
+        $this->assertSame(1, preg_match($path_regex, '..\\windows\\win.ini'));
         foreach ([401, 403, 404, 500] as $status_code) {
             $this->assertStringContainsString('error_page ' . $status_code . ' @conductor_error_' . $status_code . ';', $error_pages);
             $this->assertStringContainsString('try_files /.conductor/error_pages/' . $status_code . '.html @conductor_error_' . $status_code . '_shared;', $error_pages);
@@ -1860,12 +1930,24 @@ final class ConductorTest extends TestCase
             'conductor-burst',
             'conductor-dos',
         ] as $action_name) {
+            $this->assertStringContainsString('nftables-multiport[name=' . $action_name . ', port="http,https", protocol=tcp, chain=conductor-f2b-input, chain_hook=input]', $jails);
+            $this->assertStringContainsString('nftables-multiport[name=' . $action_name . '-forward, port="http,https", protocol=tcp, chain=conductor-f2b-forward, chain_hook=forward]', $jails);
             $this->assertStringContainsString('conductor-webhook[name=' . $action_name . ']', $jails);
         }
 
         $this->assertStringNotContainsString('https://example.com/fail2ban-webhook', $jails);
         $this->assertStringContainsString('fail2ban nftables curl', $installer);
         $this->assertStringNotContainsString('fail2ban nftables logrotate curl', $installer);
+    }
+
+    public function testFail2BanFiltersExtractClientIpFieldOnly(): void
+    {
+        foreach (glob(__DIR__ . '/../configs/common/fail2ban/filter.d/conductor-nginx-*.conf') as $filter_path) {
+            $filter = file_get_contents($filter_path);
+
+            $this->assertStringContainsString('(?:\S+T\S+\s+)?<HOST>\s+\S+\s+', $filter, basename($filter_path));
+            $this->assertStringNotContainsString('(?:\S+\s+)?<HOST>', $filter, basename($filter_path));
+        }
     }
 
     public function testMainInstallersInstallConductorLogrotateRules(): void
