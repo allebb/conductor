@@ -45,6 +45,8 @@ class Conductor extends CliApplication
     const PROTECTION_END_MARKER = "# -- C:End Fail2Ban Protection Block -- #";
     const WAF_START_MARKER = "# -- C:Start WAF Include Block -- #";
     const WAF_END_MARKER = "# -- C:End WAF Include Block -- #";
+    const FAIL2BAN_WEBHOOK_ACTION_FILENAME = "conductor-webhook.conf";
+    const LETSENCRYPT_WEBHOOK_CONFIG_FILENAME = "letsencrypt-webhook.conf";
 
     /**
      * The current application number.
@@ -971,7 +973,13 @@ class Conductor extends CliApplication
                 return $this->filterCompletionCandidates(['list', 'purge'], $current);
             case 'waf':
                 if ($current_index == 2) {
-                    return $this->filterCompletionCandidates(array_merge(['rulesets'], $this->completionApplicationNames()), $current);
+                    return $this->filterCompletionCandidates(array_merge(['rulesets', 'webhook'], $this->completionApplicationNames()), $current);
+                }
+
+                return [];
+            case 'letsencrypt':
+                if ($current_index == 2) {
+                    return $this->filterCompletionCandidates(array_merge(['webhook'], $this->completionApplicationNames()), $current);
                 }
 
                 return [];
@@ -1085,11 +1093,11 @@ class Conductor extends CliApplication
             'disable' => ['--auto-reload'],
             'stats' => ['--format='],
             'test' => ['--auto-reload'],
-            'letsencrypt' => ['--enable', '--disable', '--delete', '--force-renew', '--auto-reload'],
+            'letsencrypt' => ['--enable', '--disable', '--delete', '--force-renew', '--auto-reload', '--configure='],
             'update' => ['--down='],
             'geoipdb' => ['--update', '--url='],
             'auth' => ['--enable', '--disable', '--auto-reload'],
-            'waf' => ['--enable', '--disable', '--auto-reload', '--update-community'],
+            'waf' => ['--enable', '--disable', '--auto-reload', '--update-community', '--configure='],
             'ban' => ['--debug'],
             'dump' => ['--waf'],
             'load' => ['--waf'],
@@ -1289,6 +1297,16 @@ class Conductor extends CliApplication
      */
     public function wafControl()
     {
+        if ($this->getCommand(2) == 'webhook') {
+            if ($this->getOption('configure')) {
+                $this->configureFail2BanWebhook($this->getOption('configure'));
+                return;
+            }
+
+            $this->writeln('Usage: conductor waf webhook --configure={endpoint}');
+            $this->endWithError();
+        }
+
         if ($this->getCommand(2) == 'rulesets') {
             if ($this->isFlagSet('update-community')) {
                 $this->updateXcalerCommunityRulesets();
@@ -1304,6 +1322,7 @@ class Conductor extends CliApplication
         if ($this->isFlagSet('enable') && $this->isFlagSet('disable')) {
             $this->writeln('Usage: conductor waf {name} --enable|--disable [--auto-reload]');
             $this->writeln('       conductor waf rulesets --update-community');
+            $this->writeln('       conductor waf webhook --configure={endpoint}');
             $this->endWithError();
         }
 
@@ -1318,6 +1337,74 @@ class Conductor extends CliApplication
         }
 
         $this->editApplicationWafConfig();
+    }
+
+    /**
+     * Update the Fail2Ban webhook endpoint used by Conductor's webhook action.
+     * @param string $endpoint
+     * @return void
+     */
+    private function configureFail2BanWebhook($endpoint)
+    {
+        $endpoint = $this->validateWebhookEndpoint($endpoint);
+        $config_path = $this->fail2BanWebhookActionPath();
+
+        if (!file_exists($config_path)) {
+            $this->writeln('Fail2Ban webhook action file was not found: ' . $config_path);
+            $this->writeln('Run /etc/conductor/utils/install_fail2ban_nftables.sh to install Fail2Ban support first.');
+            $this->endWithError();
+        }
+
+        $config = file_get_contents($config_path);
+        $updated_config = preg_replace('/^url\s*=.*$/m', 'url = ' . $endpoint, $config, 1, $replacements);
+        if ($replacements !== 1) {
+            $this->writeln('Could not find the webhook url setting in: ' . $config_path);
+            $this->endWithError();
+        }
+
+        if (file_put_contents($config_path, $updated_config) === false) {
+            $this->writeln('Unable to write Fail2Ban webhook action file: ' . $config_path);
+            $this->endWithError();
+        }
+
+        $this->writeln('Updated Fail2Ban webhook endpoint: ' . $endpoint);
+        $this->restartFail2BanForWafChange();
+    }
+
+    /**
+     * Validate a Fail2Ban webhook endpoint.
+     * @param string $endpoint
+     * @return string
+     */
+    private function validateWebhookEndpoint($endpoint)
+    {
+        $endpoint = trim((string) $endpoint);
+        $parts = parse_url($endpoint);
+
+        if ($endpoint === ''
+            || preg_match('/\s|[\x00-\x1F\x7F]/', $endpoint)
+            || $parts === false
+            || !isset($parts['scheme'], $parts['host'])
+            || !in_array(strtolower($parts['scheme']), ['http', 'https'])
+        ) {
+            $this->writeln('Webhook endpoint must be an HTTP(S) URL, eg. https://n8n.yourdomain.com/webhook/8b4e7040-3746-4120-b317-50110f074a53');
+            $this->endWithError();
+        }
+
+        return $endpoint;
+    }
+
+    /**
+     * Return the installed Fail2Ban webhook action path.
+     * @return string
+     */
+    private function fail2BanWebhookActionPath()
+    {
+        if (isset($this->conf->paths->fail2ban_actions)) {
+            return rtrim($this->conf->paths->fail2ban_actions, '/') . '/' . self::FAIL2BAN_WEBHOOK_ACTION_FILENAME;
+        }
+
+        return '/etc/fail2ban/action.d/' . self::FAIL2BAN_WEBHOOK_ACTION_FILENAME;
     }
 
     /**
@@ -3288,6 +3375,16 @@ class Conductor extends CliApplication
      */
     public function generateLetsEncryptCertificate()
     {
+        if ($this->getCommand(2) == 'webhook') {
+            if ($this->getOption('configure')) {
+                $this->configureLetsEncryptWebhook($this->getOption('configure'));
+                return;
+            }
+
+            $this->writeln('Usage: conductor letsencrypt webhook --configure={endpoint}');
+            $this->endWithError();
+        }
+
         $this->appNameRequired();
 
         if ($this->isFlagSet('enable')) {
@@ -3328,7 +3425,8 @@ class Conductor extends CliApplication
         if ($this->isFlagSet('force-renew')) {
             $cmd_replacements = [
                 '__APP__' => $this->appname,
-                '__NGINX_RELOAD_CMD__' => $this->conf->services->nginx->reload,
+                '__NGINX_RELOAD_CMD__' => $this->letsEncryptDeployHook($this->appname),
+                '__LETSENCRYPT_DEPLOY_HOOK__' => $this->letsEncryptDeployHook($this->appname),
             ];
             $this->call(str_replace(array_keys($cmd_replacements), array_values($cmd_replacements),
                 $this->conf->cmdtpls->letsencryptforcerenew));
@@ -3351,7 +3449,8 @@ class Conductor extends CliApplication
 
         $cmd_replacements = [
             '__APP__' => $this->appname,
-            '__NGINX_RELOAD_CMD__' => $this->conf->services->nginx->reload,
+            '__NGINX_RELOAD_CMD__' => $this->letsEncryptDeployHook($this->appname),
+            '__LETSENCRYPT_DEPLOY_HOOK__' => $this->letsEncryptDeployHook($this->appname),
             '__DOMAINS__' => $domains,
             '__EMAIL__' => $this->conf->admin->email,
         ];
@@ -3378,6 +3477,58 @@ class Conductor extends CliApplication
         $this->writeln('   conductor letsencrypt ' . $this->appname . ' --delete');
         $this->writeln();
         $this->endWithSuccess();
+    }
+
+    /**
+     * Configure the JSON POST endpoint used by the LetsEncrypt webhook helper.
+     * @param string $endpoint
+     * @return void
+     */
+    private function configureLetsEncryptWebhook($endpoint)
+    {
+        $endpoint = $this->validateWebhookEndpoint($endpoint);
+        $config_path = $this->letsEncryptWebhookConfigPath();
+        $directory = dirname($config_path);
+
+        if (!is_dir($directory) && !mkdir($directory, 0755, true)) {
+            $this->writeln('Unable to create LetsEncrypt webhook configuration directory: ' . $directory);
+            $this->endWithError();
+        }
+
+        if (file_put_contents($config_path, "url = " . $endpoint . PHP_EOL) === false) {
+            $this->writeln('Unable to write LetsEncrypt webhook configuration file: ' . $config_path);
+            $this->endWithError();
+        }
+
+        $this->writeln('Updated LetsEncrypt webhook endpoint: ' . $endpoint);
+    }
+
+    /**
+     * Build the command Certbot runs after a certificate is deployed.
+     * @param string $appname
+     * @return string
+     */
+    private function letsEncryptDeployHook($appname)
+    {
+        $hook = $this->conf->services->nginx->reload . ' && /etc/conductor/utils/letsencrypt_webhook.sh deploy';
+        if (preg_match('/^[A-Za-z0-9._-]+$/', $appname)) {
+            $hook .= ' ' . $appname;
+        }
+
+        return $hook;
+    }
+
+    /**
+     * Return the LetsEncrypt webhook configuration path.
+     * @return string
+     */
+    private function letsEncryptWebhookConfigPath()
+    {
+        if (isset($this->conf->paths->letsencrypt_webhook)) {
+            return $this->conf->paths->letsencrypt_webhook;
+        }
+
+        return $this->commonConfigurationDirectory() . '/' . self::LETSENCRYPT_WEBHOOK_CONFIG_FILENAME;
     }
 
     /**

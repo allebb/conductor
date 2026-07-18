@@ -14,6 +14,7 @@ In "interactive" mode, Conductor asks a series of questions when a new applicati
 * ``--target`` - Proxy templates only: upstream HTTP(S) target with a host and port, eg. ``--target="http://127.24.54.54:8000"``.
 * ``--auto-reload`` - After creating the application, test the Nginx configuration and gracefully reload Nginx without prompting. This can also be used with ``conductor enable``, ``conductor disable``, and ``conductor letsencrypt``. Conductor also supports the global ``auto-reload-nginx`` setting in ``/etc/conductor.conf``; it defaults to ``true``.
 * ``--waf`` - With ``conductor dump`` or ``conductor load``, target the application's WAF-like configuration file instead of the virtual host configuration.
+* ``--configure`` - With ``conductor waf webhook`` or ``conductor letsencrypt webhook``, update the JSON webhook endpoint, eg. ``--configure="https://n8n.yourdomain.com/webhook/8b4e7040-3746-4120-b317-50110f074a53"``.
 
 Conductor automatically generates an SSH deployment key pair for every new application.
 

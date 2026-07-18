@@ -56,11 +56,11 @@ Conductor Fail2Ban support has been installed using nftables.
 
 To enable it for an application:
 
-    conductor protect {appname} --enable --auto-reload
+    conductor waf {appname} --enable --auto-reload
 
 To disable it for an application:
 
-    conductor protect {appname} --disable --auto-reload
+    conductor waf {appname} --disable --auto-reload
 
 The installed automatic jails watch /tmp/conductor_*.seclog for scanner probes,
 excessive 4xx responses, repeated 401/403 responses, WAF rejections, GeoIP
@@ -68,12 +68,11 @@ blocks, burst request rates, and DoS-style sustained request rates. The
 conductor-manual jail is available for manual bans added with
 conductor ban {ip_address}.
 
-Fail2Ban ban/unban webhook notifications are enabled by default using and example
-webhook URL. You can change the webhook URL in /etc/fail2ban/action.d/conductor-webhook.conf:
+Fail2Ban ban/unban webhook notifications send a JSON POST when an IP is banned
+and another JSON POST when it is unbanned. Configure the webhook endpoint with:
 
-    https://bin.hallinet.com/z7jw38z7
+    conductor waf webhook --configure=https://n8n.yourdomain.com/webhook/...
 
-The webhook sends a JSON POST when an IP is banned and another JSON POST when it
-is unbanned. Edit /etc/fail2ban/action.d/conductor-webhook.conf if you need to
-change or disable the endpoint.
+Tools such as N8N are useful for formatting and distributing the payload to
+other systems as required.
 EOF

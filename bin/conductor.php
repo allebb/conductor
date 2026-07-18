@@ -195,6 +195,8 @@ function displayHelp($conductor)
     $conductor->writeln('                      Edit, enable or disable application WAF/protection');
     $conductor->writeln('  waf rulesets --update-community');
     $conductor->writeln('                      Download/update Xcaler community WAF rulesets');
+    $conductor->writeln('  waf webhook --configure={endpoint}');
+    $conductor->writeln('                      Update the Fail2Ban ban/unban webhook endpoint');
     $conductor->writeln('  new {name}          Prepares and deploys a new application');
     $conductor->writeln('  edit {name}         Open a text editor to update the vhost config.');
     $conductor->writeln('  dump {name} [--waf] Write the vhost or WAF config to STDOUT.');
@@ -203,6 +205,8 @@ function displayHelp($conductor)
     $conductor->writeln('  disable {name}      Disables an application vhost config.');
     $conductor->writeln('  cron {name}         Open a text editor to update the application crontab.');
     $conductor->writeln('  letsencrypt {name}  Provisions (or renews) a LetsEncrypt SSL cert.');
+    $conductor->writeln('  letsencrypt webhook --configure={endpoint}');
+    $conductor->writeln('                      Update the LetsEncrypt deploy/renew webhook endpoint');
     $conductor->writeln('  destroy {name}      Removes an application from the server');
     $conductor->writeln('  update {name}       Upgrades an application via. Git');
     $conductor->writeln('  rollback {name}     Rolls back the most recent upgrade');

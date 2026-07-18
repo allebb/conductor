@@ -1536,9 +1536,57 @@ final class ConductorTest extends TestCase
         $this->assertStringContainsString('#listen 80;', $updated);
         $this->assertStringContainsString('    listen 443 ssl;', $updated);
         $this->assertStringContainsString('example.com,www.example.com', $conductor->commands[0]);
+        $this->assertStringContainsString('/etc/conductor/utils/letsencrypt_webhook.sh deploy myapp', $conductor->commands[0]);
 
         @unlink($config);
         @rmdir($configs);
+        @rmdir($root);
+    }
+
+    public function testLetsEncryptWebhookConfigureUpdatesWebhookConfig(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-letsencrypt-webhook-' . uniqid();
+        mkdir($root);
+
+        $config_path = $root . '/letsencrypt-webhook.conf';
+        $endpoint = 'https://n8n.example.com/webhook/8b4e7040-3746-4120-b317-50110f074a53';
+        $conductor = new class($endpoint) extends Conductor {
+            public array $lines = [];
+            private string $endpoint;
+
+            public function __construct($endpoint)
+            {
+                $this->endpoint = $endpoint;
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return [1 => 'letsencrypt', 2 => 'webhook'][$part] ?? $default;
+            }
+
+            public function getOption($name, $default = false)
+            {
+                return $name == 'configure' ? $this->endpoint : $default;
+            }
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+
+        (new ReflectionClass(Conductor::class))->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'letsencrypt_webhook' => $config_path,
+            ],
+        ]);
+
+        $conductor->generateLetsEncryptCertificate();
+
+        $this->assertSame('url = ' . $endpoint . PHP_EOL, file_get_contents($config_path));
+        $this->assertContains('Updated LetsEncrypt webhook endpoint: ' . $endpoint, $conductor->lines);
+
+        @unlink($config_path);
         @rmdir($root);
     }
 
@@ -2044,13 +2092,16 @@ final class ConductorTest extends TestCase
         $webhook_helper = file_get_contents(__DIR__ . '/../utils/fail2ban_webhook.sh');
         $installer = file_get_contents(__DIR__ . '/../utils/install_fail2ban_nftables.sh');
 
-        $this->assertStringContainsString('url = https://bin.hallinet.com/z7jw38z7', $webhook_action);
+        $this->assertStringContainsString('url = http://127.0.0.1', $webhook_action);
         $this->assertStringContainsString('/etc/conductor/utils/fail2ban_webhook.sh ban', $webhook_action);
         $this->assertStringContainsString('/etc/conductor/utils/fail2ban_webhook.sh unban', $webhook_action);
+        $this->assertStringContainsString('ban "<name>" "<ip>" "<bantime>" "<F-APPLICATION>" "<url>"', $webhook_action);
+        $this->assertStringContainsString('unban "<name>" "<ip>" "" "" "<url>"', $webhook_action);
         $this->assertStringContainsString('$conductor_application $status', $nginx_common);
         $this->assertStringContainsString('"event"', $webhook_helper);
         $this->assertStringContainsString('"bantime"', $webhook_helper);
-        $this->assertStringNotContainsString('"application"', $webhook_helper);
+        $this->assertStringContainsString('"application"', $webhook_helper);
+        $this->assertStringContainsString('url="${6:-http://127.0.0.1}"', $webhook_helper);
         $this->assertStringNotContainsString('"seclogs"', $webhook_helper);
         $this->assertStringContainsString('-H "Content-Type: application/json"', $webhook_helper);
 
@@ -2073,6 +2124,100 @@ final class ConductorTest extends TestCase
         $this->assertStringNotContainsString('https://example.com/fail2ban-webhook', $jails);
         $this->assertStringContainsString('fail2ban nftables curl', $installer);
         $this->assertStringNotContainsString('fail2ban nftables logrotate curl', $installer);
+        $this->assertStringContainsString('conductor waf {appname} --enable --auto-reload', $installer);
+        $this->assertStringContainsString('conductor waf {appname} --disable --auto-reload', $installer);
+        $this->assertStringNotContainsString('conductor protect {appname}', $installer);
+    }
+
+    public function testWafWebhookConfigureUpdatesFail2BanWebhookActionUrl(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-waf-webhook-' . uniqid();
+        $action_directory = $root . '/fail2ban/action.d';
+        mkdir($root);
+        mkdir($root . '/fail2ban');
+        mkdir($action_directory);
+
+        $action_path = $action_directory . '/conductor-webhook.conf';
+        file_put_contents($action_path, implode(PHP_EOL, [
+            '[Definition]',
+            '',
+            'actionban = /etc/conductor/utils/fail2ban_webhook.sh ban "<name>" "<ip>" "<bantime>" "<F-APPLICATION>" "<url>" || true',
+            '',
+            '[Init]',
+            '',
+            'url = https://old.example.com/webhook',
+            '',
+        ]));
+
+        $endpoint = 'https://n8n.example.com/webhook/8b4e7040-3746-4120-b317-50110f074a53';
+        $conductor = new class($endpoint) extends Conductor {
+            public array $calls = [];
+            public array $lines = [];
+            private string $endpoint;
+
+            public function __construct($endpoint)
+            {
+                $this->endpoint = $endpoint;
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return [1 => 'waf', 2 => 'webhook'][$part] ?? $default;
+            }
+
+            public function getOption($name, $default = false)
+            {
+                return $name == 'configure' ? $this->endpoint : $default;
+            }
+
+            public function callWithOutput($command, &$output)
+            {
+                $this->calls[] = $command;
+                $output = [];
+                return 0;
+            }
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+
+        (new ReflectionClass(Conductor::class))->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'fail2ban_actions' => $action_directory,
+            ],
+        ]);
+
+        $conductor->wafControl();
+
+        $this->assertStringContainsString('url = ' . $endpoint, file_get_contents($action_path));
+        $this->assertContains('Updated Fail2Ban webhook endpoint: ' . $endpoint, $conductor->lines);
+        $this->assertContains('systemctl restart fail2ban 2>&1', $conductor->calls);
+
+        @unlink($action_path);
+        @rmdir($action_directory);
+        @rmdir($root . '/fail2ban');
+        @rmdir($root);
+    }
+
+    public function testLetsEncryptWebhookHelperPostsJsonPayload(): void
+    {
+        $webhook_config = file_get_contents(__DIR__ . '/../configs/common/letsencrypt-webhook.conf');
+        $webhook_helper = file_get_contents(__DIR__ . '/../utils/letsencrypt_webhook.sh');
+        $renew_helper = file_get_contents(__DIR__ . '/../utils/certbot_renew.sh');
+        $debian_config = file_get_contents(__DIR__ . '/../bin/conf/conductor.debian.template.json');
+        $conductor_source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');
+
+        $this->assertStringContainsString('url = http://127.0.0.1', $webhook_config);
+        $this->assertStringContainsString('__LETSENCRYPT_DEPLOY_HOOK__', $debian_config);
+        $this->assertStringContainsString('/etc/conductor/utils/letsencrypt_webhook.sh deploy', $conductor_source);
+        $this->assertStringContainsString('"event"', $webhook_helper);
+        $this->assertStringContainsString('"app"', $webhook_helper);
+        $this->assertStringContainsString('"lineage"', $webhook_helper);
+        $this->assertStringContainsString('"domains"', $webhook_helper);
+        $this->assertStringContainsString('-H "Content-Type: application/json"', $webhook_helper);
+        $this->assertStringContainsString('/etc/conductor/utils/letsencrypt_webhook.sh renew', $renew_helper);
     }
 
     public function testFail2BanFiltersExtractClientIpFieldOnly(): void
@@ -2080,7 +2225,7 @@ final class ConductorTest extends TestCase
         foreach (glob(__DIR__ . '/../configs/common/fail2ban/filter.d/conductor-nginx-*.conf') as $filter_path) {
             $filter = file_get_contents($filter_path);
 
-            $this->assertStringContainsString('(?:\S+T\S+\s+)?<HOST>\s+\S+\s+', $filter, basename($filter_path));
+            $this->assertStringContainsString('(?:\S+T\S+\s+)?<HOST>\s+<F-APPLICATION>\S+</F-APPLICATION>\s+', $filter, basename($filter_path));
             $this->assertStringNotContainsString('(?:\S+\s+)?<HOST>', $filter, basename($filter_path));
         }
     }
@@ -2221,6 +2366,20 @@ final class ConductorTest extends TestCase
         $this->assertContains('--enable', $conductor->lines);
         $this->assertContains('--disable', $conductor->lines);
 
+        $conductor = new class(['conductor', '__complete', 2, 'conductor', 'letsencrypt', '--']) extends Conductor {
+            public array $lines = [];
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+        $property->setValue($conductor, new \stdClass());
+
+        $conductor->complete();
+        $this->assertContains('--force-renew', $conductor->lines);
+        $this->assertContains('--configure=', $conductor->lines);
+
         $conductor = new class(['conductor', '__complete', 2, 'conductor', 'waf', '--']) extends Conductor {
             public array $lines = [];
 
@@ -2235,6 +2394,7 @@ final class ConductorTest extends TestCase
         $this->assertContains('--enable', $conductor->lines);
         $this->assertContains('--disable', $conductor->lines);
         $this->assertContains('--auto-reload', $conductor->lines);
+        $this->assertContains('--configure=', $conductor->lines);
 
         $conductor = new class(['conductor', '__complete', 2, 'conductor', 'test', '--']) extends Conductor {
             public array $lines = [];
@@ -2286,6 +2446,27 @@ final class ConductorTest extends TestCase
         $conductor->complete();
         $this->assertContains('alpha', $conductor->lines);
         $this->assertContains('bravo', $conductor->lines);
+        $this->assertContains('webhook', $conductor->lines);
+
+        $conductor = new class(['conductor', '__complete', 2, 'conductor', 'letsencrypt', '']) extends Conductor {
+            public array $lines = [];
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+        $property->setValue($conductor, (object) [
+            'paths' => (object) [
+                'apps' => $apps,
+                'appconfs' => $configs,
+            ],
+        ]);
+
+        $conductor->complete();
+        $this->assertContains('alpha', $conductor->lines);
+        $this->assertContains('bravo', $conductor->lines);
+        $this->assertContains('webhook', $conductor->lines);
 
         $conductor = new class(['conductor', '__complete', 2, 'conductor', 'showkey', '']) extends Conductor {
             public array $lines = [];

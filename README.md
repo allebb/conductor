@@ -189,7 +189,7 @@ The installer enables these default jails, you can adjust the triggers and ban p
 | ``conductor-nginx-burst`` | 800 total requests in 30 seconds | 10 minutes |
 | ``conductor-nginx-dos`` | 2000 total requests in 1 minute | 24 hours |
 
-Each Conductor Fail2Ban jail also posts JSON ban/unban events to ``https://bin.hallinet.com/z7jw38z7`` (just a default, you should customise this to something you manage) using the installed ``conductor-webhook`` action. The payload includes the event type, jail/action name, IP address, and ban duration for ban events. Edit ``/etc/fail2ban/action.d/conductor-webhook.conf`` if you need to change or disable the endpoint.
+Each Conductor Fail2Ban jail can post ban/unban events using the installed ``conductor-webhook`` action. Configure the endpoint with ``sudo conductor waf webhook --configure={endpoint}``; Conductor updates ``/etc/fail2ban/action.d/conductor-webhook.conf`` and restarts Fail2Ban so new ban/unban events use the configured address. The webhook sends a JSON ``POST`` payload containing the event type, jail/action name, and IP address. Ban events also include the Conductor application id and ban duration. A workflow tool such as N8N is a good fit for receiving the payload, formatting it, and distributing it to other systems as required.
 
 > These values can be manually adjusted to fit your personal requirements by editting the default configurations that are installed to ``/etc/conductor/configs/common/fail2ban/``.
 
@@ -330,10 +330,13 @@ New WAF files include ``/etc/conductor/configs/common/xcaler_community_search_en
 
 Run ``sudo conductor waf rulesets --update-community`` to download the latest Xcaler community lists from ``https://lists.xcaler.com/`` into ``/etc/conductor/configs/common/xcaler_community_{type}.conf``. The command prints ``updated!`` or ``failed!`` for each ruleset file, validates the Nginx configuration, reverts the downloaded rulesets if validation fails, and gracefully reloads Nginx when validation succeeds.
 
+Run ``sudo conductor waf webhook --configure={endpoint}`` to update the Fail2Ban ban/unban webhook endpoint in ``/etc/fail2ban/action.d/conductor-webhook.conf``. The endpoint must be an HTTP(S) URL. Conductor restarts Fail2Ban after updating the file so new ban/unban events use the configured address. The webhook sends a JSON ``POST`` payload; a workflow tool such as N8N can receive it, format it, and distribute it to other systems as required.
+
 ```shell
 sudo conductor waf {app name}
 sudo conductor waf {app name} --enable
 sudo conductor waf {app name} --disable
+sudo conductor waf webhook --configure=https://n8n.yourdomain.com/webhook/8b4e7040-3746-4120-b317-50110f074a53
 ```
 
 The command tests Nginx after edits or enable/disable changes. Add ``--auto-reload`` to ``--enable`` or ``--disable`` to gracefully reload Nginx automatically after the configuration test passes. Without it, Conductor asks whether to reload and defaults to yes.
@@ -433,6 +436,14 @@ Your SSL certificates will automatically be renewed as required.
 If you want to remove an SSL certificate from your server you should use ``sudo conductor letsencrypt {appname} --delete``. This will also reset the virtual host back to the default HTTP block.
 
 If you wish to force a renewal of the SSL certificate you can use ``sudo conductor letsencrypt {appname} --force-renew``.
+
+Conductor can also send a JSON ``POST`` webhook after a LetsEncrypt certificate is deployed by ``conductor letsencrypt {appname}``, ``conductor letsencrypt {appname} --force-renew``, or the bundled Certbot renewal helper. Configure the endpoint with:
+
+```shell
+sudo conductor letsencrypt webhook --configure=https://n8n.yourdomain.com/webhook/8b4e7040-3746-4120-b317-50110f074a53
+```
+
+The payload includes the event name, Conductor application name when known, Certbot lineage path, and renewed domain list when Certbot provides those values. A workflow tool such as N8N is useful for receiving the payload, formatting it, and distributing it to monitoring, chat, ticketing, or other systems as required.
 
 Automating application backups
 ------------------------------
