@@ -1250,7 +1250,8 @@ final class ConductorTest extends TestCase
                     return null;
                 }
 
-                return '# downloaded from ' . $url . "\n";
+                return "# downloaded from " . $url . "\n"
+                    . "# Auto-updated from Xcaler Community lists (https://lists.xcaler.com) at {DATETIME}\n";
             }
 
             public function callWithOutput($command, &$output)
@@ -1295,8 +1296,11 @@ final class ConductorTest extends TestCase
             'common_paths',
         ] as $type) {
             $path = $root . '/xcaler_community_' . $type . '.conf';
+            $content = file_get_contents($path);
             $this->assertFileExists($path);
-            $this->assertStringContainsString('https://lists.xcaler.com/xcaler_' . $type . '.list', file_get_contents($path));
+            $this->assertStringContainsString('https://lists.xcaler.com/xcaler_' . $type . '.list', $content);
+            $this->assertStringNotContainsString('{DATETIME}', $content);
+            $this->assertMatchesRegularExpression('/Auto-updated from Xcaler Community lists \(https:\/\/lists\.xcaler\.com\) at \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [A-Z]+/', $content);
             @unlink($path);
         }
 

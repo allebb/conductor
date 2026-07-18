@@ -1434,6 +1434,7 @@ class Conductor extends CliApplication
             $updated = false;
 
             if ($body !== null && trim($body) !== '') {
+                $body = $this->stampXcalerCommunityRuleset($body);
                 $updated = file_put_contents($target, $body) !== false;
             }
 
@@ -1456,6 +1457,16 @@ class Conductor extends CliApplication
 
         $this->restartFail2BanForWafChange();
         $this->reloadNginxGracefully();
+    }
+
+    /**
+     * Replace the Xcaler community timestamp placeholder with the current time.
+     * @param string $body
+     * @return string
+     */
+    private function stampXcalerCommunityRuleset($body)
+    {
+        return str_replace('{DATETIME}', date('Y-m-d H:i:s T'), $body);
     }
 
     /**
