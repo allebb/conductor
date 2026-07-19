@@ -1090,6 +1090,7 @@ class Conductor extends CliApplication
         $options = [
             'list' => ['--streams'],
             'new' => [
+                '--stream',
                 '--fqdn=',
                 '--environment=',
                 '--mysql-pass=',
@@ -1113,6 +1114,7 @@ class Conductor extends CliApplication
             'ban' => ['--debug'],
             'dump' => ['--waf', '--stream'],
             'load' => ['--waf', '--stream'],
+            'destroy' => ['--stream'],
         ];
 
         if (!isset($options[$command])) {
@@ -3612,6 +3614,11 @@ class Conductor extends CliApplication
     public function newApplication()
     {
         $this->appNameRequired();
+        if ($this->isFlagSet('stream')) {
+            $this->createStreamConfiguration();
+            return;
+        }
+
         if (file_exists($this->appdir)) {
             $this->writeln('Cannot create new application as it already exists on this server!');
             $this->endWithError();
@@ -3826,6 +3833,36 @@ class Conductor extends CliApplication
 
         $this->migrateLaravel($environment);
         $this->promptGracefulNginxReload('new application', $this->isFlagSet('auto-reload'));
+    }
+
+    /**
+     * Create an empty, enabled Nginx stream configuration.
+     */
+    private function createStreamConfiguration()
+    {
+        $this->validateStreamConfigurationName();
+        $directory = $this->streamsConfigurationDirectory();
+        $config_path = $directory . '/' . $this->appname . '.conf';
+        $disabled_path = $directory . '/' . $this->appname . '.disabled';
+
+        if (file_exists($config_path) || file_exists($disabled_path)) {
+            $this->writeln('Cannot create stream configuration as it already exists on this server!');
+            $this->endWithError();
+        }
+
+        if (!is_dir($directory) && !mkdir($directory, 0755, true)) {
+            $this->writeln('Unable to create stream configuration directory: ' . $directory);
+            $this->endWithError();
+        }
+
+        $content = "# Add your TCP/UDP stream configuration here!\n#stream {\n#\n#}\n";
+        if (file_put_contents($config_path, $content) === false) {
+            $this->writeln('Unable to create stream configuration: ' . $config_path);
+            $this->endWithError();
+        }
+
+        $this->writeln('Created stream configuration: ' . $config_path);
+        $this->promptGracefulNginxReload('new stream configuration', true);
     }
 
     /**
@@ -4369,6 +4406,11 @@ class Conductor extends CliApplication
     public function destroy()
     {
         $this->appNameRequired();
+        if ($this->isFlagSet('stream')) {
+            $this->destroyStreamConfiguration();
+            return;
+        }
+
         if (file_exists($this->appdir)) {
             $this->writeln('Running a quick snapshot as you can never be too careful...');
             $this->backupApplication('priordestroy_' . $this->appname . '.tar.gz');
@@ -4395,6 +4437,49 @@ class Conductor extends CliApplication
             $this->endWithSuccess();
         } else {
             $this->writeln('Application was not found on this server!');
+            $this->endWithError();
+        }
+    }
+
+    /**
+     * Delete an enabled or disabled Nginx stream configuration.
+     */
+    private function destroyStreamConfiguration()
+    {
+        $this->validateStreamConfigurationName();
+        $directory = $this->streamsConfigurationDirectory();
+        $paths = [
+            $directory . '/' . $this->appname . '.conf',
+            $directory . '/' . $this->appname . '.disabled',
+        ];
+        $deleted = false;
+
+        foreach ($paths as $path) {
+            if (file_exists($path)) {
+                if (!unlink($path)) {
+                    $this->writeln('Unable to delete stream configuration: ' . $path);
+                    $this->endWithError();
+                }
+                $deleted = true;
+            }
+        }
+
+        if (!$deleted) {
+            $this->writeln('Stream configuration was not found on this server!');
+            $this->endWithError();
+        }
+
+        $this->writeln('Deleted stream configuration: ' . $this->appname);
+        $this->promptGracefulNginxReload('deleted stream configuration', true);
+    }
+
+    /**
+     * Ensure a stream name is a filename, rather than a path.
+     */
+    private function validateStreamConfigurationName()
+    {
+        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_-]*$/', $this->appname)) {
+            $this->writeln('Stream configuration names may only contain letters, numbers, hyphens and underscores.');
             $this->endWithError();
         }
     }

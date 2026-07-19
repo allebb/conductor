@@ -203,7 +203,8 @@ function displayHelp($conductor)
     $conductor->writeln('                      Download/update Xcaler community WAF rulesets');
     $conductor->writeln('  waf webhook --configure={endpoint}');
     $conductor->writeln('                      Update the Fail2Ban ban/unban webhook endpoint');
-    $conductor->writeln('  new {name}          Prepares and deploys a new application');
+    $conductor->writeln('  new {name} [--stream]');
+    $conductor->writeln('                      Deploys an application or creates a stream config');
     $conductor->writeln('  edit {name}         Open a text editor to update the vhost config.');
     $conductor->writeln('  dump {name} [--waf] Write the vhost or WAF config to STDOUT.');
     $conductor->writeln('  load {name} [--waf] Read the vhost or WAF config from STDIN.');
@@ -213,7 +214,8 @@ function displayHelp($conductor)
     $conductor->writeln('  letsencrypt {name}  Provisions (or renews) a LetsEncrypt SSL cert.');
     $conductor->writeln('  letsencrypt webhook --configure={endpoint}');
     $conductor->writeln('                      Update the LetsEncrypt deploy/renew webhook endpoint');
-    $conductor->writeln('  destroy {name}      Removes an application from the server');
+    $conductor->writeln('  destroy {name} [--stream]');
+    $conductor->writeln('                      Removes an application or stream config');
     $conductor->writeln('  update {name}       Upgrades an application via. Git');
     $conductor->writeln('  rollback {name}     Rolls back the most recent upgrade');
     $conductor->writeln('  envars {name}       Add, amend or delete environment variables');

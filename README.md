@@ -163,6 +163,8 @@ The installer enables a top-level Nginx include for custom TCP/UDP stream config
 
 Conductor copies commented ``.conf.example`` files into that directory during installation. Rename an example to ``.conf`` to enable it, or add your own as required. Each enabled stream file should include its own top-level ``stream { ... }`` block. Stream configurations can be dumped, loaded, enabled, and disabled through the CLI by adding ``--stream`` to the corresponding command. The directory configuration (auto-loading of ``.conf`` files) works in the same way that the other Conductor http/virtual hosts files work and therefore adds commonality and eases administration.
 
+Use ``conductor new {name} --stream`` to create a commented ``{name}.conf`` starter file. Use ``conductor destroy {name} --stream`` to remove its enabled ``.conf`` or disabled ``.disabled`` file. Both commands test the Nginx configuration and gracefully reload Nginx after a successful test.
+
 Proxy templates also include a commented cache example. The shared ``conductor_proxy`` cache zone is defined in ``/etc/conductor/configs/common/conductor_nginx.conf`` and stores cached responses under ``/var/conductor/cache/nginx-proxy``. Uncomment the proxy cache lines in a proxy vhost when you want that site to use it.
 
 ### Optional Fail2Ban and nftables protection

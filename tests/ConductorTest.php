@@ -2149,6 +2149,90 @@ final class ConductorTest extends TestCase
         @rmdir($root);
     }
 
+    public function testCreateAndDestroyStreamConfig(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-create-stream-' . uniqid();
+        $streams = $root . '/streams';
+        mkdir($root);
+
+        $conductor = new class extends Conductor {
+            public array $calls = [];
+
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'mail-relay' : $default;
+            }
+
+            public function isFlagSet($flag)
+            {
+                return $flag == 'stream';
+            }
+
+            public function callWithOutput($command, &$output)
+            {
+                $this->calls[] = $command;
+                $output = [];
+                return 0;
+            }
+
+            public function call($command)
+            {
+                $this->calls[] = $command;
+                return '';
+            }
+
+            public function writeln($line = '')
+            {
+            }
+        };
+
+        (new ReflectionClass(Conductor::class))->getProperty('conf')->setValue($conductor, (object) [
+            'auto-reload-nginx' => false,
+            'paths' => (object) [
+                'apps' => $root,
+                'streams' => $streams,
+            ],
+            'binaries' => (object) [
+                'nginx' => '/usr/sbin/nginx',
+            ],
+            'services' => (object) [
+                'nginx' => (object) [
+                    'reload' => 'service nginx reload',
+                ],
+            ],
+        ]);
+
+        $conductor->newApplication();
+        $config = $streams . '/mail-relay.conf';
+        $this->assertSame(
+            "# Add your TCP/UDP stream configuration here!\n#stream {\n#\n#}\n",
+            file_get_contents($config)
+        );
+
+        rename($config, $streams . '/mail-relay.disabled');
+        $conductor->destroy();
+
+        $this->assertFileDoesNotExist($streams . '/mail-relay.disabled');
+        file_put_contents($config, "# enabled stream\n");
+        $conductor->destroy();
+        $this->assertFileDoesNotExist($config);
+        $this->assertSame([
+            '/usr/sbin/nginx -t 2>&1',
+            'service nginx reload',
+            '/usr/sbin/nginx -t 2>&1',
+            'service nginx reload',
+            '/usr/sbin/nginx -t 2>&1',
+            'service nginx reload',
+        ], $conductor->calls);
+
+        @rmdir($streams);
+        @rmdir($root);
+    }
+
     public function testDefaultWafTemplatesIncludeSharedProtectionBlocks(): void
     {
         foreach (['html', 'laravel', 'proxy', 'wordpress'] as $template) {
