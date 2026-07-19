@@ -530,6 +530,91 @@ final class ConductorTest extends TestCase
         $this->assertMatchesRegularExpression('/Crowdsec\s+N\/A/', $output);
     }
 
+    public function testVersionsCanReturnJson(): void
+    {
+        $binary = tempnam(sys_get_temp_dir(), 'conductor-certbot-json-');
+        file_put_contents($binary, "#!/bin/sh\necho 'certbot 1.2.3'\n");
+        chmod($binary, 0755);
+
+        $conductor = new class extends Conductor {
+            public array $lines = [];
+
+            public function __construct()
+            {
+            }
+
+            public function getOption($name, $default = false)
+            {
+                return $name == 'format' ? 'json' : $default;
+            }
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+
+        (new ReflectionClass(Conductor::class))->getProperty('conf')->setValue($conductor, (object) [
+            'binaries' => (object) [
+                'certbot' => $binary,
+                'mysql' => '/no/such/mysql',
+            ],
+        ]);
+
+        $conductor->versions();
+        $payload = json_decode(implode(PHP_EOL, $conductor->lines), true, 512, JSON_THROW_ON_ERROR);
+        @unlink($binary);
+
+        $this->assertSame('1.2.3', $payload['CertBot']);
+        $this->assertSame('N/A', $payload['MySQL']);
+        $this->assertSame('N/A', $payload['Crowdsec']);
+        $this->assertArrayNotHasKey('Component', $payload);
+    }
+
+    public function testListStreamsShowsEnabledAndDisabledConfigurations(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-list-streams-' . uniqid();
+        mkdir($root);
+        file_put_contents($root . '/alpha.conf', "stream {}\n");
+        file_put_contents($root . '/bravo.disabled', "stream {}\n");
+        file_put_contents($root . '/example.conf.example', "stream {}\n");
+        file_put_contents($root . '/notes.txt', "ignored\n");
+
+        $conductor = new class extends Conductor {
+            public array $lines = [];
+
+            public function __construct()
+            {
+            }
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+
+        (new ReflectionClass(Conductor::class))->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'streams' => $root,
+            ],
+        ]);
+
+        $conductor->listStreams();
+        $output = implode(PHP_EOL, $conductor->lines);
+
+        $this->assertMatchesRegularExpression('/\[\/\]\s+alpha/', $output);
+        $this->assertMatchesRegularExpression('/\[x\]\s+bravo/', $output);
+        $this->assertStringNotContainsString('example', $output);
+        $this->assertStringNotContainsString('notes', $output);
+        $this->assertLessThan(strpos($output, 'bravo'), strpos($output, 'alpha'));
+
+        @unlink($root . '/alpha.conf');
+        @unlink($root . '/bravo.disabled');
+        @unlink($root . '/example.conf.example');
+        @unlink($root . '/notes.txt');
+        @rmdir($root);
+    }
+
     public function testGeoIpDatabaseDefaultsUseConfiguredDirectoryAndDbIpMonthlyDownloads(): void
     {
         $conductor = $this->makeConductorWithConfig((object) [
@@ -563,6 +648,9 @@ final class ConductorTest extends TestCase
         $this->assertStringContainsString('geoipdb --update', $entrypoint);
         $this->assertStringContainsString('geoipdb\' => [\'--update\', \'--url=\']', $source);
         $this->assertStringContainsString('$this->isFlagSet(\'update\')', $source);
+        $this->assertStringContainsString('$this->setDownloadedFileOwner($target)', $source);
+        $this->assertStringContainsString('$this->setDownloadedFileOwner($source_file)', $source);
+        $this->assertStringContainsString('/usr/bin/chown www-data ', $source);
         $this->assertStringContainsString('sudo conductor geoipdb --update', $readme);
         $this->assertStringNotContainsString('geoipdb update', $entrypoint . $source . $readme);
     }
@@ -1267,6 +1355,12 @@ final class ConductorTest extends TestCase
                 return '';
             }
 
+            public function callWithExitCode($command)
+            {
+                $this->commands[] = $command;
+                return 0;
+            }
+
             public function writeln($line = '')
             {
                 $this->lines[] = $line;
@@ -1311,6 +1405,9 @@ final class ConductorTest extends TestCase
         $this->assertContains('/usr/sbin/nginx -t 2>&1', $conductor->commands);
         $this->assertContains('systemctl restart fail2ban 2>&1', $conductor->commands);
         $this->assertContains('service nginx reload', $conductor->commands);
+        foreach (['search_engines', 'sql_injection', 'path_traversal', 'common_paths'] as $type) {
+            $this->assertContains('/usr/bin/chown www-data ' . escapeshellarg($root . '/xcaler_community_' . $type . '.conf'), $conductor->commands);
+        }
 
         @rmdir($root);
     }
@@ -1346,6 +1443,12 @@ final class ConductorTest extends TestCase
             {
                 $this->commands[] = $command;
                 return '';
+            }
+
+            public function callWithExitCode($command)
+            {
+                $this->commands[] = $command;
+                return 0;
             }
 
             public function writeln($line = '')
@@ -1888,6 +1991,161 @@ final class ConductorTest extends TestCase
         @rmdir($error_pages);
         @rmdir($waf);
         @rmdir($configs);
+        @rmdir($root);
+    }
+
+    public function testDumpAndLoadStreamConfig(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-stream-config-' . uniqid();
+        $streams = $root . '/streams';
+        mkdir($root);
+        mkdir($streams);
+        file_put_contents($streams . '/mysql.conf', "stream { # old\n}\n");
+
+        $conductor = new class extends Conductor {
+            public array $calls = [];
+
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'mysql' : $default;
+            }
+
+            public function isFlagSet($flag)
+            {
+                return $flag == 'stream';
+            }
+
+            protected function readStdin()
+            {
+                return "stream { # new\n}\n";
+            }
+
+            public function callWithOutput($command, &$output)
+            {
+                $this->calls[] = $command;
+                $output = [];
+                return 0;
+            }
+
+            public function call($command)
+            {
+                $this->calls[] = $command;
+                return '';
+            }
+
+            public function writeln($line = '')
+            {
+            }
+        };
+
+        (new ReflectionClass(Conductor::class))->getProperty('conf')->setValue($conductor, (object) [
+            'auto-reload-nginx' => false,
+            'paths' => (object) [
+                'apps' => $root,
+                'streams' => $streams,
+            ],
+            'binaries' => (object) [
+                'nginx' => '/usr/sbin/nginx',
+            ],
+            'services' => (object) [
+                'nginx' => (object) [
+                    'reload' => 'service nginx reload',
+                ],
+            ],
+        ]);
+
+        $conductor->loadApplicationConfig();
+        $this->assertSame("stream { # new\n}\n", file_get_contents($streams . '/mysql.conf'));
+        $this->assertSame(['/usr/sbin/nginx -t 2>&1', 'service nginx reload'], $conductor->calls);
+
+        ob_start();
+        $conductor->dumpApplicationConfig();
+        $this->assertSame("stream { # new\n}\n", ob_get_clean());
+
+        @unlink($streams . '/mysql.conf');
+        @rmdir($streams);
+        @rmdir($root);
+    }
+
+    public function testDisableAndEnableStreamConfig(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-toggle-stream-' . uniqid();
+        $streams = $root . '/streams';
+        mkdir($root);
+        mkdir($streams);
+        file_put_contents($streams . '/mysql.conf', "stream {}\n");
+
+        $conductor = new class extends Conductor {
+            public array $calls = [];
+
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'mysql' : $default;
+            }
+
+            public function isFlagSet($flag)
+            {
+                return $flag == 'stream' || $flag == 'auto-reload';
+            }
+
+            public function callWithOutput($command, &$output)
+            {
+                $this->calls[] = $command;
+                $output = [];
+                return 0;
+            }
+
+            public function call($command)
+            {
+                $this->calls[] = $command;
+                return '';
+            }
+
+            public function writeln($line = '')
+            {
+            }
+        };
+
+        (new ReflectionClass(Conductor::class))->getProperty('conf')->setValue($conductor, (object) [
+            'auto-reload-nginx' => false,
+            'paths' => (object) [
+                'apps' => $root,
+                'streams' => $streams,
+            ],
+            'binaries' => (object) [
+                'nginx' => '/usr/sbin/nginx',
+            ],
+            'services' => (object) [
+                'nginx' => (object) [
+                    'reload' => 'service nginx reload',
+                ],
+            ],
+        ]);
+
+        $conductor->disableApplication();
+        $this->assertFileDoesNotExist($streams . '/mysql.conf');
+        $this->assertFileExists($streams . '/mysql.disabled');
+
+        $conductor->enableApplication();
+        $this->assertFileExists($streams . '/mysql.conf');
+        $this->assertFileDoesNotExist($streams . '/mysql.disabled');
+        $this->assertSame([
+            '/usr/sbin/nginx -t 2>&1',
+            'service nginx reload',
+            '/usr/sbin/nginx -t 2>&1',
+            'service nginx reload',
+        ], $conductor->calls);
+
+        @unlink($streams . '/mysql.conf');
+        @rmdir($streams);
         @rmdir($root);
     }
 

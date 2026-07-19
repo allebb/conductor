@@ -19,7 +19,7 @@ class Conductor extends CliApplication
     /**
      * The main Conductor application version.
      */
-    const CONDUCTOR_VERSION = "5.0.0";
+    const CONDUCTOR_VERSION = "5.1.0";
 
     /**
      * The path to the core application configuration file.
@@ -176,10 +176,20 @@ class Conductor extends CliApplication
      */
     public function versions()
     {
+        $versions = [];
+        foreach ($this->versionComponents() as $component => $settings) {
+            $versions[$component] = $this->componentVersion($settings);
+        }
+
+        if (strtolower($this->getOption('format', 'text')) == 'json') {
+            $this->writeln(json_encode($versions, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            return;
+        }
+
         $this->writeln(sprintf('%-18s %s', 'Component', 'Version'));
 
-        foreach ($this->versionComponents() as $component => $settings) {
-            $this->writeln(sprintf('%-18s %s', $component, $this->componentVersion($settings)));
+        foreach ($versions as $component => $version) {
+            $this->writeln(sprintf('%-18s %s', $component, $version));
         }
     }
 
@@ -1078,6 +1088,7 @@ class Conductor extends CliApplication
     {
         $global = ['--help', '--version'];
         $options = [
+            'list' => ['--streams'],
             'new' => [
                 '--fqdn=',
                 '--environment=',
@@ -1089,8 +1100,9 @@ class Conductor extends CliApplication
                 '--target=',
                 '--auto-reload',
             ],
-            'enable' => ['--auto-reload'],
-            'disable' => ['--auto-reload'],
+            'enable' => ['--auto-reload', '--stream'],
+            'disable' => ['--auto-reload', '--stream'],
+            'versions' => ['--format='],
             'stats' => ['--format='],
             'test' => ['--auto-reload'],
             'letsencrypt' => ['--enable', '--disable', '--delete', '--force-renew', '--auto-reload', '--configure='],
@@ -1099,8 +1111,8 @@ class Conductor extends CliApplication
             'auth' => ['--enable', '--disable', '--auto-reload'],
             'waf' => ['--enable', '--disable', '--auto-reload', '--update-community', '--configure='],
             'ban' => ['--debug'],
-            'dump' => ['--waf'],
-            'load' => ['--waf'],
+            'dump' => ['--waf', '--stream'],
+            'load' => ['--waf', '--stream'],
         ];
 
         if (!isset($options[$command])) {
@@ -1436,6 +1448,10 @@ class Conductor extends CliApplication
             if ($body !== null && trim($body) !== '') {
                 $body = $this->stampXcalerCommunityRuleset($body);
                 $updated = file_put_contents($target, $body) !== false;
+                if ($updated && !$this->setDownloadedFileOwner($target)) {
+                    $this->restoreFilesFromBackups([$target => $backups[$target]]);
+                    $updated = false;
+                }
             }
 
             if ($updated) {
@@ -1514,6 +1530,16 @@ class Conductor extends CliApplication
                 unlink($path);
             }
         }
+    }
+
+    /**
+     * Set the required owner on a downloaded data file.
+     * @param string $path
+     * @return bool
+     */
+    protected function setDownloadedFileOwner($path)
+    {
+        return $this->callWithExitCode('/usr/bin/chown www-data ' . escapeshellarg($path)) === 0;
     }
 
     /**
@@ -1718,7 +1744,7 @@ class Conductor extends CliApplication
     public function dumpApplicationConfig()
     {
         $this->appNameRequired();
-        $config_path = $this->applicationCliConfigPath($this->isFlagSet('waf'));
+        $config_path = $this->cliConfigPath();
 
         echo file_get_contents($config_path);
     }
@@ -1731,7 +1757,8 @@ class Conductor extends CliApplication
     {
         $this->appNameRequired();
         $is_waf = $this->isFlagSet('waf');
-        $config_path = $this->applicationCliConfigPath($is_waf);
+        $is_stream = $this->isFlagSet('stream');
+        $config_path = $this->cliConfigPath();
         $replacement_config = $this->readStdin();
 
         if ($replacement_config === '') {
@@ -1745,16 +1772,16 @@ class Conductor extends CliApplication
         if (!$this->runNginxConfigurationTest()) {
             file_put_contents($config_path, $original_config);
             $this->writeln();
-            $this->writeln('Nginx configuration test failed; restored the previous ' . ($is_waf ? 'WAF' : 'virtualhost') . ' configuration.');
+            $this->writeln('Nginx configuration test failed; restored the previous ' . $this->cliConfigType() . ' configuration.');
             $this->writeln();
             $this->endWithNginxConfigError();
         }
 
-        $this->writeln('Updated ' . ($is_waf ? 'WAF' : 'virtualhost') . ' configuration: ' . $config_path);
+        $this->writeln('Updated ' . $this->cliConfigType() . ' configuration: ' . $config_path);
         if ($is_waf) {
             $this->restartFail2BanForWafChange();
         }
-        $this->promptGracefulNginxReload(($is_waf ? 'WAF' : 'virtualhost') . ' configuration change', true, false);
+        $this->promptGracefulNginxReload(($is_stream ? 'stream' : ($is_waf ? 'WAF' : 'virtualhost')) . ' configuration change', true, false);
     }
 
     /**
@@ -1774,17 +1801,38 @@ class Conductor extends CliApplication
 
     /**
      * Return the config path used by dump/load commands.
-     * @param bool $waf
      * @return string
      */
-    private function applicationCliConfigPath($waf)
+    private function cliConfigPath()
     {
-        if ($waf) {
+        if ($this->isFlagSet('stream') && $this->isFlagSet('waf')) {
+            $this->writeln('The --stream and --waf flags cannot be used together.');
+            $this->endWithError();
+        }
+
+        if ($this->isFlagSet('stream')) {
+            return $this->streamsConfigurationDirectory() . '/' . $this->appname . '.conf';
+        }
+
+        if ($this->isFlagSet('waf')) {
             $this->applicationConfigPath();
             return $this->ensureApplicationWafConfig();
         }
 
         return $this->applicationConfigPath();
+    }
+
+    /**
+     * Describe the configuration selected by dump/load flags.
+     * @return string
+     */
+    private function cliConfigType()
+    {
+        if ($this->isFlagSet('stream')) {
+            return 'stream';
+        }
+
+        return $this->isFlagSet('waf') ? 'WAF' : 'virtualhost';
     }
 
     /**
@@ -2060,7 +2108,13 @@ class Conductor extends CliApplication
                 $this->endWithError();
             }
 
-            file_put_contents($directory . '/source.txt', $url . PHP_EOL);
+            $source_file = $directory . '/source.txt';
+            if (file_put_contents($source_file, $url . PHP_EOL) === false
+                || !$this->setDownloadedFileOwner($target)
+                || !$this->setDownloadedFileOwner($source_file)) {
+                $this->writeln('Unable to set GeoIP database ownership to www-data.');
+                $this->endWithError();
+            }
             $this->writeln('GeoIP database updated: ' . $target);
             return;
         }
@@ -3878,6 +3932,10 @@ class Conductor extends CliApplication
     public function enableApplication()
     {
         $this->appNameRequired();
+        if ($this->isFlagSet('stream')) {
+            $this->toggleStreamConfig(true);
+            return;
+        }
         $this->toggleApplicationConfig(true);
     }
 
@@ -3887,7 +3945,61 @@ class Conductor extends CliApplication
     public function disableApplication()
     {
         $this->appNameRequired();
+        if ($this->isFlagSet('stream')) {
+            $this->toggleStreamConfig(false);
+            return;
+        }
         $this->toggleApplicationConfig(false);
+    }
+
+    /**
+     * Rename a stream config between active and disabled states.
+     * @param bool $enable
+     */
+    private function toggleStreamConfig($enable)
+    {
+        $directory = $this->streamsConfigurationDirectory();
+        $enabled_path = $directory . '/' . $this->appname . '.conf';
+        $disabled_path = $directory . '/' . $this->appname . '.disabled';
+        $from = $enable ? $disabled_path : $enabled_path;
+        $to = $enable ? $enabled_path : $disabled_path;
+
+        if (file_exists($to)) {
+            $this->writeln('Stream ' . $this->appname . ' is already ' . ($enable ? 'enabled.' : 'disabled.'));
+            return;
+        }
+
+        if (!file_exists($from)) {
+            $this->writeln('Stream configuration not found at: ' . $from);
+            $this->endWithError();
+        }
+
+        if (!rename($from, $to)) {
+            $this->writeln('Unable to rename stream configuration.');
+            $this->endWithError();
+        }
+
+        $this->writeln('Stream ' . $this->appname . ' has been ' . ($enable ? 'enabled.' : 'disabled.'));
+
+        if (!$this->runNginxConfigurationTest()) {
+            rename($to, $from);
+            $this->writeln('Nginx configuration test failed. The stream has been returned to its previous state.');
+            $this->endWithNginxConfigError();
+        }
+
+        if ($this->shouldAutoReloadNginx($this->isFlagSet('auto-reload'))) {
+            $this->reloadNginxGracefully();
+            return;
+        }
+
+        $reload_nginx = $this->input('Gracefully restart (reload) Nginx now for the change to take effect?', self::OPTION_YES,
+            [self::OPTION_YES, self::OPTION_NO]);
+
+        if (strtolower($reload_nginx) == self::OPTION_YES) {
+            $this->reloadNginxGracefully();
+        } else {
+            $this->writeln('Remember to gracefully restart (reload) Nginx before the change will take effect.');
+        }
     }
 
     /**
@@ -4035,6 +4147,47 @@ class Conductor extends CliApplication
         sort($application_names);
         foreach ($application_names as $application_name) {
             $this->writeln(str_pad($this->applicationEnabledMarker($application_name), 8) . $application_name);
+        }
+
+        $this->writeln();
+    }
+
+    /**
+     * List enabled and disabled Nginx stream configurations.
+     * @return void
+     */
+    public function listStreams()
+    {
+        $directory = $this->streamsConfigurationDirectory();
+        $this->writeln();
+        $this->writeln(str_pad('Status', 8) . 'Stream');
+        $this->writeln(str_repeat('-', 32));
+
+        $streams = [];
+        if (is_dir($directory)) {
+            foreach (new DirectoryIterator($directory) as $file) {
+                if (!$file->isFile()) {
+                    continue;
+                }
+
+                $filename = $file->getBasename();
+                if (str_ends_with($filename, '.conf')) {
+                    $streams[substr($filename, 0, -strlen('.conf'))] = '[/]';
+                    continue;
+                }
+
+                if (str_ends_with($filename, '.disabled')) {
+                    $name = substr($filename, 0, -strlen('.disabled'));
+                    if (!isset($streams[$name])) {
+                        $streams[$name] = '[x]';
+                    }
+                }
+            }
+        }
+
+        ksort($streams);
+        foreach ($streams as $stream => $status) {
+            $this->writeln(str_pad($status, 8) . $stream);
         }
 
         $this->writeln();

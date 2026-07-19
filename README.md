@@ -96,6 +96,12 @@ The Debian installers install Bash completion for ``conductor`` via ``/etc/bash_
 
 A simple command that displays the names of the currently deployed applications on the server.
 
+Use ``conductor list --streams`` to list stream configurations from ``/etc/conductor/streams``. Enabled ``.conf`` files are shown with ``[/]`` and disabled ``.disabled`` files with ``[x]``.
+
+#### ```conductor versions```
+
+Displays detected versions for Conductor-managed components. Use ``conductor versions --format=json`` for machine-readable JSON output.
+
 #### ```conductor stats```
 
 Displays operating system uptime, Nginx daemon uptime, Nginx connection details, enabled/disabled virtual host counts, enabled/disabled stream configuration counts, all configured server IP addresses, and the public IP. Use ``conductor stats --format=json`` for machine-readable output.
@@ -155,7 +161,7 @@ The installer enables a top-level Nginx include for custom TCP/UDP stream config
 /etc/conductor/streams/
 ```
 
-Conductor copies commented ``.conf.example`` files into that directory during installation. Rename an example to ``.conf`` to enable it, or add your own as required. Each enabled stream file should include its own top-level ``stream { ... }`` block. Whilst this is optional and the conductor CLI doesn't provide any management of these (you have to manage them manually), this has been added for those that use Conductor more as a reverse-proxy/load-balancer and can be extremely useful especially when you are using split DNS and proxying internal and external traffic and need a common gateway address. The directory configuration (auto-loading of ``.conf`` files) works in the same way that the other Conductor http/virtual hosts files work and therefore adds commonality and eases administration.
+Conductor copies commented ``.conf.example`` files into that directory during installation. Rename an example to ``.conf`` to enable it, or add your own as required. Each enabled stream file should include its own top-level ``stream { ... }`` block. Stream configurations can be dumped, loaded, enabled, and disabled through the CLI by adding ``--stream`` to the corresponding command. The directory configuration (auto-loading of ``.conf`` files) works in the same way that the other Conductor http/virtual hosts files work and therefore adds commonality and eases administration.
 
 Proxy templates also include a commented cache example. The shared ``conductor_proxy`` cache zone is defined in ``/etc/conductor/configs/common/conductor_nginx.conf`` and stores cached responses under ``/var/conductor/cache/nginx-proxy``. Uncomment the proxy cache lines in a proxy vhost when you want that site to use it.
 
@@ -303,6 +309,8 @@ Enables or disables an application's Nginx virtual host by renaming its configur
 
 Add ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes.
 
+Add ``--stream`` to enable or disable ``/etc/conductor/streams/{name}.conf`` instead. Disabled stream configurations use the ``.disabled`` extension.
+
 The ``conductor list`` command shows the current virtual host status: ``[/]`` for enabled, ``[x]`` for disabled, and ``[?]`` if no matching virtual host configuration was found.
 
 #### ```conductor auth {app name}```
@@ -351,6 +359,9 @@ sudo conductor load {app name} < /tmp/{random}.tmp
 
 sudo conductor dump {app name} --waf > /tmp/{random}.tmp
 sudo conductor load {app name} --waf < /tmp/{random}.tmp
+
+sudo conductor dump {stream name} --stream > /tmp/{random}.tmp
+sudo conductor load {stream name} --stream < /tmp/{random}.tmp
 ```
 
 ``load`` writes the new content, runs ``nginx -t``, restores the previous file if the test fails, and gracefully reloads Nginx automatically after a successful test. This is intended for web applications or automation that need to read, edit, and write Conductor-managed configuration through the CLI without opening an interactive editor.

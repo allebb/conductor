@@ -33,8 +33,13 @@ if (isset($commands[1])) {
             $conductor->endWithSuccess();
             break;
         case "list":
-            $conductor->writeln('Applications hosted on this server:');
-            $conductor->listApplications();
+            if ($conductor->isFlagSet('streams')) {
+                $conductor->writeln('Streams configured on this server:');
+                $conductor->listStreams();
+            } else {
+                $conductor->writeln('Applications hosted on this server:');
+                $conductor->listApplications();
+            }
             $conductor->endWithSuccess();
             break;
         case "versions":
@@ -181,8 +186,9 @@ function displayHelp($conductor)
     $conductor->writeln('Usage: conductor [OPTION]');
     $conductor->writeln();
     $conductor->writeln('Options:');
-    $conductor->writeln('  list                List all currently hosted applications');
-    $conductor->writeln('  versions            Display installed component versions');
+    $conductor->writeln('  list [--streams]    List hosted applications or stream configurations');
+    $conductor->writeln('  versions [--format=json]');
+    $conductor->writeln('                      Display installed component versions');
     $conductor->writeln('  stats [--format=json]');
     $conductor->writeln('                      Display system, Nginx and IP address details');
     $conductor->writeln('  metrics             Display Prometheus textfile metrics');
