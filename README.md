@@ -216,13 +216,13 @@ sudo conductor ban 203.0.113.10
 sudo conductor unban 203.0.113.10
 ```
 
-Manual bans are added to the ``conductor-manual`` jail and remain in place until explicitly unbanned or purged. ``ban purge`` clears all IP addresses currently banned by Fail2Ban, including bans created by non-Conductor jails.
+Manual bans are added to the ``conductor-manual`` jail, block the IP address from every port on the server (including forwarded traffic), and remain in place until explicitly unbanned or purged. Automatic Nginx bans remain limited to HTTP and HTTPS. ``ban purge`` clears all IP addresses currently banned by Fail2Ban, including bans created by non-Conductor jails.
 
 #### nftables default firewall behaviour
 
 The optional Fail2Ban+nftables installer keeps nftables passive by default. In other words, nftables is installed and available as the firewall backend used by Fail2Ban to block offending IP addresses, but Conductor does not automatically change the server into a "deny all inbound traffic" firewall. This avoids accidentally locking you out of an existing server.
 
-Conductor's Fail2Ban jails install nftables ban rules on both the ``input`` and ``forward`` hooks. The ``input`` hook covers normal traffic delivered directly to Nginx on the server. The ``forward`` hook helps in NAT, bridge, container, or lab topologies where HTTP/HTTPS packets traverse forwarding before they reach the web service.
+Conductor's Fail2Ban jails install nftables ban rules on both the ``input`` and ``forward`` hooks. The ``input`` hook covers traffic delivered directly to the server. The ``forward`` hook helps in NAT, bridge, container, or lab topologies where packets traverse forwarding before reaching a service. Manual bans apply to all ports; automatic Nginx jail bans apply only to HTTP and HTTPS.
 
 After you have installed the optional Fail2Ban+nftables support, you can choose to make nftables block all inbound ports by default and then explicitly allow only the ports you need. At minimum, keep your SSH port open (TCP/22 by default) so you do not lock yourself out, plus HTTP and HTTPS for web traffic:
 

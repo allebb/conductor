@@ -65,8 +65,8 @@ To disable it for an application:
 The installed automatic jails watch /tmp/conductor_*.seclog for scanner probes,
 excessive 4xx responses, repeated 401/403 responses, WAF rejections, GeoIP
 blocks, burst request rates, and DoS-style sustained request rates. The
-conductor-manual jail is available for manual bans added with
-conductor ban {ip_address}.
+conductor-manual jail is available for permanent, all-port bans added with
+conductor ban {ip_address}. Automatic Nginx bans remain limited to HTTP/HTTPS.
 
 Fail2Ban ban/unban webhook notifications send a JSON POST when an IP is banned
 and another JSON POST when it is unbanned. Configure the webhook endpoint with:

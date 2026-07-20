@@ -2451,8 +2451,11 @@ final class ConductorTest extends TestCase
         $this->assertStringNotContainsString('"seclogs"', $webhook_helper);
         $this->assertStringContainsString('-H "Content-Type: application/json"', $webhook_helper);
 
+        $this->assertStringContainsString('nftables-allports[name=conductor-manual, chain=conductor-f2b-input, chain_hook=input]', $jails);
+        $this->assertStringContainsString('nftables-allports[name=conductor-manual-forward, chain=conductor-f2b-forward, chain_hook=forward]', $jails);
+        $this->assertStringNotContainsString('nftables-multiport[name=conductor-manual,', $jails);
+
         foreach ([
-            'conductor-manual',
             'conductor-scanner',
             'conductor-4xx',
             'conductor-401',
