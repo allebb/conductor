@@ -159,12 +159,12 @@ For log dashboards, ship these paths with Promtail or another Loki agent:
 ```text
 /var/conductor/logs/*/access.log
 /var/conductor/logs/*/error.log
-/tmp/conductor_*.seclog
+/var/conductor/seclogs/conductor_*.seclog
 /var/log/fail2ban.log
 /var/log/nginx/error.log
 ```
 
-The ``/tmp/conductor_*.seclog`` files are especially useful when optional Fail2Ban/CrowdSec protection is enabled. They contain lean security-focused request logs suitable for panels showing scanner probes, 401/403 spikes, WAF rejections, GeoIP blocks, abusive IPs, and per-application security activity.
+The ``/var/conductor/seclogs/conductor_*.seclog`` files are especially useful when optional Fail2Ban/CrowdSec protection is enabled. They contain lean security-focused request logs suitable for panels showing scanner probes, 401/403 spikes, WAF rejections, GeoIP blocks, abusive IPs, and per-application security activity.
 
 ## Related Commands
 

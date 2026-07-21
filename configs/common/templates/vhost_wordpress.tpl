@@ -119,7 +119,7 @@ server {
     # We recommend using this block AND the above (WAF include) for advanced protection ("conductor waf {appname} --enable/--disable" targets both of these config blocks)
     # but you can independently enable just the above feature only, if you wish to only intercept requests and show appropriate error messages without blocking the IP entirely!
     # -- C:Start Fail2Ban Protection Block -- #
-    #access_log     /tmp/conductor_@@APPNAME@@.seclog conductor_security;
+    #access_log     /var/conductor/seclogs/conductor_@@APPNAME@@.seclog conductor_security;
     # -- C:End Fail2Ban Protection Block -- #
 
     # Optional custom error pages. Local copies are used first, then shared fallbacks.

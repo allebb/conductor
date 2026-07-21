@@ -1,4 +1,4 @@
-/tmp/conductor_*.seclog {
+/var/conductor/seclogs/conductor_*.seclog {
     size 10M
     rotate 3
     missingok
@@ -6,5 +6,5 @@
     copytruncate
     compress
     delaycompress
-    su www-data adm
+    su root root
 }

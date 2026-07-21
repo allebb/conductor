@@ -277,7 +277,7 @@ cd /etc/conductor
 sudo git checkout "${BRANCH_INSTALL}"
 cd -
 
-sudo mkdir -p /var/conductor/{applications,certificates,logs,backups,tmp,geoip,error-pages,cache/nginx-proxy}
+sudo mkdir -p /var/conductor/{applications,certificates,logs,seclogs,backups,tmp,geoip,error-pages,cache/nginx-proxy}
 sudo chown -R www-data:www-data /var/conductor/cache
 sudo mkdir -p /etc/conductor/pwdbs
 sudo chmod 755 /etc/conductor/pwdbs

@@ -24,7 +24,7 @@ Options:
 
 This optional installer installs CrowdSec, adds a firewall bouncer, installs
 common http collections, and configures CrowdSec to read Conductor's optional
-/tmp/conductor_*.seclog security logs.
+/var/conductor/seclogs/conductor_*.seclog security logs.
 EOF
 }
 
@@ -123,7 +123,7 @@ choose_bouncer_package() {
 disable_conductor_automatic_fail2ban_jails() {
     cat >/etc/fail2ban/jail.d/zz-conductor-crowdsec.conf <<'EOF'
 # Auto-created by the Conductor CrowdSec installer.
-# CrowdSec handles automatic bans from /tmp/conductor_*.seclog.
+# CrowdSec handles automatic bans from /var/conductor/seclogs/conductor_*.seclog.
 # Fail2Ban keeps conductor-manual enabled for conductor ban/unban commands.
 
 [conductor-nginx-scanner]
@@ -188,10 +188,11 @@ fi
 
 DEBIAN_FRONTEND=noninteractive apt-get install -y ${PACKAGES}
 
+install -d -o root -g root -m 0755 /var/conductor/seclogs
 install -d -m 0755 /etc/crowdsec/acquis.d /etc/crowdsec/parsers/s01-parse
 cat >/etc/crowdsec/acquis.d/conductor-nginx.yaml <<'EOF'
 filenames:
-  - /tmp/conductor_*.seclog
+  - /var/conductor/seclogs/conductor_*.seclog
 labels:
   type: conductor-nginx-seclog
 EOF
@@ -265,7 +266,7 @@ cat <<EOF
 Conductor CrowdSec support has been installed.
 
 CrowdSec is monitoring:
-  /tmp/conductor_*.seclog
+  /var/conductor/seclogs/conductor_*.seclog
 
 Installed firewall bouncer:
   ${BOUNCER_PACKAGE:-none}

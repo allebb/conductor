@@ -30,9 +30,10 @@ else
 fi
 
 install -d -m 0755 /etc/fail2ban/action.d /etc/fail2ban/filter.d /etc/fail2ban/jail.d
+install -d -o root -g root -m 0755 /var/conductor/seclogs
 touch /var/log/conductor-fail2ban-manual.log
-touch /tmp/conductor_fail2ban_seed.seclog
-chmod 0644 /var/log/conductor-fail2ban-manual.log /tmp/conductor_fail2ban_seed.seclog
+touch /var/conductor/seclogs/conductor_fail2ban_seed.seclog
+chmod 0644 /var/log/conductor-fail2ban-manual.log /var/conductor/seclogs/conductor_fail2ban_seed.seclog
 install -m 0644 "${FAIL2BAN_SOURCE}/action.d/"*.conf /etc/fail2ban/action.d/
 install -m 0644 "${FAIL2BAN_SOURCE}/filter.d/"*.conf /etc/fail2ban/filter.d/
 install -m 0644 "${FAIL2BAN_SOURCE}/jail.d/conductor-nginx.conf" /etc/fail2ban/jail.d/conductor-nginx.conf
@@ -62,7 +63,7 @@ To disable it for an application:
 
     conductor waf {appname} --disable --auto-reload
 
-The installed automatic jails watch /tmp/conductor_*.seclog for scanner probes,
+The installed automatic jails watch /var/conductor/seclogs/conductor_*.seclog for scanner probes,
 excessive 4xx responses, repeated 401/403 responses, WAF rejections, GeoIP
 blocks, burst request rates, and DoS-style sustained request rates. The
 conductor-manual jail is available for permanent, all-port bans added with

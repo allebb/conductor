@@ -1004,7 +1004,7 @@ final class ConductorTest extends TestCase
             'server {',
             '    access_log /var/log/nginx/myapp.access.log;',
             '    ' . Conductor::PROTECTION_START_MARKER,
-            '    #access_log     /tmp/conductor_myapp.seclog conductor_security;',
+            '    #access_log     /var/conductor/seclogs/conductor_myapp.seclog conductor_security;',
             '    ' . Conductor::PROTECTION_END_MARKER,
             '}',
         ]));
@@ -1053,12 +1053,12 @@ final class ConductorTest extends TestCase
         $method->invoke($conductor, true);
 
         $enabled = file_get_contents($config);
-        $this->assertStringContainsString('    access_log     /tmp/conductor_myapp.seclog conductor_security;', $enabled);
+        $this->assertStringContainsString('    access_log     /var/conductor/seclogs/conductor_myapp.seclog conductor_security;', $enabled);
         $this->assertStringContainsString('    access_log /var/log/nginx/myapp.access.log;', $enabled);
 
         $method->invoke($conductor, false);
         $disabled = file_get_contents($config);
-        $this->assertStringContainsString('    #access_log     /tmp/conductor_myapp.seclog conductor_security;', $disabled);
+        $this->assertStringContainsString('    #access_log     /var/conductor/seclogs/conductor_myapp.seclog conductor_security;', $disabled);
         $this->assertStringContainsString('    access_log /var/log/nginx/myapp.access.log;', $disabled);
 
         @unlink($config);
@@ -1077,7 +1077,7 @@ final class ConductorTest extends TestCase
         file_put_contents($config, implode(PHP_EOL, [
             'server {',
             '    ' . Conductor::PROTECTION_START_MARKER,
-            '    #access_log /tmp/conductor_myapp.seclog conductor_security;',
+            '    #access_log /var/conductor/seclogs/conductor_myapp.seclog conductor_security;',
             '    ' . Conductor::PROTECTION_END_MARKER,
             '}',
         ]));
@@ -1149,7 +1149,7 @@ final class ConductorTest extends TestCase
         file_put_contents($config, implode(PHP_EOL, [
             'server {',
             '    ' . Conductor::PROTECTION_START_MARKER,
-            '    #access_log /tmp/conductor_myapp.seclog conductor_security;',
+            '    #access_log /var/conductor/seclogs/conductor_myapp.seclog conductor_security;',
             '    ' . Conductor::PROTECTION_END_MARKER,
             '}',
         ]));
@@ -1246,7 +1246,7 @@ final class ConductorTest extends TestCase
         file_put_contents($config, implode(PHP_EOL, [
             'server {',
             '    ' . Conductor::PROTECTION_START_MARKER,
-            '    #access_log     /tmp/conductor_myapp.seclog conductor_security;',
+            '    #access_log     /var/conductor/seclogs/conductor_myapp.seclog conductor_security;',
             '    ' . Conductor::PROTECTION_END_MARKER,
             '    ' . Conductor::WAF_START_MARKER,
             '    include /etc/conductor/wafs/myapp.conf;',
@@ -1310,12 +1310,12 @@ final class ConductorTest extends TestCase
         $method->invoke($conductor, true);
         $enabled = file_get_contents($config);
         $this->assertStringContainsString('    include /etc/conductor/wafs/myapp.conf;', $enabled);
-        $this->assertStringContainsString('    access_log     /tmp/conductor_myapp.seclog conductor_security;', $enabled);
+        $this->assertStringContainsString('    access_log     /var/conductor/seclogs/conductor_myapp.seclog conductor_security;', $enabled);
 
         $method->invoke($conductor, false);
         $disabled = file_get_contents($config);
         $this->assertStringContainsString('    #include /etc/conductor/wafs/myapp.conf;', $disabled);
-        $this->assertStringContainsString('    #access_log     /tmp/conductor_myapp.seclog conductor_security;', $disabled);
+        $this->assertStringContainsString('    #access_log     /var/conductor/seclogs/conductor_myapp.seclog conductor_security;', $disabled);
         $this->assertSame(3, substr_count(implode(PHP_EOL, $conductor->calls), 'systemctl restart fail2ban 2>&1'));
 
         @unlink($waf . '/myapp.conf');
@@ -2610,11 +2610,15 @@ final class ConductorTest extends TestCase
         foreach ([$debian12, $debian13] as $installer) {
             $this->assertStringContainsString('logrotate', $installer);
             $this->assertStringContainsString('/etc/conductor/configs/common/logrotate/* /etc/logrotate.d/', $installer);
+            $this->assertStringContainsString('seclogs', $installer);
+            $this->assertStringNotContainsString('chown www-data:www-data /var/conductor/seclogs', $installer);
         }
 
         $this->assertStringContainsString('/var/conductor/logs/*/access.log /var/conductor/logs/*/error.log', $vhost_logrotate);
         $this->assertStringContainsString('copytruncate', $vhost_logrotate);
         $this->assertStringContainsString('su www-data www-data', $vhost_logrotate);
+        $seclog_logrotate = file_get_contents(__DIR__ . '/../configs/common/logrotate/conductor-seclog');
+        $this->assertStringContainsString('su root root', $seclog_logrotate);
     }
 
     public function testCompleteSuggestsCommandsOptionsAndApplicationNames(): void
@@ -2896,9 +2900,9 @@ final class ConductorTest extends TestCase
         $uncomment = $reflection->getMethod('uncommentNginxConfigLine');
         $conductor = $this->makeConductor();
 
-        $this->assertSame('    #access_log /tmp/app.seclog conductor_security;', $comment->invoke($conductor, '    access_log /tmp/app.seclog conductor_security;'));
-        $this->assertSame('    #access_log /tmp/app.seclog conductor_security;', $comment->invoke($conductor, '    #   access_log /tmp/app.seclog conductor_security;'));
-        $this->assertSame('    access_log /tmp/app.seclog conductor_security;', $uncomment->invoke($conductor, '    #   access_log /tmp/app.seclog conductor_security;'));
+        $this->assertSame('    #access_log /var/conductor/seclogs/app.seclog conductor_security;', $comment->invoke($conductor, '    access_log /var/conductor/seclogs/app.seclog conductor_security;'));
+        $this->assertSame('    #access_log /var/conductor/seclogs/app.seclog conductor_security;', $comment->invoke($conductor, '    #   access_log /var/conductor/seclogs/app.seclog conductor_security;'));
+        $this->assertSame('    access_log /var/conductor/seclogs/app.seclog conductor_security;', $uncomment->invoke($conductor, '    #   access_log /var/conductor/seclogs/app.seclog conductor_security;'));
         $this->assertSame('    ' . Conductor::WAF_START_MARKER, $comment->invoke($conductor, '    ' . Conductor::WAF_START_MARKER));
         $this->assertSame('    ' . Conductor::WAF_START_MARKER, $uncomment->invoke($conductor, '    ' . Conductor::WAF_START_MARKER));
     }

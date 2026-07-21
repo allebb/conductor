@@ -178,10 +178,10 @@ sudo bash /etc/conductor/utils/install_fail2ban_nftables.sh
 Each Nginx vhost template includes a commented security log line:
 
 ```nginx
-#access_log /tmp/conductor_{appname}.seclog conductor_security;
+#access_log /var/conductor/seclogs/conductor_{appname}.seclog conductor_security;
 ```
 
-Run ``sudo conductor waf {app name} --enable`` for any application/website vhost you want to enable bundled WAF rules and Fail2Ban/CrowdSec security logging for. Use ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes. The Fail2Ban templates watch ``/tmp/conductor_*.seclog``.
+Run ``sudo conductor waf {app name} --enable`` for any application/website vhost you want to enable bundled WAF rules and Fail2Ban/CrowdSec security logging for. Use ``--auto-reload`` to gracefully reload Nginx automatically after the configuration test passes. The Fail2Ban templates watch ``/var/conductor/seclogs/conductor_*.seclog``.
 
 The installer enables these default jails, you can adjust the triggers and ban period as you see fit though:
 
@@ -201,7 +201,7 @@ Each Conductor Fail2Ban jail can post ban/unban events using the installed ``con
 
 > These values can be manually adjusted to fit your personal requirements by editting the default configurations that are installed to ``/etc/conductor/configs/common/fail2ban/``.
 
-The security log format records the timestamp, client IP, Conductor application id, status code, request line, and user agent to keep things "lean" while still making ban webhooks attributable to a site/application. This client IP is the address Nginx sees for the connection. If you access a public hostname from inside the same LAN, router hairpin/NAT reflection can make the request appear to come from your public WAN address instead of your private LAN address. Only configure Nginx real-IP headers when traffic arrives through a trusted proxy whose address ranges you control. The ``/tmp`` path is often memory-backed (which is perfect) on modern Linux systems, but not always; check ``findmnt /tmp`` if this matters for your server. The main installer installs logrotate rules for the normal per-vhost ``access.log`` and ``error.log`` files under ``/var/conductor/logs/*/``, plus matching security logs at 10MB with three compressed rotations.
+The security log format records the timestamp, client IP, Conductor application id, status code, request line, and user agent to keep things "lean" while still making ban webhooks attributable to a site/application. This client IP is the address Nginx sees for the connection. If you access a public hostname from inside the same LAN, router hairpin/NAT reflection can make the request appear to come from your public WAN address instead of your private LAN address. Only configure Nginx real-IP headers when traffic arrives through a trusted proxy whose address ranges you control. The main installer creates ``/var/conductor/seclogs`` for these persistent security logs and installs logrotate rules for the normal per-vhost ``access.log`` and ``error.log`` files under ``/var/conductor/logs/*/``, plus matching security logs at 10MB with three compressed rotations.
 
 Once Fail2Ban support is installed, Conductor can manage bans directly:
 
@@ -280,10 +280,10 @@ sudo bash /etc/conductor/utils/install_fail2ban_nftables.sh
 The script installs CrowdSec, installs a firewall bouncer, adds common http collections, and configures CrowdSec to monitor Conductor's optional lean security logs:
 
 ```shell
-/tmp/conductor_*.seclog
+/var/conductor/seclogs/conductor_*.seclog
 ```
 
-This is the same optional log file path used by Conductor's Fail2Ban support, so you do not need CrowdSec to read the normal disk-based Nginx access logs. Uncomment the ``access_log /tmp/conductor_{appname}.seclog conductor_security;`` line in each vhost you want CrowdSec and/or Fail2Ban to monitor, then test and reload Nginx.
+This is the same optional log file path used by Conductor's Fail2Ban support, so you do not need CrowdSec to read the normal disk-based Nginx access logs. Uncomment the ``access_log /var/conductor/seclogs/conductor_{appname}.seclog conductor_security;`` line in each vhost you want CrowdSec and/or Fail2Ban to monitor, then test and reload Nginx.
 
 ```shell
 sudo bash /etc/conductor/utils/install_crowdsec.sh --bouncer=nftables

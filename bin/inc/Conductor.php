@@ -4430,7 +4430,7 @@ class Conductor extends CliApplication
             $this->call('rm -Rf ' . $this->appdir);
             $this->call('rm -Rf ' . $this->conf->paths->applogs . '/' . $this->appname);
             $this->writeln('Removing optional security log files...');
-            $this->call('rm -f /tmp/conductor_' . $this->appname . '.seclog*');
+            $this->call('rm -f /var/conductor/seclogs/conductor_' . $this->appname . '.seclog*');
             $this->writeln();
             $this->promptDeleteDeploymentKeyFiles();
             $this->writeln();

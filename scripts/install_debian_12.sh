@@ -265,6 +265,7 @@ sudo mkdir /var/conductor # We'll create a folder structure here to store all of
 sudo mkdir /var/conductor/applications
 sudo mkdir /var/conductor/certificates
 sudo mkdir /var/conductor/logs
+sudo mkdir /var/conductor/seclogs
 sudo mkdir /var/conductor/backups
 sudo mkdir /var/conductor/tmp
 sudo mkdir /var/conductor/geoip
