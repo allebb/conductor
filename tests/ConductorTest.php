@@ -115,6 +115,95 @@ final class ConductorTest extends TestCase
         @rmdir($root);
     }
 
+    public function testSecurityLogCommandDisplaysTheCompleteApplicationLog(): void
+    {
+        $log_path = sys_get_temp_dir() . '/conductor-seclog-' . uniqid() . '.seclog';
+        $contents = "first request\nsecond request\n";
+        file_put_contents($log_path, $contents);
+
+        $conductor = new class($log_path) extends Conductor {
+            private string $logPath;
+
+            public function __construct(string $logPath)
+            {
+                $this->logPath = $logPath;
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+
+            protected function securityLogPath()
+            {
+                return $this->logPath;
+            }
+        };
+        (new ReflectionClass(Conductor::class))->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) ['apps' => '/var/conductor/applications'],
+        ]);
+
+        ob_start();
+        $conductor->displaySecurityLog();
+        $output = ob_get_clean();
+
+        $this->assertSame($contents, $output);
+        @unlink($log_path);
+    }
+
+    public function testSecurityLogCommandReportsWhenTheLogIsMissing(): void
+    {
+        $conductor = new class extends Conductor {
+            public array $lines = [];
+            public bool $failed = false;
+
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+
+            public function endWithError()
+            {
+                $this->failed = true;
+            }
+
+            protected function securityLogPath()
+            {
+                return sys_get_temp_dir() . '/missing-conductor-seclog-' . uniqid() . '.seclog';
+            }
+        };
+        (new ReflectionClass(Conductor::class))->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) ['apps' => '/var/conductor/applications'],
+        ]);
+
+        $conductor->displaySecurityLog();
+
+        $this->assertTrue($conductor->failed);
+        $this->assertSame(['No security log found for application: myapp'], $conductor->lines);
+    }
+
+    public function testSecurityLogCommandIsDispatchedDocumentedAndCompleted(): void
+    {
+        $entrypoint = file_get_contents(__DIR__ . '/../bin/conductor.php');
+        $source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');
+        $readme = file_get_contents(__DIR__ . '/../README.md');
+
+        $this->assertStringContainsString('case "seclog":', $entrypoint);
+        $this->assertStringContainsString('$conductor->displaySecurityLog();', $entrypoint);
+        $this->assertStringContainsString('seclog {name}', $entrypoint);
+        $this->assertStringContainsString("'seclog',", $source);
+        $this->assertStringContainsString('conductor seclog {app name}', $readme);
+    }
+
     public function testDeploymentKeyOutputMentionsReadOnlyDeploymentKeyAndConductorGitignore(): void
     {
         $source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');

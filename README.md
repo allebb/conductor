@@ -305,6 +305,10 @@ Will remove the application from the server, removes the Nginx configuration for
 
 Prints the application's SSH deployment public key again, so it can be copied into GitHub or another deployment platform after the original application setup output has gone.
 
+#### ```conductor seclog {app name}```
+
+Displays the complete contents of the application's security log at ``/var/conductor/seclogs/conductor_{app name}.seclog``. If no security log is present for the application, the command reports that and exits with an error.
+
 #### ```conductor enable {app name}``` / ```conductor disable {app name}```
 
 Enables or disables an application's Nginx virtual host by renaming its configuration between ``{app name}.conf`` and ``{app name}.disabled``. Conductor will test the Nginx configuration and ask whether to reload Nginx so the change takes effect.

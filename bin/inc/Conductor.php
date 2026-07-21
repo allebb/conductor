@@ -47,6 +47,7 @@ class Conductor extends CliApplication
     const WAF_END_MARKER = "# -- C:End WAF Include Block -- #";
     const FAIL2BAN_WEBHOOK_ACTION_FILENAME = "conductor-webhook.conf";
     const LETSENCRYPT_WEBHOOK_CONFIG_FILENAME = "letsencrypt-webhook.conf";
+    const SECURITY_LOG_DIRECTORY = "/var/conductor/seclogs";
 
     /**
      * The current application number.
@@ -1042,6 +1043,7 @@ class Conductor extends CliApplication
             'letsencrypt',
             'genkey',
             'showkey',
+            'seclog',
             'delkey',
             'start',
             'stop',
@@ -1074,6 +1076,7 @@ class Conductor extends CliApplication
             'waf',
             'genkey',
             'showkey',
+            'seclog',
             'delkey',
             'start',
             'stop',
@@ -3374,6 +3377,33 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Display the complete security log for a specific application.
+     * @return void
+     */
+    public function displaySecurityLog()
+    {
+        $this->appNameRequired();
+        $log_path = $this->securityLogPath();
+
+        if (!is_file($log_path)) {
+            $this->writeln('No security log found for application: ' . $this->appname);
+            $this->endWithError();
+            return;
+        }
+
+        echo file_get_contents($log_path);
+    }
+
+    /**
+     * Return the security log path for the current application.
+     * @return string
+     */
+    protected function securityLogPath()
+    {
+        return self::SECURITY_LOG_DIRECTORY . '/conductor_' . $this->appname . '.seclog';
+    }
+
+    /**
      * Print the deployment public key for the current application.
      * @return void
      */
@@ -4430,7 +4460,7 @@ class Conductor extends CliApplication
             $this->call('rm -Rf ' . $this->appdir);
             $this->call('rm -Rf ' . $this->conf->paths->applogs . '/' . $this->appname);
             $this->writeln('Removing optional security log files...');
-            $this->call('rm -f /var/conductor/seclogs/conductor_' . $this->appname . '.seclog*');
+            $this->call('rm -f ' . self::SECURITY_LOG_DIRECTORY . '/conductor_' . $this->appname . '.seclog*');
             $this->writeln();
             $this->promptDeleteDeploymentKeyFiles();
             $this->writeln();
