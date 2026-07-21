@@ -495,6 +495,9 @@ final class ConductorTest extends TestCase
         $binary = tempnam(sys_get_temp_dir(), 'conductor-certbot-');
         file_put_contents($binary, "#!/bin/sh\necho 'certbot 1.2.3'\n");
         chmod($binary, 0755);
+        $nginx_binary = tempnam(sys_get_temp_dir(), 'conductor-nginx-');
+        file_put_contents($nginx_binary, "#!/bin/sh\necho 'nginx version: nginx/1.26.3' >&2\n");
+        chmod($nginx_binary, 0755);
 
         $conductor = new class extends Conductor {
             public array $lines = [];
@@ -513,6 +516,7 @@ final class ConductorTest extends TestCase
         $property->setValue($conductor, (object) [
             'binaries' => (object) [
                 'certbot' => $binary,
+                'nginx' => $nginx_binary,
                 'mysql' => '/no/such/mysql',
             ],
         ]);
@@ -520,10 +524,12 @@ final class ConductorTest extends TestCase
         $conductor->versions();
         $output = implode(PHP_EOL, $conductor->lines);
         @unlink($binary);
+        @unlink($nginx_binary);
 
         $this->assertStringContainsString('Component', $output);
         $this->assertStringContainsString('Version', $output);
         $this->assertMatchesRegularExpression('/CertBot\s+1\.2\.3/', $output);
+        $this->assertMatchesRegularExpression('/Nginx\s+1\.26\.3/', $output);
         $this->assertMatchesRegularExpression('/MySQL\s+N\/A/', $output);
         $this->assertMatchesRegularExpression('/nftables\s+N\/A/', $output);
         $this->assertStringNotContainsString('nftable ', $output);
@@ -535,6 +541,9 @@ final class ConductorTest extends TestCase
         $binary = tempnam(sys_get_temp_dir(), 'conductor-certbot-json-');
         file_put_contents($binary, "#!/bin/sh\necho 'certbot 1.2.3'\n");
         chmod($binary, 0755);
+        $nginx_binary = tempnam(sys_get_temp_dir(), 'conductor-nginx-json-');
+        file_put_contents($nginx_binary, "#!/bin/sh\necho 'nginx version: nginx/1.26.3' >&2\n");
+        chmod($nginx_binary, 0755);
 
         $conductor = new class extends Conductor {
             public array $lines = [];
@@ -557,6 +566,7 @@ final class ConductorTest extends TestCase
         (new ReflectionClass(Conductor::class))->getProperty('conf')->setValue($conductor, (object) [
             'binaries' => (object) [
                 'certbot' => $binary,
+                'nginx' => $nginx_binary,
                 'mysql' => '/no/such/mysql',
             ],
         ]);
@@ -564,8 +574,10 @@ final class ConductorTest extends TestCase
         $conductor->versions();
         $payload = json_decode(implode(PHP_EOL, $conductor->lines), true, 512, JSON_THROW_ON_ERROR);
         @unlink($binary);
+        @unlink($nginx_binary);
 
         $this->assertSame('1.2.3', $payload['CertBot']);
+        $this->assertSame('1.26.3', $payload['Nginx']);
         $this->assertSame('N/A', $payload['MySQL']);
         $this->assertSame('N/A', $payload['Crowdsec']);
         $this->assertArrayNotHasKey('Component', $payload);

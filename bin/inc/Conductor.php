@@ -201,6 +201,7 @@ class Conductor extends CliApplication
     {
         return [
             'CertBot' => ['binary' => 'certbot', 'arguments' => ['--version']],
+            'Nginx' => ['binary' => 'nginx', 'arguments' => ['-v']],
             'MySQL' => ['binary' => 'mysql', 'arguments' => ['--version']],
             'Redis' => ['binary' => 'redis', 'arguments' => ['--version']],
             'Supervisor' => ['binary' => 'supervisord', 'arguments' => ['--version']],
