@@ -251,6 +251,15 @@ sudo apt-get -y install letsencrypt
 # Create a strong Diffie-Hellman Group
 sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 4096 # Increased from 2048 in previous version!
 
+# Generate a long-lived self-signed certificate for Nginx's default HTTPS host.
+sudo openssl req -x509 -newkey rsa:2048 -nodes \
+    -keyout /etc/nginx/_default.key \
+    -out /etc/nginx/_default.crt \
+    -days 36500 \
+    -subj "/CN=localhost"
+sudo chmod 600 /etc/nginx/_default.key
+sudo chmod 644 /etc/nginx/_default.crt
+
 # Lets now create a default folder structure to hold all of our applications.
 # Now we need to pull 'conductor' from GitHub and we'll now deploy the application ready for it to be used.
 echo "Installer requested branch checkout: ${BRANCH_INSTALL}"

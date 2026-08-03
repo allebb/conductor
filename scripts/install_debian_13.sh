@@ -266,6 +266,15 @@ sudo apt-get -y install certbot python3-certbot-nginx
 ################################################################################
 sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 4096
 
+# Generate a long-lived self-signed certificate for Nginx's default HTTPS host.
+sudo openssl req -x509 -newkey rsa:2048 -nodes \
+    -keyout /etc/nginx/_default.key \
+    -out /etc/nginx/_default.crt \
+    -days 36500 \
+    -subj "/CN=localhost"
+sudo chmod 600 /etc/nginx/_default.key
+sudo chmod 644 /etc/nginx/_default.crt
+
 ################################################################################
 # Conductor Deployment
 ################################################################################
