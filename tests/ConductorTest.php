@@ -2540,6 +2540,7 @@ final class ConductorTest extends TestCase
         $installer = file_get_contents(__DIR__ . '/../utils/install_fail2ban_nftables.sh');
 
         $this->assertStringContainsString('url = http://127.0.0.1', $webhook_action);
+        $this->assertStringContainsString('norestored = true', $webhook_action);
         $this->assertStringContainsString('/etc/conductor/utils/fail2ban_webhook.sh ban', $webhook_action);
         $this->assertStringContainsString('/etc/conductor/utils/fail2ban_webhook.sh unban', $webhook_action);
         $this->assertStringContainsString('ban "<name>" "<ip>" "<bantime>" "<F-APPLICATION>" "<url>"', $webhook_action);
