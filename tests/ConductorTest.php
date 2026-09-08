@@ -3066,4 +3066,121 @@ STATUS;
             'waiting' => 0,
         ], $method->invoke($this->makeConductor(), "Active connections: 1\nserver accepts handled requests\n10 10 20\nReading: 0 Writing: 1 Waiting: 0\n"));
     }
+
+    public function testApplicationWorkersCanBeAddedListedRestartedAndRemoved(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-workers-' . uniqid();
+        $apps = $root . '/applications';
+        $templates = $root . '/common/templates';
+        $supervisor = $root . '/supervisor';
+        $logs = $root . '/logs';
+        mkdir($apps . '/myapp', 0755, true);
+        mkdir($templates, 0755, true);
+        mkdir($supervisor, 0755, true);
+        mkdir($logs . '/myapp', 0755, true);
+        copy(__DIR__ . '/../configs/common/templates/supervisor_worker.tpl', $templates . '/supervisor_worker.tpl');
+
+        $conductor = new class extends Conductor {
+            public array $commandParts = [2 => 'myapp', 3 => 'add'];
+            public array $lines = [];
+            public array $supervisorCommands = [];
+            public array $shellCommands = [];
+
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $this->commandParts[$part] ?? $default;
+            }
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+
+            public function callWithOutput($command, &$output)
+            {
+                $this->supervisorCommands[] = $command;
+                $output = [];
+                return 0;
+            }
+
+            public function call($command)
+            {
+                $this->shellCommands[] = $command;
+                return '';
+            }
+        };
+
+        (new ReflectionClass(Conductor::class))->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'apps' => $apps,
+                'templates' => $root . '/common',
+                'supervisor' => $supervisor,
+                'applogs' => $logs,
+            ],
+            'binaries' => (object) [
+                'php' => '/usr/bin/php8.5',
+                'supervisorctl' => '/bin/true',
+                'editor' => '/bin/true',
+            ],
+            'permissions' => (object) [
+                'webuser' => 'www-data',
+            ],
+        ]);
+
+        $conductor->workerControl();
+        $worker_path = $supervisor . '/myapp-worker.conf';
+        $this->assertFileExists($worker_path);
+        $worker = file_get_contents($worker_path);
+        $this->assertStringContainsString('[program:myapp-worker]', $worker);
+        $this->assertStringContainsString('command=/usr/bin/php8.5 ' . $apps . '/myapp/artisan queue:work', $worker);
+        $this->assertStringContainsString('stdout_logfile=' . $logs . '/myapp/myapp-worker.log', $worker);
+        $this->assertStringContainsString('user=www-data', $worker);
+        $this->assertCount(2, $conductor->supervisorCommands);
+        $this->assertStringContainsString("'reread'", $conductor->supervisorCommands[0]);
+        $this->assertStringContainsString("'update'", $conductor->supervisorCommands[1]);
+
+        $conductor->commandParts = [2 => 'myapp', 3 => 'edit'];
+        $conductor->workerControl();
+        $this->assertStringContainsString($worker_path, $conductor->shellCommands[0]);
+        $this->assertContains('sudo conductor workers myapp restart worker', $conductor->lines);
+
+        $conductor->commandParts = [2 => 'myapp', 3 => 'list'];
+        $conductor->workerControl();
+        $this->assertTrue((bool) array_filter($conductor->lines, fn ($line) => str_contains($line, 'myapp-worker.conf')));
+
+        $conductor->commandParts = [2 => 'myapp', 3 => 'restart'];
+        $conductor->supervisorCommands = [];
+        $conductor->workerControl();
+        $this->assertCount(3, $conductor->supervisorCommands);
+        $this->assertStringContainsString("'reread'", $conductor->supervisorCommands[0]);
+        $this->assertStringContainsString("'update'", $conductor->supervisorCommands[1]);
+        $this->assertStringContainsString("'restart' 'myapp-worker:*'", $conductor->supervisorCommands[2]);
+
+        $conductor->commandParts = [2 => 'myapp', 3 => 'remove'];
+        $conductor->supervisorCommands = [];
+        $conductor->workerControl();
+        $this->assertFileDoesNotExist($worker_path);
+        $this->assertCount(2, $conductor->supervisorCommands);
+
+        unlink($templates . '/supervisor_worker.tpl');
+        rmdir($apps . '/myapp');
+        rmdir($apps);
+        rmdir($templates);
+        rmdir($root . '/common');
+        rmdir($supervisor);
+        rmdir($logs . '/myapp');
+        rmdir($logs);
+        rmdir($root);
+    }
+
+    public function testDestroyIncludesApplicationWorkerCleanup(): void
+    {
+        $source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');
+
+        $this->assertStringContainsString('$this->removeAllApplicationWorkers();', $source);
+    }
 }

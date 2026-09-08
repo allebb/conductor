@@ -98,6 +98,10 @@ if (isset($commands[1])) {
             $conductor->editApplicationCron();
             $conductor->endWithSuccess();
             break;
+        case "workers":
+            $conductor->workerControl();
+            $conductor->endWithSuccess();
+            break;
         case "destroy":
             $conductor->destroy();
             break;
@@ -215,6 +219,12 @@ function displayHelp($conductor)
     $conductor->writeln('  enable {name}       Enables an application vhost config.');
     $conductor->writeln('  disable {name}      Disables an application vhost config.');
     $conductor->writeln('  cron {name}         Open a text editor to update the application crontab.');
+    $conductor->writeln('  workers {name} [list]');
+    $conductor->writeln('                      List application queue-worker configurations');
+    $conductor->writeln('  workers {name} add|edit|remove [instance]');
+    $conductor->writeln('                      Manage a worker instance (default instance: worker)');
+    $conductor->writeln('  workers {name} restart [instance]');
+    $conductor->writeln('                      Reload Supervisor and restart application workers');
     $conductor->writeln('  letsencrypt {name}  Provisions (or renews) a LetsEncrypt SSL cert.');
     $conductor->writeln('  letsencrypt webhook --configure={endpoint}');
     $conductor->writeln('                      Update the LetsEncrypt deploy/renew webhook endpoint');

@@ -369,6 +369,31 @@ sudo conductor waf webhook --configure=https://n8n.yourdomain.com/webhook/8b4e70
 
 The command tests Nginx after edits or enable/disable changes. Add ``--auto-reload`` to ``--enable`` or ``--disable`` to gracefully reload Nginx automatically after the configuration test passes. Without it, Conductor asks whether to reload and defaults to yes.
 
+#### ```conductor workers {app name}```
+
+Lists and manages an application's Supervisor queue-worker configurations. Files are stored in ``/etc/supervisor/conf.d`` as ``{app name}-{instance}.conf``. If no instance is supplied to ``add``, ``edit``, or ``remove``, the instance name defaults to ``worker``.
+
+```shell
+# List every worker configured for the application.
+sudo conductor workers {app name}
+
+# Create /etc/supervisor/conf.d/{app name}-worker.conf from the default template.
+sudo conductor workers {app name} add
+
+# Create or edit a separately named worker instance.
+sudo conductor workers {app name} add notifications
+sudo conductor workers {app name} edit notifications
+
+# Reload Supervisor configuration, then restart every worker for this application.
+sudo conductor workers {app name} restart
+
+# Restart or remove one specific worker instance.
+sudo conductor workers {app name} restart notifications
+sudo conductor workers {app name} remove notifications
+```
+
+New configurations run Laravel's ``artisan queue:work`` using Conductor's configured PHP binary and web user. After editing, Conductor prints the exact restart command required for the changes to take effect. Restarting workers always runs ``supervisorctl reread`` and ``supervisorctl update`` before restarting only the selected application's worker programs. Destroying an application also removes all Supervisor configurations prefixed with that application's name and updates Supervisor.
+
 #### ```conductor dump {app name}``` and ```conductor load {app name}```
 
 Writes an application's active virtual host configuration to STDOUT, or replaces it from STDIN. Use ``--waf`` to target the application's WAF-like configuration file instead.

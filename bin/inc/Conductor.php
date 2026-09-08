@@ -1004,6 +1004,16 @@ class Conductor extends CliApplication
                 }
 
                 return $this->filterCompletionCandidates($this->completionApplicationNames(), $current);
+            case 'workers':
+                if ($current_index == 3) {
+                    return $this->filterCompletionCandidates(['list', 'add', 'edit', 'remove', 'restart'], $current);
+                }
+
+                if ($current_index == 2) {
+                    return $this->filterCompletionCandidates($this->completionApplicationNames(), $current);
+                }
+
+                return [];
             case 'new':
                 return [];
         }
@@ -1037,6 +1047,7 @@ class Conductor extends CliApplication
             'enable',
             'disable',
             'cron',
+            'workers',
             'destroy',
             'update',
             'rollback',
@@ -1069,6 +1080,7 @@ class Conductor extends CliApplication
             'enable',
             'disable',
             'cron',
+            'workers',
             'destroy',
             'update',
             'rollback',
@@ -4143,6 +4155,351 @@ class Conductor extends CliApplication
     }
 
     /**
+     * List and manage Supervisor queue-worker configurations for an application.
+     */
+    public function workerControl()
+    {
+        $this->appNameRequired();
+        $this->validateWorkerApplication();
+        $action = strtolower((string) $this->getCommand(3, 'list'));
+
+        switch ($action) {
+            case 'list':
+                $this->listApplicationWorkers();
+                return;
+            case 'add':
+                $this->addApplicationWorker($this->workerInstanceName());
+                return;
+            case 'edit':
+                $this->editApplicationWorker($this->workerInstanceName());
+                return;
+            case 'remove':
+            case 'delete':
+                $this->removeApplicationWorker($this->workerInstanceName());
+                return;
+            case 'restart':
+                $instance = $this->getCommand(4) ? $this->workerInstanceName() : null;
+                $this->restartApplicationWorkers($instance);
+                return;
+        }
+
+        $this->writeWorkerUsage();
+        $this->endWithError();
+    }
+
+    /**
+     * Validate that a queue worker belongs to an existing, safely named app.
+     */
+    private function validateWorkerApplication()
+    {
+        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_-]*$/', $this->appname)) {
+            $this->writeln('Application names used for workers may only contain letters, numbers, hyphens and underscores.');
+            $this->endWithError();
+        }
+
+        if (!is_dir($this->appdir)) {
+            $this->writeln('Application was not found on this server: ' . $this->appname);
+            $this->endWithError();
+        }
+    }
+
+    /**
+     * Return and validate the requested worker instance name.
+     * @return string
+     */
+    private function workerInstanceName()
+    {
+        $instance = (string) $this->getCommand(4, 'worker');
+        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_-]*$/', $instance)) {
+            $this->writeln('Worker instance names may only contain letters, numbers, hyphens and underscores.');
+            $this->endWithError();
+        }
+
+        return $instance;
+    }
+
+    /**
+     * Return the Supervisor configuration directory.
+     * @return string
+     */
+    private function supervisorConfigurationDirectory()
+    {
+        if (isset($this->conf->paths->supervisor)) {
+            return rtrim($this->conf->paths->supervisor, '/');
+        }
+
+        return '/etc/supervisor/conf.d';
+    }
+
+    /**
+     * Return the configured supervisorctl binary, with an upgrade-safe fallback.
+     * @return string
+     */
+    private function supervisorCtlBinary()
+    {
+        if (isset($this->conf->binaries->supervisorctl)) {
+            return $this->conf->binaries->supervisorctl;
+        }
+
+        return '/usr/bin/supervisorctl';
+    }
+
+    /**
+     * Return one worker configuration path.
+     * @param string $instance
+     * @return string
+     */
+    private function workerConfigurationPath($instance)
+    {
+        return $this->supervisorConfigurationDirectory() . '/' . $this->appname . '-' . $instance . '.conf';
+    }
+
+    /**
+     * Return all worker configuration paths belonging to the selected app.
+     * @return array
+     */
+    private function applicationWorkerConfigurationPaths()
+    {
+        $directory = $this->supervisorConfigurationDirectory();
+        if (!is_dir($directory)) {
+            return [];
+        }
+
+        $prefix = $this->appname . '-';
+        $paths = [];
+        foreach (scandir($directory) as $filename) {
+            if (substr($filename, 0, strlen($prefix)) !== $prefix || substr($filename, -5) !== '.conf') {
+                continue;
+            }
+
+            $path = $directory . '/' . $filename;
+            if (is_file($path)) {
+                $paths[] = $path;
+            }
+        }
+        sort($paths, SORT_NATURAL);
+
+        return $paths;
+    }
+
+    /**
+     * List all Supervisor worker configuration files for the selected app.
+     */
+    private function listApplicationWorkers()
+    {
+        $paths = $this->applicationWorkerConfigurationPaths();
+        if (!$paths) {
+            $this->writeln('No queue workers configured for application: ' . $this->appname);
+            return;
+        }
+
+        $this->writeln(sprintf('%-24s %s', 'Instance', 'Configuration'));
+        foreach ($paths as $path) {
+            $filename = basename($path, '.conf');
+            $instance = substr($filename, strlen($this->appname) + 1);
+            $this->writeln(sprintf('%-24s %s', $instance, $path));
+        }
+    }
+
+    /**
+     * Create and load a Supervisor worker configuration from the default template.
+     * @param string $instance
+     */
+    private function addApplicationWorker($instance)
+    {
+        $this->ensureSupervisorAvailable();
+        $directory = $this->supervisorConfigurationDirectory();
+        $config_path = $this->workerConfigurationPath($instance);
+        $template_path = $this->conf->paths->templates . '/templates/supervisor_worker.tpl';
+
+        if (file_exists($config_path)) {
+            $this->writeln('Worker configuration already exists: ' . $config_path);
+            $this->endWithError();
+        }
+        if (!file_exists($template_path)) {
+            $this->writeln('Supervisor worker template not found at: ' . $template_path);
+            $this->endWithError();
+        }
+        if (!is_dir($directory) && !mkdir($directory, 0755, true)) {
+            $this->writeln('Unable to create Supervisor configuration directory: ' . $directory);
+            $this->endWithError();
+        }
+
+        $config = file_get_contents($template_path);
+        $config = str_replace(
+            ['@@APPNAME@@', '@@INSTANCE@@', '@@PHPBIN@@', '@@APPPATH@@', '@@LOGPATH@@', '@@WEBUSER@@'],
+            [
+                $this->appname,
+                $instance,
+                $this->conf->binaries->php,
+                $this->appdir,
+                rtrim($this->conf->paths->applogs, '/') . '/' . $this->appname,
+                $this->conf->permissions->webuser,
+            ],
+            $config
+        );
+
+        if (file_put_contents($config_path, $config) === false) {
+            $this->writeln('Unable to create worker configuration: ' . $config_path);
+            $this->endWithError();
+        }
+        chmod($config_path, 0644);
+
+        $this->reloadSupervisorConfiguration();
+        $this->writeln('Created and loaded queue worker: ' . $this->appname . '-' . $instance);
+    }
+
+    /**
+     * Edit one application worker configuration.
+     * @param string $instance
+     */
+    private function editApplicationWorker($instance)
+    {
+        $config_path = $this->workerConfigurationPath($instance);
+        if (!file_exists($config_path)) {
+            $this->writeln('Worker configuration not found at: ' . $config_path);
+            $this->endWithError();
+        }
+
+        $this->call(escapeshellarg($this->conf->binaries->editor) . ' ' . escapeshellarg($config_path));
+        $this->writeln();
+        $this->writeln('Restart this queue worker for the changes to take effect:');
+        $this->writeln('sudo conductor workers ' . $this->appname . ' restart ' . $instance);
+    }
+
+    /**
+     * Remove one application worker configuration and update Supervisor.
+     * @param string $instance
+     */
+    private function removeApplicationWorker($instance)
+    {
+        $this->ensureSupervisorAvailable();
+        $config_path = $this->workerConfigurationPath($instance);
+        if (!file_exists($config_path)) {
+            $this->writeln('Worker configuration not found at: ' . $config_path);
+            $this->endWithError();
+        }
+        if (!unlink($config_path)) {
+            $this->writeln('Unable to remove worker configuration: ' . $config_path);
+            $this->endWithError();
+        }
+
+        $this->reloadSupervisorConfiguration();
+        $this->writeln('Removed queue worker: ' . $this->appname . '-' . $instance);
+    }
+
+    /**
+     * Reload Supervisor and restart one or all workers belonging to the app.
+     * @param string|null $instance
+     */
+    private function restartApplicationWorkers($instance = null)
+    {
+        $this->ensureSupervisorAvailable();
+        $paths = $instance === null
+            ? $this->applicationWorkerConfigurationPaths()
+            : [$this->workerConfigurationPath($instance)];
+
+        $paths = array_values(array_filter($paths, 'is_file'));
+        if (!$paths) {
+            $this->writeln('No matching queue workers configured for application: ' . $this->appname);
+            $this->endWithError();
+        }
+
+        $this->reloadSupervisorConfiguration();
+        foreach ($paths as $path) {
+            $program = basename($path, '.conf');
+            $this->runSupervisorCommand(['restart', $program . ':*']);
+            $this->writeln('Restarted queue worker: ' . $program);
+        }
+    }
+
+    /**
+     * Delete every Supervisor worker config belonging to the current app.
+     */
+    private function removeAllApplicationWorkers()
+    {
+        $paths = $this->applicationWorkerConfigurationPaths();
+        if (!$paths) {
+            return;
+        }
+
+        $this->writeln('Removing application queue workers...');
+        foreach ($paths as $path) {
+            if (!unlink($path)) {
+                $this->writeln('Unable to remove worker configuration: ' . $path);
+                continue;
+            }
+            $this->writeln('Removed queue worker: ' . basename($path, '.conf'));
+        }
+
+        if (is_executable($this->supervisorCtlBinary())) {
+            $this->runSupervisorCommand(['reread'], false);
+            $this->runSupervisorCommand(['update'], false);
+        } else {
+            $this->writeln('Supervisor is not installed; its configuration files were still removed.');
+        }
+    }
+
+    /**
+     * Ensure Supervisor can apply worker configuration changes.
+     */
+    private function ensureSupervisorAvailable()
+    {
+        if (!is_executable($this->supervisorCtlBinary())) {
+            $this->writeln('Supervisor is not installed. Install it before managing queue workers.');
+            $this->endWithError();
+        }
+    }
+
+    /**
+     * Ask Supervisor to discover and apply configuration changes.
+     */
+    private function reloadSupervisorConfiguration()
+    {
+        $this->runSupervisorCommand(['reread']);
+        $this->runSupervisorCommand(['update']);
+    }
+
+    /**
+     * Execute one supervisorctl command.
+     * @param array $arguments
+     * @param bool $fatal
+     * @return bool
+     */
+    private function runSupervisorCommand($arguments, $fatal = true)
+    {
+        $command = escapeshellarg($this->supervisorCtlBinary());
+        foreach ($arguments as $argument) {
+            $command .= ' ' . escapeshellarg($argument);
+        }
+        $output = [];
+        $exit_code = $this->callWithOutput($command . ' 2>&1', $output);
+        if ($exit_code === 0) {
+            return true;
+        }
+
+        foreach ($output as $line) {
+            $this->writeln($line);
+        }
+        $this->writeln('Supervisor command failed: ' . implode(' ', $arguments));
+        if ($fatal) {
+            $this->endWithError();
+        }
+
+        return false;
+    }
+
+    /**
+     * Print worker command usage.
+     */
+    private function writeWorkerUsage()
+    {
+        $this->writeln('Usage: conductor workers {name} [list]');
+        $this->writeln('       conductor workers {name} add|edit|remove [instance]');
+        $this->writeln('       conductor workers {name} restart [instance]');
+    }
+
+    /**
      * Updates the code and executes migrations on an existing database.
      */
     public function updateApplication()
@@ -4454,6 +4811,7 @@ class Conductor extends CliApplication
             $this->call('rm ' . $this->conf->paths->appconfs . '/' . $this->appname . '*');
             $this->writeln('Removing application WAF configuration...');
             $this->call('rm -f ' . $this->applicationWafConfigPath());
+            $this->removeAllApplicationWorkers();
             $this->promptGracefulNginxReload('deleted application');
             if ($this->mysqlEnabled()) {
                 $this->writeln('Destroying MySQL database and associated users...');
