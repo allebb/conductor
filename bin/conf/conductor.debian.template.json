@@ -4,6 +4,9 @@
     "default_template": "laravel"
   },
   "auto-reload-nginx": true,
+  "scheduled-backups": {
+    "exclude-applications": []
+  },
   "paths": {
     "apps": "/var/conductor/applications",
     "temp": "/var/conductor/tmp",

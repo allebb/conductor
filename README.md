@@ -503,7 +503,20 @@ The payload includes the event name, Conductor application name when known, Cert
 
 Automating application backups
 ------------------------------
-An automation script specifically designed to be used with CRON jobs etc. can be found in the ``utils/`` directory, this shell script will automatically backup all applications on the server and will also remove older backups (as configured in the script), the default backup retention is 7 days!
+An automation script specifically designed to be used with CRON jobs etc. can be found in the ``utils/`` directory. This shell script automatically backs up applications on the server and removes older backup files; the default retention is 7 days.
+
+Applications that must not be included in scheduled backups can be listed in ``/etc/conductor.conf``. This affects only ``scheduled_backups.sh``; manual ``conductor backup {app name}`` commands remain available.
+
+```json
+"scheduled-backups": {
+  "exclude-applications": [
+    "large-archive",
+    "externally-backed-up-app"
+  ]
+}
+```
+
+Excluded names are matched exactly. Each excluded application is reported during a run, for example: ``Skipping 'large-archive' as per /etc/conductor.conf.`` If the configuration file contains invalid JSON or the exclusion setting is not an array, the scheduled run stops rather than silently backing up excluded applications.
 
 To configure this task, place the ```utils/scheduled_backups.sh``` script in a directory of your choice on the server (or used directly from the default installation path!) and then set-up a CRON task as follows:-
 
@@ -511,7 +524,7 @@ To configure this task, place the ```utils/scheduled_backups.sh``` script in a d
 0 0 * * * /etc/conductor/utils/scheduled_backups.sh
 ```
 
-The above example will execute the task daily at midnight, the default configuration will ensure that backups older than 7 days are also deleted (to ensure that your disks don't fill up!) this setting is configurable by editing the ```DAYS``` constant inside the script.
+The above example executes the task daily at midnight. By default, backup files older than 7 days are deleted to prevent disks filling up. Set the ``BACKUP_RETENTION_DAYS`` environment variable to change this period.
 
 You may wish to then have a remote server 'pull' and 'archive' these backups of which will be located in ``/var/conductor/backups/``.
 

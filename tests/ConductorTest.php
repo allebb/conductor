@@ -2705,6 +2705,7 @@ final class ConductorTest extends TestCase
         }
 
         $this->assertStringContainsString('/var/conductor/logs/*/access.log /var/conductor/logs/*/error.log', $vhost_logrotate);
+        $this->assertStringContainsString('/var/conductor/logs/*/*-*.log', $vhost_logrotate);
         $this->assertStringContainsString('copytruncate', $vhost_logrotate);
         $this->assertStringContainsString('su www-data www-data', $vhost_logrotate);
         $seclog_logrotate = file_get_contents(__DIR__ . '/../configs/common/logrotate/conductor-seclog');
@@ -3182,5 +3183,54 @@ STATUS;
         $source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');
 
         $this->assertStringContainsString('$this->removeAllApplicationWorkers();', $source);
+    }
+
+    public function testScheduledBackupsSkipConfiguredApplicationsAndFailClosedForInvalidJson(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-scheduled-backups-' . uniqid();
+        $apps = $root . '/applications';
+        $backups = $root . '/backups';
+        $config = $root . '/conductor.conf';
+        $calls = $root . '/calls';
+        $conductor = $root . '/conductor';
+        mkdir($apps . '/alpha', 0755, true);
+        mkdir($apps . '/beta', 0755, true);
+        mkdir($backups, 0755, true);
+        file_put_contents($config, json_encode([
+            'scheduled-backups' => [
+                'exclude-applications' => ['beta'],
+            ],
+        ], JSON_THROW_ON_ERROR));
+        file_put_contents($conductor, "#!/bin/sh\nprintf '%s\\n' \"\$2\" >> \"\$BACKUP_CALLS\"\n");
+        chmod($conductor, 0755);
+
+        $script = __DIR__ . '/../utils/scheduled_backups.sh';
+        $environment = 'BACKUP_CALLS=' . escapeshellarg($calls)
+            . ' CONDUCTOR_BIN=' . escapeshellarg($conductor)
+            . ' CONDUCTOR_PHP_BIN=' . escapeshellarg(PHP_BINARY)
+            . ' CONDUCTOR_CONFIG=' . escapeshellarg($config)
+            . ' CONDUCTOR_APPS_DIR=' . escapeshellarg($apps)
+            . ' CONDUCTOR_BACKUP_DIR=' . escapeshellarg($backups)
+            . ' BACKUP_RETENTION_DAYS=99999';
+
+        exec($environment . ' bash ' . escapeshellarg($script) . ' 2>&1', $output, $exit_code);
+        $this->assertSame(0, $exit_code, implode(PHP_EOL, $output));
+        $this->assertSame("alpha\n", file_get_contents($calls));
+        $this->assertContains("Skipping 'beta' as per " . $config . '.', $output);
+
+        file_put_contents($config, '{invalid json');
+        unlink($calls);
+        $output = [];
+        exec($environment . ' bash ' . escapeshellarg($script) . ' 2>&1', $output, $exit_code);
+        $this->assertNotSame(0, $exit_code);
+        $this->assertFileDoesNotExist($calls);
+
+        unlink($config);
+        unlink($conductor);
+        rmdir($apps . '/alpha');
+        rmdir($apps . '/beta');
+        rmdir($apps);
+        rmdir($backups);
+        rmdir($root);
     }
 }
