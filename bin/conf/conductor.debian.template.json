@@ -7,6 +7,11 @@
   "scheduled-backups": {
     "exclude-applications": []
   },
+  "s3": {
+    "port-range-start": 7070,
+    "port-range-end": 7170,
+    "image": "ghcr.io/versity/versitygw:latest"
+  },
   "paths": {
     "apps": "/var/conductor/applications",
     "temp": "/var/conductor/tmp",
@@ -54,7 +59,9 @@
     "editor": "/usr/bin/nano",
     "nginx": "/usr/sbin/nginx",
     "certbot": "/usr/bin/certbot",
-    "crowdsec": "/usr/bin/crowdsec"
+    "crowdsec": "/usr/bin/crowdsec",
+    "docker": "/usr/bin/docker",
+    "docker-compose": "/usr/bin/docker-compose"
   },
   "mysql": {
     "enabled": true,

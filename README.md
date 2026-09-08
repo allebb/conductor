@@ -135,6 +135,7 @@ There are other application configurations you can use but by default Conductor 
 * ``wordpress`` - Wordpress "single site" configuration.
 * ``laravel`` - Laravel sites/applications.
 * ``proxy`` - A generic reverse proxy configuration (great for proxying traffic to backend applications such as a Docker container, a .NET Core, Python or Go application - the possibilities are endless ;))
+* ``s3`` - A Docker-hosted VersityGW S3-compatible object store with a persistent POSIX backend.
 * ``html`` - A simple HTML configuration (great for static websites or when using Static site generator such as [Gatsby](https://github.com/gatsbyjs/gatsby/), [Jekyll](https://jekyllrb.com/) or [Sculpin](https://sculpin.io/)).
 
 As an example, if you wanted to use a generic proxy template for your application you should use the following command:
@@ -152,6 +153,28 @@ sudo conductor new {app name} --fqdn="example.com" --template=proxy --target="ht
 The ``--target`` value is only valid for proxy templates and must be an HTTP(S) URL with a host and explicit port number.
 
 Proxy applications do not ask for a hosted directory because the virtual host serves from the application root. Conductor will also create custom ``502.html``, ``503.html``, and ``504.html`` pages in ``/var/conductor/applications/{app name}/.conductor/error_pages/`` and configure Nginx to show them if the backend application is unreachable. If those copied pages or the ``.conductor/error_pages`` directory are deleted, Nginx falls back to the shared (default) proxy error pages in ``/var/conductor/error-pages/``.
+
+The ``s3`` template requires Docker with either the current ``docker compose`` plugin or the legacy ``docker-compose`` command. Create an S3 application with:
+
+```shell
+sudo conductor new {app name} --template=s3 --fqdn="s3.example.com"
+```
+
+Conductor allocates the first unused and available localhost TCP port from the configured S3 range (``7070`` through ``7170`` by default), creates a VersityGW Compose service with ``restart: unless-stopped``, and proxies the complete Nginx vhost to it. S3 applications skip the hosted-directory, database, and Git-deployment prompts. Persistent object data is mounted read/write from ``/var/conductor/applications/{app name}/public`` to ``/data`` in the container.
+
+The generated access and secret keys are displayed once provisioning completes. They and the allocated port are stored in the root-only ``.conductor-s3`` metadata file; ``docker-compose.yml`` is root-only too. Both files and the persistent data are included in normal application backups. Restore regenerates Compose from the metadata and starts the container on its original port. Destroy runs Compose ``down --remove-orphans`` before taking the final backup and deleting the application.
+
+The range and image can be changed in ``/etc/conductor.conf``:
+
+```json
+"s3": {
+  "port-range-start": 7070,
+  "port-range-end": 7170,
+  "image": "ghcr.io/versity/versitygw:latest"
+}
+```
+
+Object storage can make application archives very large. If it is backed up separately, add the S3 application name to ``scheduled-backups.exclude-applications`` in ``/etc/conductor.conf``.
 
 All vhost templates include custom ``401.html``, ``403.html``, ``404.html``, and ``500.html`` error pages by default. Conductor creates local copies in the vhost's ``.conductor/error_pages`` directory (so you can customise them per-site if you wish) first and falls back to shared (default) versions in ``/var/conductor/error-pages/`` if a local page or directory is removed. Comment out ``include /etc/conductor/configs/common/conductor_error_pages.conf;`` in a vhost if the application should handle these responses itself.
 

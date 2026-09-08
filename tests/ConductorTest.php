@@ -2742,6 +2742,115 @@ final class ConductorTest extends TestCase
         }
     }
 
+    public function testS3TemplateConfigurationAndComposeMetadata(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-s3-' . uniqid();
+        $apps = $root . '/applications';
+        $app = $apps . '/object-store';
+        mkdir($app, 0755, true);
+
+        $conductor = $this->makeConductorWithConfig((object) [
+            's3' => (object) [
+                'port-range-start' => 7070,
+                'port-range-end' => 7170,
+                'image' => 'ghcr.io/versity/versitygw:latest',
+            ],
+            'paths' => (object) [
+                'apps' => $apps,
+                'templates' => __DIR__ . '/../configs/common',
+            ],
+        ]);
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('appname')->setValue($conductor, 'object-store');
+        $reflection->getProperty('appdir')->setValue($conductor, $app);
+
+        $metadata = $reflection->getMethod('createS3Application')->invoke($conductor, 7070);
+        $stored = json_decode(file_get_contents($app . '/.conductor-s3'), true);
+        $compose = file_get_contents($app . '/docker-compose.yml');
+
+        $this->assertSame(7070, $metadata['port']);
+        $this->assertSame(7070, $stored['port']);
+        $this->assertSame($app . '/public', $stored['data_path']);
+        $this->assertSame(32, strlen($stored['access_key']));
+        $this->assertSame(64, strlen($stored['secret_key']));
+        $this->assertDirectoryExists($app . '/public');
+        $this->assertSame(0600, fileperms($app . '/.conductor-s3') & 0777);
+        $this->assertSame(0600, fileperms($app . '/docker-compose.yml') & 0777);
+        $this->assertStringContainsString('restart: unless-stopped', $compose);
+        $this->assertStringContainsString('127.0.0.1:7070:7070', $compose);
+        $this->assertStringContainsString('VGW_BACKEND: "posix"', $compose);
+        $this->assertStringContainsString('VGW_BACKEND_ARG: "/data"', $compose);
+        $this->assertStringContainsString($app . '/public:/data:rw', $compose);
+        $this->assertStringContainsString($stored['access_key'], $compose);
+        $this->assertStringContainsString($stored['secret_key'], $compose);
+
+        @unlink($app . '/docker-compose.yml');
+        @unlink($app . '/.conductor-s3');
+        @rmdir($app . '/public');
+        @rmdir($app);
+        @rmdir($apps);
+        @rmdir($root);
+    }
+
+    public function testS3PortAllocationUsesConfiguredRange(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-s3-ports-' . uniqid();
+        mkdir($root);
+        mkdir($root . '/existing');
+        file_put_contents($root . '/existing/.conductor-s3', json_encode(['port' => 7070]));
+        $conductor = new class extends Conductor {
+            public function __construct()
+            {
+            }
+
+            protected function tcpPortAvailable($port)
+            {
+                return true;
+            }
+        };
+        $config = (object) [
+            's3' => (object) [
+                'port-range-start' => 7070,
+                'port-range-end' => 7072,
+                'image' => 'ghcr.io/versity/versitygw:latest',
+            ],
+            'paths' => (object) ['apps' => $root],
+        ];
+        (new ReflectionClass(Conductor::class))->getProperty('conf')->setValue($conductor, $config);
+
+        $allocated = (new ReflectionClass(Conductor::class))
+            ->getMethod('nextAvailableS3Port')
+            ->invoke($conductor);
+
+        $this->assertSame(7071, $allocated);
+        @unlink($root . '/existing/.conductor-s3');
+        @rmdir($root . '/existing');
+        @rmdir($root);
+    }
+
+    public function testS3TemplatesAndLifecycleHooksArePresent(): void
+    {
+        $source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');
+        $vhost = file_get_contents(__DIR__ . '/../configs/common/templates/vhost_s3.tpl');
+        $compose = file_get_contents(__DIR__ . '/../configs/common/templates/docker_compose_s3.tpl');
+        $config = json_decode(file_get_contents(__DIR__ . '/../bin/conf/conductor.debian.template.json'));
+
+        $this->assertSame(7070, $config->s3->{'port-range-start'});
+        $this->assertSame(7170, $config->s3->{'port-range-end'});
+        $this->assertStringContainsString('server 127.0.0.1:@@S3_PORT@@', $vhost);
+        $this->assertStringContainsString('location / {', $vhost);
+        $this->assertStringContainsString('proxy_pass              http://conductor_@@UPSTREAM@@;', $vhost);
+        $this->assertStringContainsString(Conductor::WAF_START_MARKER, $vhost);
+        $this->assertStringContainsString(Conductor::PROTECTION_START_MARKER, $vhost);
+        $this->assertStringContainsString('restart: unless-stopped', $compose);
+        $this->assertStringContainsString("' down --remove-orphans'", $source);
+        $this->assertStringContainsString('$this->stopS3ApplicationContainer();', $source);
+        $this->assertStringContainsString('$this->restoreS3ApplicationContainer();', $source);
+        $this->assertStringContainsString('Access key: ', $source);
+        $this->assertStringContainsString('Secret key: ', $source);
+        $this->assertStringContainsString('scheduled-backups.exclude-applications', $source);
+    }
+
     public function testCompleteSuggestsCommandsOptionsAndApplicationNames(): void
     {
         $apps = sys_get_temp_dir() . '/conductor-apps-' . uniqid();

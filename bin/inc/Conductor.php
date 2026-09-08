@@ -1248,6 +1248,251 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Return the configured S3 port range and image, with upgrade-safe defaults.
+     * @return array
+     */
+    private function s3Configuration()
+    {
+        $start = isset($this->conf->s3->{'port-range-start'})
+            ? (int) $this->conf->s3->{'port-range-start'}
+            : 7070;
+        $end = isset($this->conf->s3->{'port-range-end'})
+            ? (int) $this->conf->s3->{'port-range-end'}
+            : 7170;
+        $image = isset($this->conf->s3->image)
+            ? trim($this->conf->s3->image)
+            : 'ghcr.io/versity/versitygw:latest';
+
+        if ($start < 1 || $end > 65535 || $start > $end
+            || !preg_match('#^[A-Za-z0-9._:/@-]+$#', $image)
+        ) {
+            $this->writeln('The S3 port range or container image in /etc/conductor.conf is invalid.');
+            $this->endWithError();
+        }
+
+        return ['start' => $start, 'end' => $end, 'image' => $image];
+    }
+
+    /**
+     * Find Docker Compose, preferring the current Docker CLI plugin.
+     * @return string
+     */
+    private function dockerComposeCommand()
+    {
+        $docker = isset($this->conf->binaries->docker) ? $this->conf->binaries->docker : '/usr/bin/docker';
+        $output = [];
+        if (is_executable($docker)
+            && $this->callWithOutput(escapeshellarg($docker) . ' compose version 2>&1', $output) === 0
+        ) {
+            return escapeshellarg($docker) . ' compose';
+        }
+
+        $legacy = isset($this->conf->binaries->{'docker-compose'})
+            ? $this->conf->binaries->{'docker-compose'}
+            : '/usr/bin/docker-compose';
+        if (is_executable($legacy)) {
+            return escapeshellarg($legacy);
+        }
+
+        $this->writeln('The S3 template requires Docker and Docker Compose. Install Docker with the Compose plugin, then try again.');
+        $this->endWithError();
+    }
+
+    /**
+     * Return whether a localhost TCP port can currently be bound.
+     * @param int $port
+     * @return bool
+     */
+    protected function tcpPortAvailable($port)
+    {
+        $errno = 0;
+        $error = '';
+        $socket = @stream_socket_server('tcp://127.0.0.1:' . $port, $errno, $error);
+        if ($socket === false) {
+            return false;
+        }
+        fclose($socket);
+        return true;
+    }
+
+    /**
+     * Allocate the first unreserved and currently available configured S3 port.
+     * @return int
+     */
+    private function nextAvailableS3Port()
+    {
+        $configuration = $this->s3Configuration();
+        $reserved = [];
+        foreach (glob(rtrim($this->conf->paths->apps, '/') . '/*/.conductor-s3') ?: [] as $metadata_path) {
+            $metadata = json_decode(file_get_contents($metadata_path), true);
+            if (is_array($metadata) && isset($metadata['port'])) {
+                $reserved[(int) $metadata['port']] = true;
+            }
+        }
+
+        for ($port = $configuration['start']; $port <= $configuration['end']; $port++) {
+            if (!isset($reserved[$port]) && $this->tcpPortAvailable($port)) {
+                return $port;
+            }
+        }
+
+        $this->writeln(
+            'No available S3 port remains in the configured range '
+            . $configuration['start'] . '-' . $configuration['end'] . '.'
+        );
+        $this->endWithError();
+    }
+
+    /**
+     * Read and validate this application's S3 metadata.
+     * @return array
+     */
+    private function readS3Metadata()
+    {
+        $path = $this->appdir . '/.conductor-s3';
+        try {
+            $metadata = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        } catch (Throwable $error) {
+            $this->writeln('The S3 metadata file is invalid: ' . $path);
+            $this->endWithError();
+        }
+
+        foreach (['format_version', 'type', 'port', 'image', 'access_key', 'secret_key', 'data_path'] as $field) {
+            if (!isset($metadata[$field]) || $metadata[$field] === '') {
+                $this->writeln('The S3 metadata file is missing required field: ' . $field);
+                $this->endWithError();
+            }
+        }
+        if ($metadata['format_version'] !== 1 || $metadata['type'] !== 's3') {
+            $this->writeln('The S3 metadata format is not supported.');
+            $this->endWithError();
+        }
+        $metadata['port'] = (int) $metadata['port'];
+        if ($metadata['port'] < 1 || $metadata['port'] > 65535) {
+            $this->writeln('The S3 metadata contains an invalid TCP port.');
+            $this->endWithError();
+        }
+        if (!preg_match('#^[A-Za-z0-9._:/@-]+$#', $metadata['image'])
+            || !preg_match('/^[A-Za-z0-9]+$/', $metadata['access_key'])
+            || !preg_match('/^[A-Za-z0-9]+$/', $metadata['secret_key'])
+        ) {
+            $this->writeln('The S3 metadata contains an invalid image or credential value.');
+            $this->endWithError();
+        }
+        return $metadata;
+    }
+
+    /**
+     * Render Docker Compose from authoritative S3 metadata.
+     * @param array $metadata
+     * @return void
+     */
+    private function writeS3ComposeFile($metadata)
+    {
+        $template_path = $this->conf->paths->templates . '/templates/docker_compose_s3.tpl';
+        if (!file_exists($template_path)) {
+            $this->writeln('The S3 Docker Compose template was not found: ' . $template_path);
+            $this->endWithError();
+        }
+        $compose = file_get_contents($template_path);
+        $replacements = [
+            '@@S3_IMAGE@@' => $metadata['image'],
+            '@@S3_CONTAINER_NAME@@' => strtolower($this->nginxUpstreamName($this->appname)),
+            '@@S3_PORT@@' => $metadata['port'],
+            '@@S3_ACCESS_KEY@@' => $metadata['access_key'],
+            '@@S3_SECRET_KEY@@' => $metadata['secret_key'],
+            '@@S3_DATA_PATH@@' => $metadata['data_path'],
+        ];
+        if (file_put_contents($this->appdir . '/docker-compose.yml', str_replace(
+            array_keys($replacements),
+            array_values($replacements),
+            $compose
+        )) === false) {
+            $this->writeln('Unable to write the S3 Docker Compose file.');
+            $this->endWithError();
+        }
+        chmod($this->appdir . '/docker-compose.yml', 0600);
+    }
+
+    /**
+     * Create metadata, persistent storage, and Compose configuration for S3.
+     * @param int $port
+     * @return array
+     */
+    private function createS3Application($port)
+    {
+        $configuration = $this->s3Configuration();
+        $metadata = [
+            'format_version' => 1,
+            'type' => 's3',
+            'port' => $port,
+            'image' => $configuration['image'],
+            'access_key' => bin2hex(random_bytes(16)),
+            'secret_key' => bin2hex(random_bytes(32)),
+            'data_path' => $this->appdir . '/public',
+        ];
+        $this->ensureDirectory($metadata['data_path'], 0755);
+        $this->writeJsonFile($this->appdir . '/.conductor-s3', $metadata, 0600);
+        $this->writeS3ComposeFile($metadata);
+        return $metadata;
+    }
+
+    /**
+     * Start or recreate the application's S3 container.
+     * @param string|null $compose_command
+     * @return void
+     */
+    private function startS3ApplicationContainer($compose_command = null)
+    {
+        $compose_command = $compose_command ?: $this->dockerComposeCommand();
+        $command = $compose_command
+            . ' -f ' . escapeshellarg($this->appdir . '/docker-compose.yml')
+            . ' up -d';
+        $this->callOrFail($command, 'Unable to start the S3 Docker container.');
+    }
+
+    /**
+     * Stop and remove an existing application's S3 container.
+     * @return void
+     */
+    private function stopS3ApplicationContainer()
+    {
+        if (!is_file($this->appdir . '/.conductor-s3')) {
+            return;
+        }
+        $compose_command = $this->dockerComposeCommand();
+        $metadata = $this->readS3Metadata();
+        $metadata['data_path'] = $this->appdir . '/public';
+        $this->writeS3ComposeFile($metadata);
+        $this->writeln('Stopping and removing the S3 Docker container...');
+        $command = $compose_command
+            . ' -f ' . escapeshellarg($this->appdir . '/docker-compose.yml')
+            . ' down --remove-orphans';
+        $this->callOrFail($command, 'Unable to stop and remove the S3 Docker container.');
+    }
+
+    /**
+     * Recreate and start a restored S3 application from its metadata.
+     * @return void
+     */
+    private function restoreS3ApplicationContainer()
+    {
+        if (!is_file($this->appdir . '/.conductor-s3')) {
+            return;
+        }
+        $metadata = $this->readS3Metadata();
+        // Backups can move between servers, so always remap storage beneath the
+        // current configured application root instead of trusting an old path.
+        $metadata['data_path'] = $this->appdir . '/public';
+        $this->ensureDirectory($metadata['data_path'], 0755);
+        $this->writeJsonFile($this->appdir . '/.conductor-s3', $metadata, 0600);
+        $this->writeS3ComposeFile($metadata);
+        chmod($this->appdir . '/.conductor-s3', 0600);
+        $this->writeln('Recreating the S3 Docker container on TCP port ' . $metadata['port'] . '...');
+        $this->startS3ApplicationContainer();
+    }
+
+    /**
      * Convert an application name into an Nginx upstream-safe identifier.
      * @param string $name
      * @return string
@@ -3934,8 +4179,21 @@ class Conductor extends CliApplication
         $generate_keys = self::OPTION_YES;
         $deployment_key_generated = false;
 
-        $vhost_template = $this->getOption('template', $this->conf->admin->default_template);
-        $is_proxy_template = strtolower($vhost_template) == 'proxy';
+        $vhost_template = strtolower($this->getOption('template', $this->conf->admin->default_template));
+        $is_proxy_template = $vhost_template == 'proxy';
+        $is_s3_template = $vhost_template == 's3';
+        $is_reverse_proxy_template = $is_proxy_template || $is_s3_template;
+        $s3_compose_command = null;
+        $s3_port = null;
+        $s3_metadata = null;
+        if ($is_s3_template) {
+            if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_-]*$/', $this->appname)) {
+                $this->writeln('S3 application names may contain only letters, numbers, underscores, and hyphens.');
+                $this->endWithError();
+            }
+            $s3_compose_command = $this->dockerComposeCommand();
+            $s3_port = $this->nextAvailableS3Port();
+        }
         if (!$is_proxy_template && $this->getOption('target')) {
             $this->writeln('The --target option can only be used with --template=proxy.');
             $this->endWithError();
@@ -3943,7 +4201,7 @@ class Conductor extends CliApplication
         $proxy_target = $is_proxy_template
             ? $this->validateProxyTarget($this->getOption('target', self::DEFAULT_PROXY_TARGET))
             : '';
-        if(!file_exists($tmpl = $this->conf->paths->templates.'/templates/vhost_' . strtolower($vhost_template).'.tpl')){
+        if(!file_exists($tmpl = $this->conf->paths->templates.'/templates/vhost_' . $vhost_template.'.tpl')){
             $this->writeln('The configuration template was not found!');
             $this->endWithError();
         }
@@ -3955,29 +4213,31 @@ class Conductor extends CliApplication
         if (!$this->getOption('fqdn')) {
             // Entering interactive mode...
             $domain = $this->input('Domains (FQDN\'s) to map this application to:');
-            $apppath = $is_proxy_template ? '' : $this->input('Hosted directory:', '/public');
+            $apppath = $is_reverse_proxy_template ? '' : $this->input('Hosted directory:', '/public');
             if ($is_proxy_template && !$this->getOption('target')) {
                 $proxy_target = $this->validateProxyTarget($this->input('Target address:', self::DEFAULT_PROXY_TARGET));
             }
             $environment = $this->input('Environment type:', 'production');
-            $mysql_req = $this->mysqlEnabled()
+            $mysql_req = !$is_s3_template && $this->mysqlEnabled()
                 ? $this->input('Provision a MySQL database?', self::OPTION_NO, $option_yes_no_set)
                 : self::OPTION_NO;
-            $deploy_git = $this->input('Deploy application with Git now?', self::OPTION_NO, $option_yes_no_set);
+            $deploy_git = $is_s3_template
+                ? self::OPTION_NO
+                : $this->input('Deploy application with Git now?', self::OPTION_NO, $option_yes_no_set);
         } else {
             // FQDN is set, entering non-interactive mode!
             $domain = $this->getOption('fqdn');
             $environment = $this->getOption('environment', 'production');
-            $apppath = $is_proxy_template ? '' : $this->getOption('path', '/public');
+            $apppath = $is_reverse_proxy_template ? '' : $this->getOption('path', '/public');
             $mysql_req = self::OPTION_NO; // Disable this by default.
             $deploy_git = self::OPTION_NO; // Disable this by default.
 
-            if ($this->mysqlEnabled() && $this->getOption('mysql-pass')) {
+            if (!$is_s3_template && $this->mysqlEnabled() && $this->getOption('mysql-pass')) {
                 $mysql_req = self::OPTION_YES;
                 $password = $this->getOption('mysql-pass');
             }
 
-            if ($this->getOption('git-uri')) {
+            if (!$is_s3_template && $this->getOption('git-uri')) {
                 $deploy_git = self::OPTION_YES;
                 $gitrepo = trim($this->getOption('git-uri'));
             }
@@ -4024,13 +4284,17 @@ class Conductor extends CliApplication
         if ($is_proxy_template) {
             $placeholders = array_merge($placeholders, $this->proxyTargetPlaceholders($proxy_target));
         }
+        if ($is_s3_template) {
+            $placeholders['@@UPSTREAM@@'] = $this->nginxUpstreamName($this->appname);
+            $placeholders['@@S3_PORT@@'] = $s3_port;
+        }
         $config = file_get_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf');
         foreach ($placeholders as $placeholder => $value) {
             $config = str_replace($placeholder, $value, $config);
         }
         file_put_contents($this->conf->paths->appconfs . '/' . $this->appname . '.conf', $config);
 
-        $this->createApplicationWafConfig(strtolower($vhost_template), $placeholders);
+        $this->createApplicationWafConfig($vhost_template, $placeholders);
 
         mkdir($this->appdir, 0755);
         $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
@@ -4074,7 +4338,7 @@ class Conductor extends CliApplication
                 $this->writeln('Downloading dependencies...');
                 $this->call($this->composerForApplication('install --no-dev --optimize-autoloader'));
             }
-        } else {
+        } elseif (!$is_s3_template) {
             $this->call('/usr/bin/conductor envars ' . $this->appname . ' APP_ENV="' . $environment . '"');
             $this->writeln('To deploy your application, manually copy the files to:');
             $this->writeln();
@@ -4083,7 +4347,7 @@ class Conductor extends CliApplication
             $this->writeln('Alternatively if you are migrating from another server, use \'conductor restore ' . $this->appname . '\' to restore now!');
         }
 
-        if ($is_proxy_template) {
+        if ($is_reverse_proxy_template) {
             foreach ([502, 503, 504] as $status_code) {
                 $this->createApplicationErrorPage($status_code, $this->appdir);
             }
@@ -4113,6 +4377,10 @@ class Conductor extends CliApplication
             $this->createApplicationErrorPage($status_code, $error_page_root);
         }
 
+        if ($is_s3_template) {
+            $s3_metadata = $this->createS3Application($s3_port);
+        }
+
         if (strtolower($mysql_req) == self::OPTION_YES) {
             $this->writeln();
             if (!isset($password)) {
@@ -4125,14 +4393,35 @@ class Conductor extends CliApplication
 
         $this->writeln('Setting ownership permissions on application files...');
         $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
+        if ($is_s3_template) {
+            $this->call('chown root:root '
+                . escapeshellarg($this->appdir . '/.conductor-s3') . ' '
+                . escapeshellarg($this->appdir . '/docker-compose.yml'));
+            $this->call('chmod 600 '
+                . escapeshellarg($this->appdir . '/.conductor-s3') . ' '
+                . escapeshellarg($this->appdir . '/docker-compose.yml'));
+        }
 
-        if (strtolower($generate_keys) == self::OPTION_YES && !$deployment_key_generated) {
+        if (!$is_s3_template && strtolower($generate_keys) == self::OPTION_YES && !$deployment_key_generated) {
             $this->writeln('Generating a deployment (SSH) key pair...');
             $this->createDeploymentKey();
         }
 
         $this->migrateLaravel($environment);
+        if ($is_s3_template) {
+            $this->startS3ApplicationContainer($s3_compose_command);
+        }
         $this->promptGracefulNginxReload('new application', $this->isFlagSet('auto-reload'));
+        if ($is_s3_template) {
+            $this->writeln();
+            $this->writeln('S3 endpoint port: ' . $s3_metadata['port']);
+            $this->writeln('Access key: ' . $s3_metadata['access_key']);
+            $this->writeln('Secret key: ' . $s3_metadata['secret_key']);
+            $this->writeln(
+                'If this S3 data will be large, consider adding "' . $this->appname
+                . '" to scheduled-backups.exclude-applications in /etc/conductor.conf.'
+            );
+        }
     }
 
     /**
@@ -4978,6 +5267,7 @@ class Conductor extends CliApplication
             $this->writeln('The backup archive is incomplete: database dump or credentials are missing.');
             $this->endWithError();
         }
+        $this->stopS3ApplicationContainer();
         $this->removePath($this->appdir);
         $this->copyPath($application_source, $this->appdir);
 
@@ -5041,6 +5331,11 @@ class Conductor extends CliApplication
         $web_group = $this->conf->permissions->webgroup;
         $this->call('chown -R ' . escapeshellarg($web_user . ':' . $web_group) . ' ' . escapeshellarg($this->appdir));
         $this->call('chown -R ' . escapeshellarg($web_user . ':' . $web_group) . ' ' . escapeshellarg($application_logs));
+        if (is_file($this->appdir . '/.conductor-s3')) {
+            $this->call('chown root:root '
+                . escapeshellarg($this->appdir . '/.conductor-s3') . ' '
+                . escapeshellarg($this->appdir . '/docker-compose.yml'));
+        }
         if (file_exists($cron_path)) {
             chmod($cron_path, 0744);
         }
@@ -5049,6 +5344,7 @@ class Conductor extends CliApplication
             $this->runSupervisorCommand(['reread'], false);
             $this->runSupervisorCommand(['update'], false);
         }
+        $this->restoreS3ApplicationContainer();
     }
 
     private function restoreOptionalArtifact($source, $destination)
@@ -5180,6 +5476,7 @@ class Conductor extends CliApplication
         }
 
         if (file_exists($this->appdir)) {
+            $this->stopS3ApplicationContainer();
             $this->writeln('Running a quick snapshot as you can never be too careful...');
             $this->backupApplication('priordestroy_' . $this->appname . '.tar.gz');
             $this->writeln('Removing application crontab...');
