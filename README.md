@@ -35,7 +35,21 @@ export BRANCH_INSTALL="stable" # Set the name of the Git Branch you want to inst
 bash -c "$(curl -fsSL https://raw.github.com/allebb/conductor/stable/install.sh)" # Then, when we run the installer, it'll clone and install from the required branch!
 ```
 
-If you choose to install additional PHP versions, each of the FPM pools are started automatically. If you don't intend on using specific versions you can disable them (freeing resources) as follows:
+The Debian 13 installer offers each supported PHP version from newest to oldest. The newest version you select becomes the default CLI runtime and the PHP-FPM socket used for newly generated Nginx virtual hosts. Each selected FPM pool is started automatically.
+
+After installation, use the bundled version manager to see available and installed releases (including each installed binary path), or to install and cleanly remove a version:
+
+```shell
+sudo /etc/conductor/utils/php_versions.sh
+# Non-interactive alternatives:
+/etc/conductor/utils/php_versions.sh --list
+sudo /etc/conductor/utils/php_versions.sh --install 8.4
+sudo /etc/conductor/utils/php_versions.sh --uninstall 8.1
+```
+
+All PHP SAPIs installed by the Debian 13 installer or version manager use `post_max_size = 20M` and `upload_max_filesize = 20M` by default.
+
+If you don't intend on using a specific version, you can disable its FPM pool (freeing resources) as follows:
 
 ```shell
 # List all existing/installed PHP-FPM units:
@@ -62,7 +76,7 @@ What does this install
 Out of the box this script will install and configure the following packages using aptitude:-
 
 * Nginx
-* PHP 8.5 (required by Conductor)
+* PHP 8.3 or newer (required by Conductor; PHP 8.5 is used by proxy-only installs)
 * Git Client
 * CertBot (LetsEncrypt)
 * Logrotate
@@ -72,7 +86,7 @@ The current Debian installers will also ask whether you want to install:
 * MySQL
 * Redis
 * Supervisor
-* Additional PHP versions for hosted applications
+* Supported PHP versions for hosted applications (Debian 13)
 
 If you choose not to install MySQL locally, Conductor will not ask database provisioning questions when creating or deleting applications.
 
@@ -509,7 +523,7 @@ The command validates the Nginx configuration after downloading the rulesets, re
 The use of different PHP versions
 ---------------------------
 
-PHP 8.5 is always installed and is the default runtime required by Conductor. The Debian installers can optionally install additional PHP versions for hosted applications.
+On Debian 13, the installer asks about each supported PHP release from newest to oldest. The newest selected release becomes both the default `php` CLI binary and the default PHP-FPM socket used when Conductor generates an Nginx virtual host. At least one PHP 8.3-or-newer runtime is installed because Conductor itself requires it. Proxy-only installations use PHP 8.5.
 
 If however you need to set a specific application or site to use another installed PHP version you can edit the virtual host configuration in ``/etc/conductor/configs/{sitename}.conf`` and change the socket that PHP-FPM is running on, for example you should change:
 
@@ -543,7 +557,7 @@ Should be changed to...
 * * * * * cd /var/conductor/application/{appname} && php7.4 artisan schedule:run >> /dev/null 2>&1
 ```
 
-**Notice the replacement of the ``php`` binary with the ``php7.4`` specific binary! If you fail to do this, your scheduled tasks will run using default PHP 8.5 runtime!
+**Notice the replacement of the ``php`` binary with the ``php7.4`` specific binary! If you fail to do this, your scheduled tasks will run using the newest PHP runtime selected during installation.**
 
 If you want your server to use PHP 7.4 by default, you can update the default socket path that will be used when provisioning new virtual host configuration, to do this you should edit the main Conductor configuration settings file here: ``/etc/conductor.conf``, change this line:
 

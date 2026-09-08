@@ -141,13 +141,18 @@ check_required_tcp_ports() {
 INSTALL_MYSQL=0
 INSTALL_REDIS=0
 INSTALL_SUPERVISOR=0
-INSTALL_EXTRA_PHP=0
 MYSQL_ROOT_PASSWORD="NOT_INSTALLED"
+
+# Keep this list in newest-to-oldest order. The first selected version becomes
+# the default CLI runtime and the default PHP-FPM socket used by Conductor.
+PHP_SUPPORTED_VERSIONS=("8.5" "8.4" "8.3" "8.2" "8.1" "8.0" "7.4")
+PHP_VERSIONS=()
 
 print_conductor_banner
 
 if [ "$PROXY_ONLY" -eq 1 ]; then
     echo "Proxy-only install requested; skipping MySQL, Redis, SupervisorD, and additional PHP versions."
+    PHP_VERSIONS=("${PHP_SUPPORTED_VERSIONS[0]}")
 else
     if prompt_yes_no "Install MySQL locally?" "y"; then
         INSTALL_MYSQL=1
@@ -161,10 +166,35 @@ else
         INSTALL_SUPERVISOR=1
     fi
 
-    if prompt_yes_no "Install additional PHP versions (7.4, 8.1, 8.4) alongside required PHP 8.5?" "y"; then
-        INSTALL_EXTRA_PHP=1
+    echo ""
+    echo "Select the PHP versions to install (newest to oldest)."
+    for v in "${PHP_SUPPORTED_VERSIONS[@]}"; do
+        php_prompt_default="n"
+        if [ "$v" = "${PHP_SUPPORTED_VERSIONS[0]}" ]; then
+            php_prompt_default="y"
+        fi
+        if prompt_yes_no "Install PHP ${v}?" "$php_prompt_default"; then
+            PHP_VERSIONS+=("$v")
+        fi
+    done
+
+    # Conductor itself requires PHP 8.3 or newer, even when hosted applications
+    # use an older FPM release.
+    conductor_php_selected=0
+    for v in "${PHP_VERSIONS[@]}"; do
+        case "$v" in
+            8.3|8.4|8.5) conductor_php_selected=1 ;;
+        esac
+    done
+    if [ "$conductor_php_selected" -eq 0 ]; then
+        echo "Conductor requires PHP 8.3 or newer; adding PHP ${PHP_SUPPORTED_VERSIONS[0]}."
+        PHP_VERSIONS=("${PHP_SUPPORTED_VERSIONS[0]}" "${PHP_VERSIONS[@]}")
     fi
 fi
+
+# PHP_SUPPORTED_VERSIONS and the prompts above are newest-first, so this is the
+# newest version selected by the user.
+PHP_DEFAULT_VERSION="${PHP_VERSIONS[0]}"
 
 REQUIRED_PORTS=(80 443)
 if [ "$INSTALL_MYSQL" -eq 1 ]; then
@@ -232,13 +262,6 @@ echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.
 
 sudo apt-get update
 
-# Supported PHP versions on Debian 13 via Sury. PHP 8.5 is required and always installed.
-PHP_DEFAULT_VERSION="8.5"
-PHP_VERSIONS=("8.5")
-if [ "$INSTALL_EXTRA_PHP" -eq 1 ]; then
-    PHP_VERSIONS=("7.4" "8.1" "8.4" "8.5")
-fi
-
 echo "Installing PHP versions: ${PHP_VERSIONS[*]}"
 
 for v in "${PHP_VERSIONS[@]}"; do
@@ -251,6 +274,26 @@ for v in "${PHP_VERSIONS[@]}"; do
     # (eg. missing for 8.5 at the time of writing), so install it best-effort and
     # on its own, rather than letting a missing package block the whole set above.
     sudo apt-get -y install php${v}-memcache || true
+
+    # Apply consistent upload limits to every installed SAPI (FPM, CLI, etc.).
+    php_ini_found=0
+    while IFS= read -r php_ini; do
+        php_ini_found=1
+        sudo sed -i -E \
+            -e 's/^[[:space:]]*;?[[:space:]]*post_max_size[[:space:]]*=.*/post_max_size = 20M/' \
+            -e 's/^[[:space:]]*;?[[:space:]]*upload_max_filesize[[:space:]]*=.*/upload_max_filesize = 20M/' \
+            "$php_ini"
+
+        if ! grep -Eq '^post_max_size[[:space:]]*=[[:space:]]*20M$' "$php_ini" ||
+           ! grep -Eq '^upload_max_filesize[[:space:]]*=[[:space:]]*20M$' "$php_ini"; then
+            echo "Failed to configure 20M upload limits in ${php_ini}." >&2
+            exit 1
+        fi
+    done < <(find "/etc/php/${v}" -mindepth 2 -maxdepth 2 -name php.ini -type f)
+    if [ "$php_ini_found" -eq 0 ]; then
+        echo "No php.ini files were found for PHP ${v}." >&2
+        exit 1
+    fi
 done
 
 echo "Setting PHP ${PHP_DEFAULT_VERSION} as the default 'php' CLI binary..."
@@ -352,6 +395,10 @@ sudo sed -i "s/# server_tokens off;/server_tokens off;/g" /etc/nginx/nginx.conf
 ################################################################################
 sudo cp /etc/conductor/bin/conf/conductor.debian.template.json /etc/conductor.conf
 sudo sed -i "s|ROOT_PASSWORD_HERE|$MYSQL_ROOT_PASSWORD|" /etc/conductor.conf
+sudo sed -i \
+    -e "s|/var/run/php/php8\.5-fpm\.sock|/var/run/php/php${PHP_DEFAULT_VERSION}-fpm.sock|g" \
+    -e "s|/etc/init.d/php8\.5-fpm|/etc/init.d/php${PHP_DEFAULT_VERSION}-fpm|g" \
+    /etc/conductor.conf
 if [ "$INSTALL_MYSQL" -eq 0 ]; then
     sudo sed -i '0,/"enabled": true/s//"enabled": false/' /etc/conductor.conf
 fi

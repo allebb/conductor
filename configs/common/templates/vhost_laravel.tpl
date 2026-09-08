@@ -139,7 +139,7 @@ server {
     location ~* \.php$ {
         try_files                       $uri /index.php =404;
 
-        # Defaults to PHP 8.5. If your application requires an older PHP version instead, change the UNIX socket to eg. "unix:/var/run/php/php8.3-fpm.sock;" instead!
+        # Uses Conductor's configured default PHP version. Change the UNIX socket here if this application requires a different installed PHP version.
         fastcgi_pass                    unix:@@SOCKET@@;
         fastcgi_index                   index.php;
         fastcgi_split_path_info         ^(.+\.php)(.*)$;
