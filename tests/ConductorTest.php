@@ -2711,6 +2711,37 @@ final class ConductorTest extends TestCase
         $this->assertStringContainsString('su root root', $seclog_logrotate);
     }
 
+    public function testCompleteUninstallerCoversConductorManagedState(): void
+    {
+        $path = __DIR__ . '/../utils/uninstall-conductor.sh';
+        $uninstaller = file_get_contents($path);
+
+        $this->assertFileExists($path);
+        $this->assertStringContainsString('RESET CONDUCTOR', $uninstaller);
+        $this->assertStringContainsString('ASSUME_YES=0', $uninstaller);
+        $this->assertStringContainsString('/var/conductor', $uninstaller);
+        $this->assertStringContainsString('/etc/conductor.conf', $uninstaller);
+        $this->assertStringContainsString('/etc/conductor', $uninstaller);
+        $this->assertStringContainsString('/etc/letsencrypt', $uninstaller);
+        $this->assertStringContainsString('/var/lib/mysql', $uninstaller);
+        $this->assertStringContainsString('/var/lib/redis', $uninstaller);
+        $this->assertStringContainsString('/etc/supervisor', $uninstaller);
+        $this->assertStringContainsString("-name 'conductor_*' -delete", $uninstaller);
+        $this->assertStringContainsString('/etc/logrotate.d/conductor-vhost-logs', $uninstaller);
+        $this->assertStringContainsString('/etc/bash_completion.d/conductor', $uninstaller);
+        $this->assertStringContainsString('/etc/apt/sources.list.d/php.list', $uninstaller);
+        $this->assertStringContainsString('apt-get purge -y', $uninstaller);
+        $this->assertStringContainsString('apt-get autoremove --purge -y', $uninstaller);
+        $this->assertStringContainsString('systemctl daemon-reload', $uninstaller);
+
+        foreach ([
+            file_get_contents(__DIR__ . '/../scripts/install_debian_12.sh'),
+            file_get_contents(__DIR__ . '/../scripts/install_debian_13.sh'),
+        ] as $installer) {
+            $this->assertStringContainsString('chmod +x /etc/conductor/utils/*', $installer);
+        }
+    }
+
     public function testCompleteSuggestsCommandsOptionsAndApplicationNames(): void
     {
         $apps = sys_get_temp_dir() . '/conductor-apps-' . uniqid();

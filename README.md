@@ -532,6 +532,16 @@ Application backups use Conductor's manifest-based archive format and include th
 
 Database credentials created by Conductor are stored separately as root-only files under ``/etc/conductor/credentials/{app name}.json``. The directory is mode ``0700`` and each record is mode ``0600``. Backup archives can therefore contain private keys and database passwords and are also written with mode ``0600``; treat the archives as secrets when copying them off the server. During a database restore, Conductor drops and recreates the application database and user from the archived record before importing the SQL dump.
 
+Completely uninstalling Conductor
+---------------------------------
+The bundled reset script removes Conductor and the complete service stack installed by it:
+
+```shell
+sudo bash /etc/conductor/utils/uninstall-conductor.sh
+```
+
+This is an irreversible server reset. It deletes every application and backup, all database and Redis data, TLS certificates, logs, credentials, service configuration, optional Fail2Ban/CrowdSec integration, external package repositories, and the Nginx, PHP, database, Redis, Supervisor, Certbot, and security packages. The interactive prompt requires the exact text ``RESET CONDUCTOR``. Automated rebuilds can use ``--yes`` only after preserving any required data elsewhere.
+
 Automating composer updates
 ---------------------------
 As conductor is designed to be a 'set and forget' system, we've now implemented an script that you can add as a CRON job (to get rid of those nasty '30 days out of date' errors), by adding this script to the CRONtab you can be sure that Composer is automatically updated on the first day of every month at 03:00.
