@@ -528,6 +528,10 @@ The above example executes the task daily at midnight. By default, backup files 
 
 You may wish to then have a remote server 'pull' and 'archive' these backups of which will be located in ``/var/conductor/backups/``.
 
+Application backups use Conductor's manifest-based archive format and include the complete application directory plus its external Nginx configuration and environment file, WAF configuration, Basic Auth password file, cron file, Supervisor worker configurations, application and security logs, deployment keys, Certbot certificate/archive/renewal data, and—when present—the compressed database dump and application database credentials. Restore and rollback require this current archive format and restore the same artifacts before reloading the affected services.
+
+Database credentials created by Conductor are stored separately as root-only files under ``/etc/conductor/credentials/{app name}.json``. The directory is mode ``0700`` and each record is mode ``0600``. Backup archives can therefore contain private keys and database passwords and are also written with mode ``0600``; treat the archives as secrets when copying them off the server. During a database restore, Conductor drops and recreates the application database and user from the archived record before importing the SQL dump.
+
 Automating composer updates
 ---------------------------
 As conductor is designed to be a 'set and forget' system, we've now implemented an script that you can add as a CRON job (to get rid of those nasty '30 days out of date' errors), by adding this script to the CRONtab you can be sure that Composer is automatically updated on the first day of every month at 03:00.

@@ -555,8 +555,7 @@ final class ConductorTest extends TestCase
             'staging',
             $apps . '/myapp',
             'example.com www.example.com',
-            Conductor::OPTION_YES,
-            'secret'
+            Conductor::OPTION_YES
         );
 
         $config = json_decode(file_get_contents($apps . '/myapp/.conductor/config.json'), true);
@@ -565,7 +564,7 @@ final class ConductorTest extends TestCase
         $this->assertSame($apps . '/myapp', $config['root_path']);
         $this->assertSame('db_myapp', $config['mysql_db_name']);
         $this->assertSame('myapp', $config['mysql_db_user']);
-        $this->assertSame('secret', $config['mysql_db_pass']);
+        $this->assertArrayNotHasKey('mysql_db_pass', $config);
         $this->assertSame('127.0.0.1', $config['mysql_db_host']);
         $this->assertSame('example.com www.example.com', $config['fqdn']);
         $this->assertSame('redis', $config['env']['QUEUE_CONNECTION']);
@@ -3232,5 +3231,409 @@ STATUS;
         rmdir($apps);
         rmdir($backups);
         rmdir($root);
+    }
+
+    public function testApplicationBackupArchiveContainsEveryExternalArtifactAndDatabaseCredentials(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-full-backup-' . uniqid();
+        $directories = [
+            'apps/myapp/.conductor', 'configs', 'wafs', 'auth', 'cron', 'supervisor',
+            'logs/myapp', 'seclogs', 'keys', 'letsencrypt/archive/myapp',
+            'letsencrypt/live/myapp', 'letsencrypt/renewal', 'credentials', 'temp', 'backups',
+        ];
+        foreach ($directories as $directory) {
+            mkdir($root . '/' . $directory, 0755, true);
+        }
+
+        $files = [
+            'apps/myapp/index.php' => '<?php echo "app";',
+            'configs/myapp.disabled' => '# disabled vhost',
+            'configs/myapp_envars.json' => '{"APP_ENV":"production"}',
+            'wafs/myapp.conf' => '# waf',
+            'auth/.htpasswd_myapp' => 'alice:hash',
+            'cron/conductor_myapp' => '* * * * * www-data true',
+            'supervisor/myapp-worker.conf' => '[program:myapp-worker]',
+            'logs/myapp/access.log' => 'access',
+            'logs/myapp/myapp-worker.log' => 'worker',
+            'seclogs/conductor_myapp.seclog' => 'security',
+            'keys/myapp.deploykey' => 'private',
+            'keys/myapp.deploykey.pub' => 'public',
+            'letsencrypt/archive/myapp/cert1.pem' => 'certificate',
+            'letsencrypt/renewal/myapp.conf' => '# renewal',
+        ];
+        foreach ($files as $path => $contents) {
+            file_put_contents($root . '/' . $path, $contents);
+        }
+        symlink('../../archive/myapp/cert1.pem', $root . '/letsencrypt/live/myapp/cert.pem');
+
+        $credentials = [
+            'database' => 'db_myapp',
+            'username' => 'myapp',
+            'password' => 'database-secret',
+            'host' => 'localhost',
+            'user_host' => 'localhost',
+        ];
+        file_put_contents($root . '/credentials/myapp.json', json_encode($credentials, JSON_THROW_ON_ERROR));
+        chmod($root . '/credentials/myapp.json', 0600);
+
+        $conductor = new class extends Conductor {
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+
+            public function writeln($line = '')
+            {
+            }
+        };
+        $database = new class {
+            public function quote($value)
+            {
+                return "'" . str_replace("'", "''", $value) . "'";
+            }
+
+            public function query($query)
+            {
+                return new class {
+                    public function fetchObject()
+                    {
+                        return (object) [];
+                    }
+                };
+            }
+        };
+
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'apps' => $root . '/apps',
+                'temp' => $root . '/temp',
+                'backups' => $root . '/backups',
+                'appconfs' => $root . '/configs',
+                'wafs' => $root . '/wafs',
+                'pwdbs' => $root . '/auth',
+                'crontabs' => $root . '/cron',
+                'supervisor' => $root . '/supervisor',
+                'applogs' => $root . '/logs',
+                'seclogs' => $root . '/seclogs',
+                'deploykeys' => $root . '/keys',
+                'letsencrypt' => $root . '/letsencrypt',
+                'credentials' => $root . '/credentials',
+            ],
+            'mysql' => (object) [
+                'enabled' => true,
+                'host' => 'localhost',
+                'username' => 'root',
+                'password' => 'root-secret',
+                'confrom' => 'localhost',
+            ],
+            'binaries' => (object) [
+                'mysqldump' => '/bin/echo',
+                'gzip' => '/bin/gzip',
+            ],
+        ]);
+        $reflection->getProperty('mysql')->setValue($conductor, $database);
+        $reflection->getMethod('backupApplication')->invoke($conductor, 'myapp-test.tar.gz');
+
+        $archive = $root . '/backups/myapp-test.tar.gz';
+        $this->assertFileExists($archive);
+        $this->assertSame(0600, fileperms($archive) & 0777);
+        $archive_entries = [];
+        exec('tar -tzf ' . escapeshellarg($archive), $archive_entries, $exit_code);
+        $this->assertSame(0, $exit_code);
+        $entry_list = implode("\n", $archive_entries);
+        foreach ([
+            './manifest.json',
+            './application/index.php',
+            './artifacts/nginx/myapp.disabled',
+            './artifacts/nginx/myapp_envars.json',
+            './artifacts/waf/myapp.conf',
+            './artifacts/auth/.htpasswd_myapp',
+            './artifacts/cron/conductor_myapp',
+            './artifacts/supervisor/myapp-worker.conf',
+            './artifacts/logs/access.log',
+            './artifacts/logs/myapp-worker.log',
+            './artifacts/security-logs/conductor_myapp.seclog',
+            './artifacts/deploy-keys/myapp.deploykey',
+            './artifacts/letsencrypt/archive/myapp/cert1.pem',
+            './artifacts/letsencrypt/live/myapp/cert.pem',
+            './artifacts/letsencrypt/renewal/myapp.conf',
+            './artifacts/database/credentials.json',
+            './artifacts/database/dump.sql.gz',
+        ] as $entry) {
+            $this->assertStringContainsString($entry, $entry_list);
+        }
+
+        exec('rm -rf -- ' . escapeshellarg($root));
+    }
+
+    public function testExistingApplicationDatabaseCredentialsAreMigratedToRootOnlyStore(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-credential-migration-' . uniqid();
+        mkdir($root . '/apps/myapp/.conductor', 0755, true);
+        file_put_contents($root . '/apps/myapp/.conductor/config.json', json_encode([
+            'mysql_db_name' => 'db_myapp',
+            'mysql_db_user' => 'myapp',
+            'mysql_db_pass' => 'secret',
+            'mysql_db_host' => 'localhost',
+        ], JSON_THROW_ON_ERROR));
+
+        $conductor = new class extends Conductor {
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+
+            public function writeln($line = '')
+            {
+            }
+        };
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'apps' => $root . '/apps',
+                'credentials' => $root . '/credentials',
+            ],
+            'mysql' => (object) [
+                'host' => 'localhost',
+                'confrom' => 'localhost',
+            ],
+        ]);
+        $reflection->getMethod('setAppName')->invoke($conductor);
+        $credentials = $reflection->getMethod('applicationDatabaseCredentials')->invoke($conductor);
+
+        $this->assertSame('secret', $credentials['password']);
+        $credential_path = $root . '/credentials/myapp.json';
+        $this->assertFileExists($credential_path);
+        $this->assertSame(0600, fileperms($credential_path) & 0777);
+        $this->assertSame(0700, fileperms($root . '/credentials') & 0777);
+        $legacy = json_decode(file_get_contents($root . '/apps/myapp/.conductor/config.json'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertArrayNotHasKey('mysql_db_pass', $legacy);
+
+        exec('rm -rf -- ' . escapeshellarg($root));
+    }
+
+    public function testVersionTwoRestoreReplacesAllApplicationArtifacts(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-full-restore-' . uniqid();
+        foreach ([
+            'restore/application', 'restore/artifacts/nginx', 'restore/artifacts/waf',
+            'restore/artifacts/auth', 'restore/artifacts/cron', 'restore/artifacts/supervisor',
+            'restore/artifacts/logs', 'restore/artifacts/security-logs',
+            'restore/artifacts/deploy-keys', 'restore/artifacts/letsencrypt/archive/myapp',
+            'restore/artifacts/letsencrypt/live/myapp', 'restore/artifacts/letsencrypt/renewal',
+            'apps/myapp', 'configs', 'wafs', 'auth', 'cron', 'supervisor', 'logs/myapp',
+            'seclogs', 'keys', 'letsencrypt/archive', 'letsencrypt/live',
+            'letsencrypt/renewal', 'credentials',
+        ] as $directory) {
+            mkdir($root . '/' . $directory, 0755, true);
+        }
+        file_put_contents($root . '/restore/manifest.json', json_encode([
+            'format_version' => Conductor::BACKUP_FORMAT_VERSION,
+            'application' => 'myapp',
+        ], JSON_THROW_ON_ERROR));
+        $restored_files = [
+            'restore/application/index.php' => 'restored app',
+            'restore/artifacts/nginx/myapp.conf' => 'restored nginx',
+            'restore/artifacts/nginx/myapp_envars.json' => 'restored env',
+            'restore/artifacts/waf/myapp.conf' => 'restored waf',
+            'restore/artifacts/auth/.htpasswd_myapp' => 'restored auth',
+            'restore/artifacts/cron/conductor_myapp' => 'restored cron',
+            'restore/artifacts/supervisor/myapp-worker.conf' => 'restored supervisor',
+            'restore/artifacts/logs/access.log' => 'restored log',
+            'restore/artifacts/security-logs/conductor_myapp.seclog' => 'restored security log',
+            'restore/artifacts/deploy-keys/myapp.deploykey' => 'restored key',
+            'restore/artifacts/deploy-keys/myapp.deploykey.pub' => 'restored public key',
+            'restore/artifacts/letsencrypt/archive/myapp/cert1.pem' => 'restored certificate',
+            'restore/artifacts/letsencrypt/renewal/myapp.conf' => 'restored renewal',
+        ];
+        foreach ($restored_files as $path => $content) {
+            file_put_contents($root . '/' . $path, $content);
+        }
+        symlink('../../archive/myapp/cert1.pem', $root . '/restore/artifacts/letsencrypt/live/myapp/cert.pem');
+        file_put_contents($root . '/apps/myapp/old.txt', 'old app');
+        file_put_contents($root . '/configs/myapp.disabled', 'old nginx');
+        file_put_contents($root . '/supervisor/myapp-old.conf', 'old supervisor');
+        file_put_contents($root . '/logs/myapp/old.log', 'old log');
+
+        $conductor = new class extends Conductor {
+            public array $calls = [];
+
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+
+            public function call($command)
+            {
+                $this->calls[] = $command;
+                return '';
+            }
+
+            public function callWithOutput($command, &$output)
+            {
+                $this->calls[] = $command;
+                $output = [];
+                return 0;
+            }
+
+            public function writeln($line = '')
+            {
+            }
+        };
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'apps' => $root . '/apps',
+                'appconfs' => $root . '/configs',
+                'wafs' => $root . '/wafs',
+                'pwdbs' => $root . '/auth',
+                'crontabs' => $root . '/cron',
+                'supervisor' => $root . '/supervisor',
+                'applogs' => $root . '/logs',
+                'seclogs' => $root . '/seclogs',
+                'deploykeys' => $root . '/keys',
+                'letsencrypt' => $root . '/letsencrypt',
+                'credentials' => $root . '/credentials',
+            ],
+            'permissions' => (object) [
+                'webuser' => 'www-data',
+                'webgroup' => 'www-data',
+            ],
+            'mysql' => (object) [
+                'enabled' => false,
+            ],
+            'binaries' => (object) [
+                'supervisorctl' => '/bin/true',
+            ],
+            'services' => (object) [
+                'cron' => (object) [
+                    'reload' => 'service cron reload',
+                ],
+            ],
+        ]);
+        $reflection->getMethod('setAppName')->invoke($conductor);
+        $reflection->getMethod('restoreVersionTwoBackup')->invoke($conductor, $root . '/restore');
+
+        $this->assertSame('restored app', file_get_contents($root . '/apps/myapp/index.php'));
+        $this->assertFileDoesNotExist($root . '/apps/myapp/old.txt');
+        $this->assertSame('restored nginx', file_get_contents($root . '/configs/myapp.conf'));
+        $this->assertFileDoesNotExist($root . '/configs/myapp.disabled');
+        $this->assertSame('restored waf', file_get_contents($root . '/wafs/myapp.conf'));
+        $this->assertSame('restored auth', file_get_contents($root . '/auth/.htpasswd_myapp'));
+        $this->assertSame('restored cron', file_get_contents($root . '/cron/conductor_myapp'));
+        $this->assertSame('restored supervisor', file_get_contents($root . '/supervisor/myapp-worker.conf'));
+        $this->assertFileDoesNotExist($root . '/supervisor/myapp-old.conf');
+        $this->assertSame('restored log', file_get_contents($root . '/logs/myapp/access.log'));
+        $this->assertFileDoesNotExist($root . '/logs/myapp/old.log');
+        $this->assertSame('restored security log', file_get_contents($root . '/seclogs/conductor_myapp.seclog'));
+        $this->assertSame('restored key', file_get_contents($root . '/keys/myapp.deploykey'));
+        $this->assertSame('restored certificate', file_get_contents($root . '/letsencrypt/archive/myapp/cert1.pem'));
+        $this->assertTrue(is_link($root . '/letsencrypt/live/myapp/cert.pem'));
+        $this->assertSame('restored renewal', file_get_contents($root . '/letsencrypt/renewal/myapp.conf'));
+        $this->assertContains('service cron reload', $conductor->calls);
+        $this->assertTrue((bool) array_filter($conductor->calls, fn ($call) => str_contains($call, "'reread'")));
+        $this->assertTrue((bool) array_filter($conductor->calls, fn ($call) => str_contains($call, "'update'")));
+
+        exec('rm -rf -- ' . escapeshellarg($root));
+    }
+
+    public function testDatabaseRestoreDropsAndRecreatesDatabaseAndUserBeforeImport(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-database-restore-' . uniqid();
+        mkdir($root . '/database', 0700, true);
+        $credentials = [
+            'database' => 'db_myapp',
+            'username' => 'myapp',
+            'password' => "se'cret",
+            'host' => 'localhost',
+            'user_host' => 'localhost',
+        ];
+        file_put_contents($root . '/database/credentials.json', json_encode($credentials, JSON_THROW_ON_ERROR));
+        file_put_contents($root . '/database/dump.sql.gz', 'dump');
+
+        $database = new class {
+            public array $statements = [];
+
+            public function quote($value)
+            {
+                return "'" . str_replace("'", "''", $value) . "'";
+            }
+
+            public function exec($statement)
+            {
+                $this->statements[] = $statement;
+                return 0;
+            }
+        };
+        $conductor = new class extends Conductor {
+            public array $commands = [];
+
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+
+            public function callWithExitCode($command)
+            {
+                $this->commands[] = $command;
+                return 0;
+            }
+
+            public function writeln($line = '')
+            {
+            }
+        };
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'apps' => $root . '/apps',
+                'credentials' => $root . '/credentials',
+            ],
+            'mysql' => (object) [
+                'enabled' => true,
+                'host' => 'localhost',
+                'username' => 'root',
+                'password' => 'root-secret',
+                'confrom' => 'localhost',
+            ],
+            'binaries' => (object) [
+                'mysql' => '/usr/bin/mysql',
+            ],
+        ]);
+        $reflection->getProperty('mysql')->setValue($conductor, $database);
+        $reflection->getMethod('setAppName')->invoke($conductor);
+        $reflection->getMethod('restoreApplicationDatabase')->invoke($conductor, $root . '/database');
+
+        $this->assertSame([
+            'DROP DATABASE IF EXISTS `db_myapp`',
+            'CREATE DATABASE `db_myapp`',
+            "DROP USER IF EXISTS 'myapp'@'localhost'",
+            "CREATE USER 'myapp'@'localhost' IDENTIFIED BY 'se''cret'",
+            "GRANT ALL ON `db_myapp`.* TO 'myapp'@'localhost'",
+            'FLUSH PRIVILEGES',
+        ], $database->statements);
+        $this->assertCount(1, $conductor->commands);
+        $this->assertStringContainsString('gunzip -c', $conductor->commands[0]);
+        $this->assertFileExists($root . '/credentials/myapp.json');
+        $this->assertSame(0600, fileperms($root . '/credentials/myapp.json') & 0777);
+
+        exec('rm -rf -- ' . escapeshellarg($root));
     }
 }

@@ -48,6 +48,7 @@ class Conductor extends CliApplication
     const FAIL2BAN_WEBHOOK_ACTION_FILENAME = "conductor-webhook.conf";
     const LETSENCRYPT_WEBHOOK_CONFIG_FILENAME = "letsencrypt-webhook.conf";
     const SECURITY_LOG_DIRECTORY = "/var/conductor/seclogs";
+    const BACKUP_FORMAT_VERSION = 2;
 
     /**
      * The current application number.
@@ -2802,27 +2803,175 @@ class Conductor extends CliApplication
     private function backupApplication($filename)
     {
         $this->appNameRequired();
-        $this->call('cp -R ' . $this->appdir . ' ' . $this->conf->paths->temp . '/' . $this->appname);
+        $previous_umask = umask(0077);
+        $staging = rtrim($this->conf->paths->temp, '/') . '/backup_' . $this->appname . '_' . bin2hex(random_bytes(6));
+        $artifacts = $staging . '/artifacts';
+        if (!mkdir($artifacts, 0700, true)) {
+            $this->writeln('Unable to create backup staging directory: ' . $staging);
+            $this->endWithError();
+        }
+
+        $this->copyPath($this->appdir, $staging . '/application');
+
+        $artifact_paths = [
+            $this->conf->paths->appconfs . '/' . $this->appname . '.conf' => 'nginx/' . $this->appname . '.conf',
+            $this->conf->paths->appconfs . '/' . $this->appname . '.disabled' => 'nginx/' . $this->appname . '.disabled',
+            $this->conf->paths->appconfs . '/' . $this->appname . '_envars.json' => 'nginx/' . $this->appname . '_envars.json',
+            $this->applicationWafConfigPath() => 'waf/' . $this->appname . '.conf',
+            $this->authFilePath() => 'auth/.htpasswd_' . $this->appname,
+            $this->conf->paths->crontabs . '/conductor_' . $this->appname => 'cron/conductor_' . $this->appname,
+            rtrim($this->conf->paths->applogs, '/') . '/' . $this->appname => 'logs',
+            $this->conf->paths->deploykeys . '/' . $this->appname . '.deploykey' => 'deploy-keys/' . $this->appname . '.deploykey',
+            $this->conf->paths->deploykeys . '/' . $this->appname . '.deploykey.pub' => 'deploy-keys/' . $this->appname . '.deploykey.pub',
+        ];
+        foreach ($this->applicationWorkerConfigurationPaths() as $path) {
+            $artifact_paths[$path] = 'supervisor/' . basename($path);
+        }
+        foreach (glob($this->securityLogDirectory() . '/conductor_' . $this->appname . '.seclog*') ?: [] as $path) {
+            $artifact_paths[$path] = 'security-logs/' . basename($path);
+        }
+
+        $letsencrypt = $this->letsEncryptDirectory();
+        $artifact_paths[$letsencrypt . '/live/' . $this->appname] = 'letsencrypt/live/' . $this->appname;
+        $artifact_paths[$letsencrypt . '/archive/' . $this->appname] = 'letsencrypt/archive/' . $this->appname;
+        $artifact_paths[$letsencrypt . '/renewal/' . $this->appname . '.conf'] = 'letsencrypt/renewal/' . $this->appname . '.conf';
+
+        $included_artifacts = [];
+        foreach ($artifact_paths as $source => $relative_destination) {
+            if (file_exists($source) || is_link($source)) {
+                $this->copyPath($source, $artifacts . '/' . $relative_destination);
+                $included_artifacts[] = $relative_destination;
+            }
+        }
+
         $this->connectMySQL();
-        if ($this->mysqlEnabled() && $this->mysql->query('SHOW DATABASES LIKE \'db_' . $this->appname . '\';')->fetchObject()) {
+        $has_database = false;
+        if ($this->mysqlEnabled()
+            && $this->mysql->query('SHOW DATABASES LIKE ' . $this->mysql->quote('db_' . $this->appname))->fetchObject()
+        ) {
+            $has_database = true;
             $this->writeln('Detected a MySQL database, backing it up...');
-            $this->call($this->conf->binaries->mysqldump . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' --no-create-db db_' . $this->appname . ' | ' . $this->conf->binaries->gzip . ' -c | cat > ' . $this->conf->paths->temp . '/' . $this->appname . '/appdb.sql.gz');
+            $credentials = $this->applicationDatabaseCredentials();
+            if (!$credentials) {
+                $this->removePath($staging);
+                $this->writeln('Database credentials are not available for ' . $this->appname . '; refusing to create an incomplete backup.');
+                $this->writeln('Create the root-only credential record at: ' . $this->databaseCredentialPath());
+                $this->endWithError();
+            }
+            $database_directory = $artifacts . '/database';
+            mkdir($database_directory, 0700, true);
+            $this->writeJsonFile($database_directory . '/credentials.json', $credentials, 0600);
+            $included_artifacts[] = 'database/credentials.json';
+
+            $dump_command = 'MYSQL_PWD=' . escapeshellarg($this->conf->mysql->password)
+                . ' ' . escapeshellarg($this->conf->binaries->mysqldump)
+                . ' --host=' . escapeshellarg($this->conf->mysql->host)
+                . ' --user=' . escapeshellarg($this->conf->mysql->username)
+                . ' --single-transaction --routines --triggers --events --no-create-db -- '
+                . escapeshellarg($credentials['database'])
+                . ' | ' . escapeshellarg($this->conf->binaries->gzip)
+                . ' -c > ' . escapeshellarg($database_directory . '/dump.sql.gz');
+            if ($this->callWithExitCode($dump_command) !== 0) {
+                $this->removePath($staging);
+                $this->writeln('Database dump failed; the incomplete backup has been removed.');
+                $this->endWithError();
+            }
+            $included_artifacts[] = 'database/dump.sql.gz';
         }
-        $crontab = $this->conf->paths->crontabs . '/conductor_' . $this->appname;
-        if (file_exists($crontab)) {
-            $this->writeln('Backing up crontab file...');
-            $this->call('cp ' . $crontab . ' ' . $this->conf->paths->temp . '/' . $this->appname . '/');
-        }
-        $appconf = $this->conf->paths->appconfs . '/' . $this->appname . '.conf';
-        if (file_exists($appconf)) {
-            $this->writeln('Backing up Nginx virtualhost config...');
-            $this->call('cp ' . $appconf . ' ' . $this->conf->paths->temp . '/' . $this->appname . '/');
-        }
+
+        $manifest = [
+            'format_version' => self::BACKUP_FORMAT_VERSION,
+            'application' => $this->appname,
+            'created_at' => date('c'),
+            'contains_database' => $has_database,
+            'contains_database_credentials' => $has_database,
+            'artifacts' => $included_artifacts,
+        ];
+        $this->writeJsonFile($staging . '/manifest.json', $manifest, 0600);
+
+        $temporary_archive = rtrim($this->conf->paths->temp, '/') . '/' . $filename;
+        $final_archive = rtrim($this->conf->paths->backups, '/') . '/' . $filename;
         $this->writeln('Compressing backup archive...');
-        $this->call('tar -zcf ' . $this->conf->paths->temp . '/' . $filename . ' -C ' . $this->conf->paths->temp . '/' . $this->appname . '/ .');
-        $this->writeln('Cleaning up...');
-        $this->call('rm -Rf ' . $this->conf->paths->temp . '/' . $this->appname);
-        $this->call('mv ' . $this->conf->paths->temp . '/' . $filename . ' ' . $this->conf->paths->backups . '/' . $filename);
+        $tar_command = 'tar -zcf ' . escapeshellarg($temporary_archive) . ' -C ' . escapeshellarg($staging) . ' .';
+        if ($this->callWithExitCode($tar_command) !== 0) {
+            $this->removePath($staging);
+            @unlink($temporary_archive);
+            $this->writeln('Unable to create the backup archive.');
+            $this->endWithError();
+        }
+        chmod($temporary_archive, 0600);
+        $this->removePath($staging);
+        if (!rename($temporary_archive, $final_archive)) {
+            @unlink($temporary_archive);
+            $this->writeln('Unable to move backup archive to: ' . $final_archive);
+            $this->endWithError();
+        }
+        umask($previous_umask);
+    }
+
+    /**
+     * Recursively copy a file, directory, or symbolic link while retaining modes.
+     */
+    private function copyPath($source, $destination)
+    {
+        if (is_link($source)) {
+            $this->ensureDirectory(dirname($destination), 0700);
+            if (!symlink(readlink($source), $destination)) {
+                $this->writeln('Unable to copy symbolic link: ' . $source);
+                $this->endWithError();
+            }
+            return;
+        }
+        if (is_dir($source)) {
+            $this->ensureDirectory($destination, fileperms($source) & 0777);
+            foreach (scandir($source) as $entry) {
+                if ($entry !== '.' && $entry !== '..') {
+                    $this->copyPath($source . '/' . $entry, $destination . '/' . $entry);
+                }
+            }
+            return;
+        }
+
+        $this->ensureDirectory(dirname($destination), 0700);
+        if (!copy($source, $destination)) {
+            $this->writeln('Unable to copy backup artifact: ' . $source);
+            $this->endWithError();
+        }
+        chmod($destination, fileperms($source) & 0777);
+    }
+
+    private function ensureDirectory($directory, $mode = 0755)
+    {
+        if (!is_dir($directory) && !mkdir($directory, $mode, true)) {
+            $this->writeln('Unable to create directory: ' . $directory);
+            $this->endWithError();
+        }
+    }
+
+    private function removePath($path)
+    {
+        if (is_link($path) || is_file($path)) {
+            return @unlink($path);
+        }
+        if (!is_dir($path)) {
+            return true;
+        }
+        foreach (scandir($path) as $entry) {
+            if ($entry !== '.' && $entry !== '..') {
+                $this->removePath($path . '/' . $entry);
+            }
+        }
+        return @rmdir($path);
+    }
+
+    private function writeJsonFile($path, $value, $mode = 0600)
+    {
+        $this->ensureDirectory(dirname($path), 0700);
+        if (file_put_contents($path, json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL) === false) {
+            $this->writeln('Unable to write JSON file: ' . $path);
+            $this->endWithError();
+        }
+        chmod($path, $mode);
     }
 
     /**
@@ -2842,10 +2991,22 @@ class Conductor extends CliApplication
         // Creating the user and granting privileges in separate statements (rather than the legacy
         // combined `GRANT ... IDENTIFIED BY`) is required since MySQL 8.0 removed that syntax entirely;
         // this form still works fine on MariaDB too.
-        $this->mysql->exec('CREATE DATABASE if NOT EXISTS `db_' . $this->appname . '`;');
-        $this->mysql->exec('CREATE USER IF NOT EXISTS \'' . $this->appname . '\'@\'' . $this->conf->mysql->confrom . '\' IDENTIFIED BY \'' . $db_pass . '\';');
-        $this->mysql->exec('GRANT ALL ON `db_' . $this->appname . '`.* TO \'' . $this->appname . '\'@\'' . $this->conf->mysql->confrom . '\';');
+        $database = '`db_' . str_replace('`', '``', $this->appname) . '`';
+        $username = $this->mysql->quote($this->appname);
+        $user_host = $this->mysql->quote($this->conf->mysql->confrom);
+        $password = $this->mysql->quote($db_pass);
+        $this->mysql->exec('CREATE DATABASE IF NOT EXISTS ' . $database);
+        $this->mysql->exec('CREATE USER IF NOT EXISTS ' . $username . '@' . $user_host . ' IDENTIFIED BY ' . $password);
+        $this->mysql->exec('GRANT ALL ON ' . $database . '.* TO ' . $username . '@' . $user_host);
         $this->mysql->exec('FLUSH PRIVILEGES;');
+
+        $this->writeDatabaseCredentials([
+            'database' => 'db_' . $this->appname,
+            'username' => $this->appname,
+            'password' => $db_pass,
+            'host' => $this->conf->mysql->host,
+            'user_host' => $this->conf->mysql->confrom,
+        ]);
 
         $this->writeln();
         $this->writeln('MySQL Database and User Details:');
@@ -2857,7 +3018,11 @@ class Conductor extends CliApplication
         $this->writeln();
 
         // For convenience we'll add these DB params to the ENV vars with the benefit of using default Laravel ENV var names .
-        $this->call('/usr/bin/conductor envars ' . $this->appname . ' --DB_HOST="' . $this->conf->mysql->host . '" --DB_DATABASE="db_' . $this->appname . '" --DB_USERNAME="' . $this->appname . '"  --DB_PASSWORD="' . $db_pass . '"');
+        $this->call('/usr/bin/conductor envars ' . escapeshellarg($this->appname)
+            . ' ' . escapeshellarg('--DB_HOST=' . $this->conf->mysql->host)
+            . ' ' . escapeshellarg('--DB_DATABASE=db_' . $this->appname)
+            . ' ' . escapeshellarg('--DB_USERNAME=' . $this->appname)
+            . ' ' . escapeshellarg('--DB_PASSWORD=' . $db_pass));
     }
 
     /**
@@ -2866,10 +3031,9 @@ class Conductor extends CliApplication
      * @param string $root_path
      * @param string $fqdn
      * @param string $mysql_req
-     * @param string|null $mysql_password
      * @return void
      */
-    private function writeApplicationConductorConfig($environment, $root_path, $fqdn, $mysql_req, $mysql_password = null)
+    private function writeApplicationConductorConfig($environment, $root_path, $fqdn, $mysql_req)
     {
         $conductor_directory = rtrim($this->appdir, '/') . '/.conductor';
         if (!is_dir($conductor_directory) && !mkdir($conductor_directory, 0755, true)) {
@@ -2893,14 +3057,105 @@ class Conductor extends CliApplication
             'root_path' => $root_path,
             'mysql_db_name' => $has_mysql ? 'db_' . $this->appname : null,
             'mysql_db_user' => $has_mysql ? $this->appname : null,
-            'mysql_db_pass' => $has_mysql ? $mysql_password : null,
             'mysql_db_host' => $has_mysql && isset($this->conf->mysql->host) ? $this->conf->mysql->host : null,
             'fqdn' => $fqdn,
             'env' => $env_vars,
         ];
 
-        file_put_contents($conductor_directory . '/config.json',
-            json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);
+        $this->writeJsonFile($conductor_directory . '/config.json', $config, 0640);
+    }
+
+    private function databaseCredentialDirectory()
+    {
+        if (isset($this->conf->paths->credentials)) {
+            return rtrim($this->conf->paths->credentials, '/');
+        }
+
+        return '/etc/conductor/credentials';
+    }
+
+    private function databaseCredentialPath()
+    {
+        return $this->databaseCredentialDirectory() . '/' . $this->appname . '.json';
+    }
+
+    private function writeDatabaseCredentials($credentials)
+    {
+        $this->validateDatabaseCredentials($credentials);
+        $this->writeJsonFile($this->databaseCredentialPath(), $credentials, 0600);
+        chmod($this->databaseCredentialDirectory(), 0700);
+    }
+
+    private function applicationDatabaseCredentials()
+    {
+        $credential_path = $this->databaseCredentialPath();
+        if (file_exists($credential_path)) {
+            return $this->readDatabaseCredentials($credential_path);
+        }
+
+        // Migrate credentials written by older Conductor releases out of the
+        // web application tree and into the root-only credential store.
+        $legacy_path = rtrim($this->appdir, '/') . '/.conductor/config.json';
+        if (!file_exists($legacy_path)) {
+            return null;
+        }
+        $legacy = json_decode(file_get_contents($legacy_path), true);
+        if (!is_array($legacy) || empty($legacy['mysql_db_pass'])) {
+            return null;
+        }
+        $credentials = [
+            'database' => $legacy['mysql_db_name'] ?? 'db_' . $this->appname,
+            'username' => $legacy['mysql_db_user'] ?? $this->appname,
+            'password' => $legacy['mysql_db_pass'],
+            'host' => $legacy['mysql_db_host'] ?? $this->conf->mysql->host,
+            'user_host' => $this->conf->mysql->confrom,
+        ];
+        $this->writeDatabaseCredentials($credentials);
+        unset($legacy['mysql_db_pass']);
+        $this->writeJsonFile($legacy_path, $legacy, 0640);
+
+        return $credentials;
+    }
+
+    private function readDatabaseCredentials($path)
+    {
+        try {
+            $credentials = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        } catch (Throwable $error) {
+            $this->writeln('Unable to read database credentials: ' . $path);
+            $this->endWithError();
+        }
+        $this->validateDatabaseCredentials($credentials);
+
+        return $credentials;
+    }
+
+    private function validateDatabaseCredentials($credentials)
+    {
+        foreach (['database', 'username', 'password', 'host', 'user_host'] as $field) {
+            if (!is_array($credentials) || !isset($credentials[$field]) || !is_string($credentials[$field]) || $credentials[$field] === '') {
+                $this->writeln('Database credential field is missing or invalid: ' . $field);
+                $this->endWithError();
+            }
+        }
+        if ($credentials['database'] !== 'db_' . $this->appname || $credentials['username'] !== $this->appname) {
+            $this->writeln('Database credentials do not belong to application: ' . $this->appname);
+            $this->endWithError();
+        }
+    }
+
+    private function securityLogDirectory()
+    {
+        return isset($this->conf->paths->seclogs)
+            ? rtrim($this->conf->paths->seclogs, '/')
+            : self::SECURITY_LOG_DIRECTORY;
+    }
+
+    private function letsEncryptDirectory()
+    {
+        return isset($this->conf->paths->letsencrypt)
+            ? rtrim($this->conf->paths->letsencrypt, '/')
+            : '/etc/letsencrypt';
     }
 
     /**
@@ -2915,10 +3170,10 @@ class Conductor extends CliApplication
         }
         $this->connectMySQL();
 
-        if ($this->mysql->query('SHOW DATABASES LIKE \'db_' . $this->appname . '\';')->fetchObject()) {
+        if ($this->mysql->query('SHOW DATABASES LIKE ' . $this->mysql->quote('db_' . $this->appname))->fetchObject()) {
             $this->writeln('Detected a Application MySQL user and database...');
-            $this->mysql->exec('DROP DATABASE IF EXISTS `db_' . $this->appname . '`;');
-            $this->mysql->exec('DROP USER \'' . $this->appname . '\'@\'' . $this->conf->mysql->confrom . '\';');
+            $this->mysql->exec('DROP DATABASE IF EXISTS `db_' . str_replace('`', '``', $this->appname) . '`;');
+            $this->mysql->exec('DROP USER IF EXISTS ' . $this->mysql->quote($this->appname) . '@' . $this->mysql->quote($this->conf->mysql->confrom));
             $this->mysql->exec('FLUSH PRIVILEGES;');
         }
     }
@@ -3866,8 +4121,7 @@ class Conductor extends CliApplication
             $this->createMySQL($password);
         }
 
-        $this->writeApplicationConductorConfig($environment, $this->appdir, $domain, $mysql_req,
-            isset($password) ? $password : null);
+        $this->writeApplicationConductorConfig($environment, $this->appdir, $domain, $mysql_req);
 
         $this->writeln('Setting ownership permissions on application files...');
         $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
@@ -4678,57 +4932,214 @@ class Conductor extends CliApplication
             $this->endWithError();
         }
 
-        mkdir($this->appdir, 0755);
-        mkdir($this->conf->paths->applogs . '/' . $this->appname, 0755);
-        $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->conf->paths->applogs . '/' . $this->appname);
-
-        mkdir($this->conf->paths->temp . '/restore_' . $this->appname, 755);
-        $this->call('tar -zxf ' . $archive . ' -C ' . $this->conf->paths->temp . '/restore_' . $this->appname);
-
-        $crontab = $this->conf->paths->crontabs . '/conductor_' . $this->appname;
-        if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname)) {
-            @unlink($crontab); // Delete existing crontab file if it exists!
-            $this->call('mv ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname . ' ' . $crontab);
-            $this->call('chmod 744 ' . $crontab);
-            $this->call('chown root:root ' . $crontab);
-            $this->writeln('Finished importing the application crontab!');
-            $this->call($this->conf->services->cron->reload);
-            $this->writeln('Reloaded the system crons.');
-        } else {
-            $this->writeln('No Conductor crontab was found, skipping cron import!');
-        }
-
-        if ($this->mysqlEnabled() && file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/appdb.sql.gz')) {
-            $this->writeln('Importing application MySQL database...');
-            $this->call('gunzip < ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/appdb.sql.gz | mysql -h' . $this->conf->mysql->host . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' db_' . $this->appname . '');
-            $this->writeln('Finished importing the MySQL database!');
-            @unlink($this->conf->paths->temp . '/restore_' . $this->appname . '/appdb.sql.gz');
-        } elseif (!$this->mysqlEnabled()) {
-            $this->writeln('MySQL management is disabled, skipping DB import!');
-        } else {
-            $this->writeln('No Conductor database archive was found, skipping DB import!');
-        }
-
-        $appconf = $this->conf->paths->appconfs . '/' . $this->appname . '.conf';
-        if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/' . $this->appname . '.conf')) {
-            @unlink($appconf); // Delete existing nginx config file if it exists!
-            $this->call('mv ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/' . $this->appname . '.conf' . ' ' . $appconf);
-            $this->call('chmod 744 ' . $appconf);
-            $this->call('chown root:root ' . $crontab);
-            $this->writeln('Finished importing the application (nginx) configuration!');
-        } else {
-            $this->writeln('No application (nginx) configuration was found, skipping virtualhost config import!');
-        }
-
-        $this->call('rm -Rf ' . $this->appdir);
-        $this->call('cp -Rf ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/ ' . $this->appdir . '/');
-        $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
-        $this->call('rm -Rf ' . $this->conf->paths->temp . '/restore_' . $this->appname);
+        $restore_directory = $this->conf->paths->temp . '/restore_' . $this->appname;
+        $this->extractBackupArchive($archive, $restore_directory);
+        $this->restoreVersionTwoBackup($restore_directory);
+        $this->removePath($restore_directory);
         $this->writeln('Restarting Nginx...');
         $this->call($this->conf->services->nginx->restart);
         $this->writeln('...finished!');
         $this->startLaravelApplication();
         $this->endWithSuccess();
+    }
+
+    /**
+     * Restore a versioned backup containing the app and all external artifacts.
+     */
+    private function restoreVersionTwoBackup($restore_directory)
+    {
+        if (!is_file($restore_directory . '/manifest.json')) {
+            $this->writeln('This is not a supported current-format Conductor backup (manifest.json is missing).');
+            $this->endWithError();
+        }
+        try {
+            $manifest = json_decode(file_get_contents($restore_directory . '/manifest.json'), true, 512, JSON_THROW_ON_ERROR);
+        } catch (Throwable $error) {
+            $this->writeln('The backup manifest is invalid.');
+            $this->endWithError();
+        }
+        if (($manifest['format_version'] ?? null) !== self::BACKUP_FORMAT_VERSION
+            || ($manifest['application'] ?? null) !== $this->appname
+        ) {
+            $this->writeln('The backup archive format or application name does not match this restore request.');
+            $this->endWithError();
+        }
+
+        $application_source = $restore_directory . '/application';
+        $artifacts = $restore_directory . '/artifacts';
+        if (!is_dir($application_source) || !is_dir($artifacts)) {
+            $this->writeln('The backup archive is incomplete: application or artifact data is missing.');
+            $this->endWithError();
+        }
+        if (!empty($manifest['contains_database'])
+            && (!is_file($artifacts . '/database/dump.sql.gz')
+                || !is_file($artifacts . '/database/credentials.json'))
+        ) {
+            $this->writeln('The backup archive is incomplete: database dump or credentials are missing.');
+            $this->endWithError();
+        }
+        $this->removePath($this->appdir);
+        $this->copyPath($application_source, $this->appdir);
+
+        $nginx_directory = $artifacts . '/nginx';
+        foreach (['.conf', '.disabled', '_envars.json'] as $suffix) {
+            $this->removePath($this->conf->paths->appconfs . '/' . $this->appname . $suffix);
+        }
+        $this->restoreDirectoryContents($nginx_directory, $this->conf->paths->appconfs);
+
+        $this->restoreOptionalArtifact(
+            $artifacts . '/waf/' . $this->appname . '.conf',
+            $this->applicationWafConfigPath()
+        );
+        $this->restoreOptionalArtifact(
+            $artifacts . '/auth/.htpasswd_' . $this->appname,
+            $this->authFilePath()
+        );
+        $cron_path = $this->conf->paths->crontabs . '/conductor_' . $this->appname;
+        $this->restoreOptionalArtifact($artifacts . '/cron/conductor_' . $this->appname, $cron_path);
+
+        foreach ($this->applicationWorkerConfigurationPaths() as $path) {
+            $this->removePath($path);
+        }
+        $this->restoreDirectoryContents($artifacts . '/supervisor', $this->supervisorConfigurationDirectory());
+
+        $application_logs = rtrim($this->conf->paths->applogs, '/') . '/' . $this->appname;
+        $this->removePath($application_logs);
+        if (is_dir($artifacts . '/logs')) {
+            $this->copyPath($artifacts . '/logs', $application_logs);
+        } else {
+            $this->ensureDirectory($application_logs, 0755);
+        }
+
+        foreach (glob($this->securityLogDirectory() . '/conductor_' . $this->appname . '.seclog*') ?: [] as $path) {
+            $this->removePath($path);
+        }
+        $this->restoreDirectoryContents($artifacts . '/security-logs', $this->securityLogDirectory());
+
+        foreach (['.deploykey', '.deploykey.pub'] as $suffix) {
+            $destination = $this->conf->paths->deploykeys . '/' . $this->appname . $suffix;
+            $this->restoreOptionalArtifact($artifacts . '/deploy-keys/' . $this->appname . $suffix, $destination);
+        }
+
+        $letsencrypt = $this->letsEncryptDirectory();
+        $this->restoreOptionalArtifact(
+            $artifacts . '/letsencrypt/archive/' . $this->appname,
+            $letsencrypt . '/archive/' . $this->appname
+        );
+        $this->restoreOptionalArtifact(
+            $artifacts . '/letsencrypt/live/' . $this->appname,
+            $letsencrypt . '/live/' . $this->appname
+        );
+        $this->restoreOptionalArtifact(
+            $artifacts . '/letsencrypt/renewal/' . $this->appname . '.conf',
+            $letsencrypt . '/renewal/' . $this->appname . '.conf'
+        );
+
+        $this->restoreApplicationDatabase($artifacts . '/database');
+
+        $web_user = $this->conf->permissions->webuser;
+        $web_group = $this->conf->permissions->webgroup;
+        $this->call('chown -R ' . escapeshellarg($web_user . ':' . $web_group) . ' ' . escapeshellarg($this->appdir));
+        $this->call('chown -R ' . escapeshellarg($web_user . ':' . $web_group) . ' ' . escapeshellarg($application_logs));
+        if (file_exists($cron_path)) {
+            chmod($cron_path, 0744);
+        }
+        $this->reloadCronJobs();
+        if (is_executable($this->supervisorCtlBinary())) {
+            $this->runSupervisorCommand(['reread'], false);
+            $this->runSupervisorCommand(['update'], false);
+        }
+    }
+
+    private function restoreOptionalArtifact($source, $destination)
+    {
+        $this->removePath($destination);
+        if (file_exists($source) || is_link($source)) {
+            $this->copyPath($source, $destination);
+        }
+    }
+
+    private function restoreDirectoryContents($source_directory, $destination_directory)
+    {
+        if (!is_dir($source_directory)) {
+            return;
+        }
+        $this->ensureDirectory($destination_directory, 0755);
+        foreach (scandir($source_directory) as $entry) {
+            if ($entry !== '.' && $entry !== '..') {
+                $this->copyPath($source_directory . '/' . $entry, $destination_directory . '/' . $entry);
+            }
+        }
+    }
+
+    private function restoreApplicationDatabase($database_directory)
+    {
+        $dump_path = $database_directory . '/dump.sql.gz';
+        if (!file_exists($dump_path)) {
+            return;
+        }
+        if (!$this->mysqlEnabled()) {
+            $this->writeln('MySQL management is disabled; database dump and credentials were not restored.');
+            return;
+        }
+        $credentials_path = $database_directory . '/credentials.json';
+        if (!file_exists($credentials_path)) {
+            $this->writeln('The database dump has no matching credential record; refusing an incomplete database restore.');
+            $this->endWithError();
+        }
+
+        $credentials = $this->readDatabaseCredentials($credentials_path);
+        $this->connectMySQL();
+        $database = '`' . str_replace('`', '``', $credentials['database']) . '`';
+        $username = $this->mysql->quote($credentials['username']);
+        $user_host = $this->mysql->quote($credentials['user_host']);
+        $password = $this->mysql->quote($credentials['password']);
+        $this->mysql->exec('DROP DATABASE IF EXISTS ' . $database);
+        $this->mysql->exec('CREATE DATABASE ' . $database);
+        $this->mysql->exec('DROP USER IF EXISTS ' . $username . '@' . $user_host);
+        $this->mysql->exec('CREATE USER ' . $username . '@' . $user_host . ' IDENTIFIED BY ' . $password);
+        $this->mysql->exec('GRANT ALL ON ' . $database . '.* TO ' . $username . '@' . $user_host);
+        $this->mysql->exec('FLUSH PRIVILEGES');
+
+        $import_command = 'gunzip -c ' . escapeshellarg($dump_path)
+            . ' | MYSQL_PWD=' . escapeshellarg($this->conf->mysql->password)
+            . ' ' . escapeshellarg($this->conf->binaries->mysql)
+            . ' --host=' . escapeshellarg($this->conf->mysql->host)
+            . ' --user=' . escapeshellarg($this->conf->mysql->username)
+            . ' -- ' . escapeshellarg($credentials['database']);
+        if ($this->callWithExitCode($import_command) !== 0) {
+            $this->writeln('Database import failed.');
+            $this->endWithError();
+        }
+        $this->writeDatabaseCredentials($credentials);
+        $this->writeln('Re-created the application database and user, then imported the database backup.');
+    }
+
+    private function extractBackupArchive($archive, $destination)
+    {
+        $entries = [];
+        if ($this->callWithOutput('tar -tzf ' . escapeshellarg($archive) . ' 2>&1', $entries) !== 0) {
+            $this->writeln('Unable to read the backup archive.');
+            $this->endWithError();
+        }
+        foreach ($entries as $entry) {
+            $entry = preg_replace('#^\./#', '', trim($entry));
+            if ($entry === '') {
+                continue;
+            }
+            if ($entry[0] === '/' || preg_match('#(^|/)\.\.(/|$)#', $entry)) {
+                $this->writeln('The backup archive contains an unsafe path: ' . $entry);
+                $this->endWithError();
+            }
+        }
+
+        $this->removePath($destination);
+        $this->ensureDirectory($destination, 0700);
+        if ($this->callWithExitCode('tar -zxf ' . escapeshellarg($archive) . ' -C ' . escapeshellarg($destination)) !== 0) {
+            $this->removePath($destination);
+            $this->writeln('Unable to extract the backup archive.');
+            $this->endWithError();
+        }
     }
 
     /**
@@ -4742,49 +5153,15 @@ class Conductor extends CliApplication
             $this->endWithError();
         }
 
-        mkdir($this->conf->paths->temp . '/rollback_' . $this->appname, 755);
         $this->writeln('Extracting the rollback image...');
-        $this->call('tar -zxf ' . $this->conf->paths->backups . '/rollback_' . $this->appname . '.tar.gz -C ' . $this->conf->paths->temp . '/rollback_' . $this->appname);
-
-        $crontab = $this->conf->paths->crontabs . '/conductor_' . $this->appname;
-        if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname)) {
-            @unlink($crontab); // Delete existing crontab file if it exists!
-            $this->call('mv ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/conductor_' . $this->appname . ' ' . $crontab);
-            $this->call('chmod 744 ' .$crontab);
-            $this->call('chown root:root ' . $crontab);
-            $this->writeln('Finished importing the application crontab!');
-            $this->call($this->conf->services->cron->reload);
-            $this->writeln('Reloaded the system crons.');
-        } else {
-            $this->writeln('No Conductor crontab was found, skipping cron import!');
-        }
-
-        if ($this->mysqlEnabled() && file_exists($this->conf->paths->temp . '/rollback_' . $this->appname . '/appdb.sql.gz')) {
-            $this->writeln('Importing application MySQL database...');
-            $this->call('gunzip < ' . $this->conf->paths->temp . '/rollback_' . $this->appname . '/appdb.sql.gz | mysql -h' . $this->conf->mysql->host . ' -u' . $this->conf->mysql->username . ' -p' . $this->conf->mysql->password . ' db_' . $this->appname . '');
-            $this->writeln('Finished importing the MySQL database!');
-            unlink($this->conf->paths->temp . '/rollback_' . $this->appname . '/appdb.sql.gz');
-        } elseif (!$this->mysqlEnabled()) {
-            $this->writeln('MySQL management is disabled, skipping DB import!');
-        } else {
-            $this->writeln('No Conductor database archive was found, skipping DB import!');
-        }
-
-        $appconf = $this->conf->paths->appconfs . '/' . $this->appname . '.conf';
-        if (file_exists($this->conf->paths->temp . '/restore_' . $this->appname . '/' . $this->appname . '.conf')) {
-            @unlink($appconf); // Delete existing nginx config file if it exists!
-            $this->call('mv ' . $this->conf->paths->temp . '/restore_' . $this->appname . '/' . $this->appname . '.conf' . ' ' . $appconf);
-            $this->call('chmod 744 ' . $appconf);
-            $this->call('chown root:root ' . $crontab);
-            $this->writeln('Finished importing the application (nginx) configuration!');
-        } else {
-            $this->writeln('No application (nginx) configuration was found, skipping virtualhost config import!');
-        }
-
-        $this->call('rm -Rf ' . $this->appdir);
-        $this->call('cp -Rf ' . $this->conf->paths->temp . '/rollback_' . $this->appname . '/ ' . $this->appdir . '/');
-        $this->call('chown -R ' . $this->conf->permissions->webuser . ':' . $this->conf->permissions->webgroup . ' ' . $this->appdir);
-        $this->call('rm -Rf ' . $this->conf->paths->temp . '/rollback_' . $this->appname);
+        $rollback_directory = $this->conf->paths->temp . '/rollback_' . $this->appname;
+        $this->extractBackupArchive(
+            $this->conf->paths->backups . '/rollback_' . $this->appname . '.tar.gz',
+            $rollback_directory
+        );
+        $this->restoreVersionTwoBackup($rollback_directory);
+        $this->removePath($rollback_directory);
+        $this->call($this->conf->services->nginx->reload);
         $this->writeln('...finished!');
         $this->writeln('Forcing application start...');
         $this->startLaravelApplication();
@@ -4817,6 +5194,7 @@ class Conductor extends CliApplication
                 $this->writeln('Destroying MySQL database and associated users...');
                 $this->destroyMySQL();
             }
+            @unlink($this->databaseCredentialPath());
             $this->writeln('Destroying app directory and log files...');
             $this->call('rm -Rf ' . $this->appdir);
             $this->call('rm -Rf ' . $this->conf->paths->applogs . '/' . $this->appname);
