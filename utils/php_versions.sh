@@ -113,7 +113,7 @@ newest_installed_version() {
 has_conductor_compatible_version() {
     local excluded="${1:-}"
     local version
-    for version in 8.5 8.4 8.3; do
+    for version in 8.5; do
         if [ "$version" != "$excluded" ] && is_installed "$version"; then
             return 0
         fi
@@ -174,7 +174,7 @@ uninstall_version() {
         exit 1
     fi
     if ! has_conductor_compatible_version "$version"; then
-        echo "Cannot remove PHP ${version}: Conductor needs another installed PHP 8.3 or newer runtime." >&2
+        echo "Cannot remove PHP ${version}: Conductor needs another installed PHP 8.5 or newer runtime." >&2
         exit 1
     fi
 

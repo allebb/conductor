@@ -10,7 +10,7 @@
         }
     ],
     "require": {
-        "php": "^8.3",
+        "php": "^8.5",
         "ext-pdo": "*",
         "ext-pdo_mysql": "*",
         "ext-posix": "*",

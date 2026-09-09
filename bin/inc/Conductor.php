@@ -19,7 +19,7 @@ class Conductor extends CliApplication
     /**
      * The main Conductor application version.
      */
-    const CONDUCTOR_VERSION = "5.1.0";
+    const CONDUCTOR_VERSION = "6.0.0";
 
     /**
      * The path to the core application configuration file.
@@ -4036,13 +4036,7 @@ class Conductor extends CliApplication
         }
 
         if ($this->isFlagSet('force-renew')) {
-            $cmd_replacements = [
-                '__APP__' => $this->appname,
-                '__NGINX_RELOAD_CMD__' => $this->letsEncryptDeployHook($this->appname),
-                '__LETSENCRYPT_DEPLOY_HOOK__' => $this->letsEncryptDeployHook($this->appname),
-            ];
-            $this->call(str_replace(array_keys($cmd_replacements), array_values($cmd_replacements),
-                $this->conf->cmdtpls->letsencryptforcerenew));
+            $this->forceRenewLetsEncryptCertificate();
             $this->writeln();
             $this->endWithSuccess();
         }
@@ -4090,6 +4084,25 @@ class Conductor extends CliApplication
         $this->writeln('   conductor letsencrypt ' . $this->appname . ' --delete');
         $this->writeln();
         $this->endWithSuccess();
+    }
+
+    /**
+     * Force Certbot to renew the current application's certificate lineage.
+     * @return int The Certbot command exit code.
+     */
+    private function forceRenewLetsEncryptCertificate()
+    {
+        $cmd_replacements = [
+            '__APP__' => $this->appname,
+            '__NGINX_RELOAD_CMD__' => $this->letsEncryptDeployHook($this->appname),
+            '__LETSENCRYPT_DEPLOY_HOOK__' => $this->letsEncryptDeployHook($this->appname),
+        ];
+
+        return $this->callWithExitCode(str_replace(
+            array_keys($cmd_replacements),
+            array_values($cmd_replacements),
+            $this->conf->cmdtpls->letsencryptforcerenew
+        ));
     }
 
     /**
@@ -5223,17 +5236,21 @@ class Conductor extends CliApplication
 
         $restore_directory = $this->conf->paths->temp . '/restore_' . $this->appname;
         $this->extractBackupArchive($archive, $restore_directory);
-        $this->restoreVersionTwoBackup($restore_directory);
+        $certificates_restored = $this->restoreVersionTwoBackup($restore_directory);
         $this->removePath($restore_directory);
         $this->writeln('Restarting Nginx...');
         $this->call($this->conf->services->nginx->restart);
         $this->writeln('...finished!');
         $this->startLaravelApplication();
+        if ($certificates_restored) {
+            $this->promptReissueRestoredLetsEncryptCertificates();
+        }
         $this->endWithSuccess();
     }
 
     /**
      * Restore a versioned backup containing the app and all external artifacts.
+     * @return bool Whether LetsEncrypt certificate data was restored.
      */
     private function restoreVersionTwoBackup($restore_directory)
     {
@@ -5312,6 +5329,7 @@ class Conductor extends CliApplication
         }
 
         $letsencrypt = $this->letsEncryptDirectory();
+        $certificates_restored = is_dir($artifacts . '/letsencrypt/archive/' . $this->appname);
         $this->restoreOptionalArtifact(
             $artifacts . '/letsencrypt/archive/' . $this->appname,
             $letsencrypt . '/archive/' . $this->appname
@@ -5345,6 +5363,31 @@ class Conductor extends CliApplication
             $this->runSupervisorCommand(['update'], false);
         }
         $this->restoreS3ApplicationContainer();
+
+        return $certificates_restored;
+    }
+
+    /**
+     * Offer to replace a restored certificate with a freshly-issued one.
+     */
+    private function promptReissueRestoredLetsEncryptCertificates()
+    {
+        $reissue = $this->input(
+            'LetsEncrypt SSL certificates have been restored, do you wish to re-issue the certificates now?',
+            self::OPTION_YES,
+            [self::OPTION_YES, self::OPTION_NO]
+        );
+
+        if (strtolower($reissue) !== self::OPTION_YES) {
+            return;
+        }
+
+        if ($this->forceRenewLetsEncryptCertificate() !== 0) {
+            $this->writeln('The LetsEncrypt certificate re-issue request failed.');
+            $this->endWithError();
+        }
+
+        $this->writeln('LetsEncrypt SSL certificates have been re-issued.');
     }
 
     private function restoreOptionalArtifact($source, $destination)

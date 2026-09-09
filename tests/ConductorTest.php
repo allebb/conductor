@@ -2717,7 +2717,7 @@ final class ConductorTest extends TestCase
         $uninstaller = file_get_contents($path);
 
         $this->assertFileExists($path);
-        $this->assertStringContainsString('RESET CONDUCTOR', $uninstaller);
+        $this->assertStringContainsString('UNINSTALL CONDUCTOR', $uninstaller);
         $this->assertStringContainsString('ASSUME_YES=0', $uninstaller);
         $this->assertStringContainsString('/var/conductor', $uninstaller);
         $this->assertStringContainsString('/etc/conductor.conf', $uninstaller);
@@ -3665,7 +3665,10 @@ STATUS;
             ],
         ]);
         $reflection->getMethod('setAppName')->invoke($conductor);
-        $reflection->getMethod('restoreVersionTwoBackup')->invoke($conductor, $root . '/restore');
+        $certificates_restored = $reflection->getMethod('restoreVersionTwoBackup')->invoke(
+            $conductor,
+            $root . '/restore'
+        );
 
         $this->assertSame('restored app', file_get_contents($root . '/apps/myapp/index.php'));
         $this->assertFileDoesNotExist($root . '/apps/myapp/old.txt');
@@ -3683,11 +3686,83 @@ STATUS;
         $this->assertSame('restored certificate', file_get_contents($root . '/letsencrypt/archive/myapp/cert1.pem'));
         $this->assertTrue(is_link($root . '/letsencrypt/live/myapp/cert.pem'));
         $this->assertSame('restored renewal', file_get_contents($root . '/letsencrypt/renewal/myapp.conf'));
+        $this->assertTrue($certificates_restored);
         $this->assertContains('service cron reload', $conductor->calls);
         $this->assertTrue((bool) array_filter($conductor->calls, fn ($call) => str_contains($call, "'reread'")));
         $this->assertTrue((bool) array_filter($conductor->calls, fn ($call) => str_contains($call, "'update'")));
 
         exec('rm -rf -- ' . escapeshellarg($root));
+    }
+
+    public function testRestoredLetsEncryptCertificatesCanBeReissuedAfterConfirmation(): void
+    {
+        $conductor = new class extends Conductor {
+            public array $commands = [];
+            public array $lines = [];
+            public array $questions = [];
+            public string $answer = self::OPTION_YES;
+
+            public function __construct()
+            {
+            }
+
+            public function getCommand($part, $default = false)
+            {
+                return $part == 2 ? 'myapp' : $default;
+            }
+
+            public function input($question, $default = '', $options = [])
+            {
+                $this->questions[] = [$question, $default, $options];
+                return $this->answer;
+            }
+
+            public function callWithExitCode($command)
+            {
+                $this->commands[] = $command;
+                return 0;
+            }
+
+            public function writeln($line = '')
+            {
+                $this->lines[] = $line;
+            }
+        };
+
+        $reflection = new ReflectionClass(Conductor::class);
+        $reflection->getProperty('conf')->setValue($conductor, (object) [
+            'paths' => (object) [
+                'apps' => '/var/conductor/applications',
+            ],
+            'services' => (object) [
+                'nginx' => (object) [
+                    'reload' => 'service nginx reload',
+                ],
+            ],
+            'cmdtpls' => (object) [
+                'letsencryptforcerenew' => "certbot renew --cert-name=__APP__ --force-renewal --deploy-hook='__LETSENCRYPT_DEPLOY_HOOK__'",
+            ],
+        ]);
+        $reflection->getMethod('setAppName')->invoke($conductor);
+        $prompt = $reflection->getMethod('promptReissueRestoredLetsEncryptCertificates');
+
+        $prompt->invoke($conductor);
+
+        $this->assertSame([[
+            'LetsEncrypt SSL certificates have been restored, do you wish to re-issue the certificates now?',
+            Conductor::OPTION_YES,
+            [Conductor::OPTION_YES, Conductor::OPTION_NO],
+        ]], $conductor->questions);
+        $this->assertCount(1, $conductor->commands);
+        $this->assertStringContainsString('certbot renew --cert-name=myapp --force-renewal', $conductor->commands[0]);
+        $this->assertStringContainsString('service nginx reload', $conductor->commands[0]);
+        $this->assertStringContainsString('/etc/conductor/utils/letsencrypt_webhook.sh deploy myapp', $conductor->commands[0]);
+        $this->assertContains('LetsEncrypt SSL certificates have been re-issued.', $conductor->lines);
+
+        $conductor->answer = Conductor::OPTION_NO;
+        $conductor->commands = [];
+        $prompt->invoke($conductor);
+        $this->assertSame([], $conductor->commands);
     }
 
     public function testDatabaseRestoreDropsAndRecreatesDatabaseAndUserBeforeImport(): void

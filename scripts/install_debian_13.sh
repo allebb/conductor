@@ -178,16 +178,16 @@ else
         fi
     done
 
-    # Conductor itself requires PHP 8.3 or newer, even when hosted applications
+    # Conductor itself requires PHP 8.5 or newer, even when hosted applications
     # use an older FPM release.
     conductor_php_selected=0
     for v in "${PHP_VERSIONS[@]}"; do
         case "$v" in
-            8.3|8.4|8.5) conductor_php_selected=1 ;;
+            8.5) conductor_php_selected=1 ;;
         esac
     done
     if [ "$conductor_php_selected" -eq 0 ]; then
-        echo "Conductor requires PHP 8.3 or newer; adding PHP ${PHP_SUPPORTED_VERSIONS[0]}."
+        echo "Conductor requires PHP 8.5 or newer; adding PHP ${PHP_SUPPORTED_VERSIONS[0]}."
         PHP_VERSIONS=("${PHP_SUPPORTED_VERSIONS[0]}" "${PHP_VERSIONS[@]}")
     fi
 fi

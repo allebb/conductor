@@ -76,7 +76,7 @@ What does this install
 Out of the box this script will install and configure the following packages using aptitude:-
 
 * Nginx
-* PHP 8.3 or newer (required by Conductor; PHP 8.5 is used by proxy-only installs)
+* PHP 8.5 or newer (required by Conductor)
 * Git Client
 * CertBot (LetsEncrypt)
 * Logrotate
@@ -553,6 +553,8 @@ You may wish to then have a remote server 'pull' and 'archive' these backups of 
 
 Application backups use Conductor's manifest-based archive format and include the complete application directory plus its external Nginx configuration and environment file, WAF configuration, Basic Auth password file, cron file, Supervisor worker configurations, application and security logs, deployment keys, Certbot certificate/archive/renewal data, and—when present—the compressed database dump and application database credentials. Restore and rollback require this current archive format and restore the same artifacts before reloading the affected services.
 
+When an application restore includes LetsEncrypt certificate data, Conductor prompts to re-issue the restored certificate after Nginx and the application have restarted. Accepting the default answer forces an immediate Certbot renewal; declining keeps the restored certificate unchanged and will likely fail to automatically renew in future, and will require you to dun ``--force-renew``.
+
 Database credentials created by Conductor are stored separately as root-only files under ``/etc/conductor/credentials/{app name}.json``. The directory is mode ``0700`` and each record is mode ``0600``. Backup archives can therefore contain private keys and database passwords and are also written with mode ``0600``; treat the archives as secrets when copying them off the server. During a database restore, Conductor drops and recreates the application database and user from the archived record before importing the SQL dump.
 
 Completely uninstalling Conductor
@@ -563,7 +565,7 @@ The bundled reset script removes Conductor and the complete service stack instal
 sudo bash /etc/conductor/utils/uninstall-conductor.sh
 ```
 
-This is an irreversible server reset. It deletes every application and backup, all database and Redis data, TLS certificates, logs, credentials, service configuration, optional Fail2Ban/CrowdSec integration, external package repositories, and the Nginx, PHP, database, Redis, Supervisor, Certbot, and security packages. The interactive prompt requires the exact text ``RESET CONDUCTOR``. Automated rebuilds can use ``--yes`` only after preserving any required data elsewhere.
+This is an irreversible server reset. It deletes every application and backup, all database and Redis data, TLS certificates, logs, credentials, service configuration, optional Fail2Ban/CrowdSec integration, external package repositories, and the Nginx, PHP, database, Redis, Supervisor, Certbot, and security packages. The interactive prompt requires the exact text ``UNINSTALL CONDUCTOR``. Automated rebuilds can use ``--yes`` only after preserving any required data elsewhere.
 
 Automating composer updates
 ---------------------------
@@ -598,7 +600,7 @@ The command validates the Nginx configuration after downloading the rulesets, re
 The use of different PHP versions
 ---------------------------
 
-On Debian 13, the installer asks about each supported PHP release from newest to oldest. The newest selected release becomes both the default `php` CLI binary and the default PHP-FPM socket used when Conductor generates an Nginx virtual host. At least one PHP 8.3-or-newer runtime is installed because Conductor itself requires it. Proxy-only installations use PHP 8.5.
+On Debian 13, the installer asks about each supported PHP release from newest to oldest. The newest selected release becomes both the default `php` CLI binary and the default PHP-FPM socket used when Conductor generates an Nginx virtual host. PHP 8.5 is always installed because Conductor itself requires it, while older selected PHP releases remain available to hosted applications. Proxy-only installations use PHP 8.5.
 
 If however you need to set a specific application or site to use another installed PHP version you can edit the virtual host configuration in ``/etc/conductor/configs/{sitename}.conf`` and change the socket that PHP-FPM is running on, for example you should change:
 

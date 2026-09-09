@@ -66,10 +66,10 @@ This operation cannot be undone. Copy any data you need off this server first.
 EOF
 
 if [ "${ASSUME_YES}" -ne 1 ]; then
-    printf '\nType RESET CONDUCTOR to continue: '
+    printf '\nType UNINSTALL CONDUCTOR to continue: '
     confirmation=""
     read -r confirmation || true
-    if [ "${confirmation}" != "RESET CONDUCTOR" ]; then
+    if [ "${confirmation}" != "UNINSTALL CONDUCTOR" ]; then
         echo "Reset cancelled. Nothing was changed."
         exit 1
     fi
