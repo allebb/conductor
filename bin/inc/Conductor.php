@@ -1007,7 +1007,7 @@ class Conductor extends CliApplication
                 return $this->filterCompletionCandidates($this->completionApplicationNames(), $current);
             case 'workers':
                 if ($current_index == 3) {
-                    return $this->filterCompletionCandidates(['list', 'add', 'edit', 'remove', 'enable', 'disable', 'stop', 'restart'], $current);
+                    return $this->filterCompletionCandidates(['list', 'add', 'edit', 'remove', 'enable', 'disable', 'start', 'stop', 'restart'], $current);
                 }
 
                 if ($current_index == 2) {
@@ -4759,6 +4759,10 @@ class Conductor extends CliApplication
                 $instance = $this->getCommand(4) ? $this->workerInstanceName() : null;
                 $this->disableApplicationWorkers($instance);
                 return;
+            case 'start':
+                $instance = $this->getCommand(4) ? $this->workerInstanceName() : null;
+                $this->startApplicationWorkers($instance);
+                return;
             case 'stop':
                 $instance = $this->getCommand(4) ? $this->workerInstanceName() : null;
                 $this->stopApplicationWorkers($instance);
@@ -5061,6 +5065,40 @@ class Conductor extends CliApplication
     }
 
     /**
+     * Start one or all enabled worker processes belonging to the app.
+     * @param string|null $instance
+     */
+    private function startApplicationWorkers($instance = null)
+    {
+        $this->ensureSupervisorAvailable();
+        if ($instance === null) {
+            $paths = $this->applicationWorkerConfigurationPaths(true);
+        } else {
+            $path = $this->existingWorkerConfigurationPath($instance);
+            $paths = $path === null ? [] : [$path];
+        }
+        if (!$paths) {
+            $this->writeln('No matching queue workers configured for application: ' . $this->appname);
+            $this->endWithError();
+        }
+
+        foreach ($paths as $path) {
+            $disabled = str_ends_with($path, '.disabled');
+            $program = basename($path, $disabled ? '.disabled' : '.conf');
+            if ($disabled) {
+                $instance_name = substr($program, strlen($this->appname) + 1);
+                $this->writeln('Queue worker is disabled and cannot be started: ' . $program);
+                $this->writeln('Enable it first with:');
+                $this->writeln('sudo conductor workers ' . $this->appname . ' enable ' . $instance_name);
+                continue;
+            }
+
+            $this->runSupervisorCommand(['start', $program . ':*']);
+            $this->writeln('Started queue worker: ' . $program);
+        }
+    }
+
+    /**
      * Stop one or all enabled worker processes belonging to the app.
      * @param string|null $instance
      */
@@ -5192,7 +5230,7 @@ class Conductor extends CliApplication
     {
         $this->writeln('Usage: conductor workers {name} [list]');
         $this->writeln('       conductor workers {name} add|edit|remove [instance]');
-        $this->writeln('       conductor workers {name} enable|disable|stop|restart [instance]');
+        $this->writeln('       conductor workers {name} enable|disable|start|stop|restart [instance]');
     }
 
     /**

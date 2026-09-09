@@ -3317,6 +3317,14 @@ STATUS;
         $this->assertStringContainsString("'stop' 'myapp-worker:*'", $conductor->supervisorCommands[0]);
         $this->assertFileExists($worker_path);
 
+        $conductor->commandParts = [2 => 'myapp', 3 => 'start', 4 => 'worker'];
+        $conductor->supervisorCommands = [];
+        $conductor->lines = [];
+        $conductor->workerControl();
+        $this->assertCount(1, $conductor->supervisorCommands);
+        $this->assertStringContainsString("'start' 'myapp-worker:*'", $conductor->supervisorCommands[0]);
+        $this->assertContains('Started queue worker: myapp-worker', $conductor->lines);
+
         $conductor->commandParts = [2 => 'myapp', 3 => 'disable'];
         $conductor->supervisorCommands = [];
         $conductor->workerControl();
@@ -3325,6 +3333,14 @@ STATUS;
         $this->assertCount(2, $conductor->supervisorCommands);
         $this->assertStringContainsString("'reread'", $conductor->supervisorCommands[0]);
         $this->assertStringContainsString("'update'", $conductor->supervisorCommands[1]);
+
+        $conductor->commandParts = [2 => 'myapp', 3 => 'start', 4 => 'worker'];
+        $conductor->supervisorCommands = [];
+        $conductor->lines = [];
+        $conductor->workerControl();
+        $this->assertCount(0, $conductor->supervisorCommands);
+        $this->assertContains('Queue worker is disabled and cannot be started: myapp-worker', $conductor->lines);
+        $this->assertContains('sudo conductor workers myapp enable worker', $conductor->lines);
 
         $conductor->commandParts = [2 => 'myapp', 3 => 'list'];
         $conductor->lines = [];

@@ -223,7 +223,7 @@ function displayHelp($conductor)
     $conductor->writeln('                      List application queue-worker configurations');
     $conductor->writeln('  workers {name} add|edit|remove [instance]');
     $conductor->writeln('                      Manage a worker instance (default instance: worker)');
-    $conductor->writeln('  workers {name} enable|disable|stop|restart [instance]');
+    $conductor->writeln('  workers {name} enable|disable|start|stop|restart [instance]');
     $conductor->writeln('                      Control one or all application workers');
     $conductor->writeln('  letsencrypt {name}  Provisions (or renews) a LetsEncrypt SSL cert.');
     $conductor->writeln('  letsencrypt webhook --configure={endpoint}');

@@ -413,19 +413,23 @@ sudo conductor workers {app name} restart
 # Stop every worker without disabling its configuration.
 sudo conductor workers {app name} stop
 
+# Start every enabled worker for this application.
+sudo conductor workers {app name} start
+
 # Disable or re-enable every worker configuration for this application.
 sudo conductor workers {app name} disable
 sudo conductor workers {app name} enable
 
 # Control one specific worker instance.
 sudo conductor workers {app name} restart notifications
+sudo conductor workers {app name} start notifications
 sudo conductor workers {app name} stop notifications
 sudo conductor workers {app name} disable notifications
 sudo conductor workers {app name} enable notifications
 sudo conductor workers {app name} remove notifications
 ```
 
-New configurations run Laravel's ``artisan queue:work`` using Conductor's configured PHP binary and web user. They are created with the ``.disabled`` extension so the default command can be reviewed or edited before Supervisor starts it; Conductor prints the exact ``enable`` command after creation. After editing an enabled worker, Conductor prints the restart command required for the changes to take effect. Restarting workers always runs ``supervisorctl reread`` and ``supervisorctl update`` before restarting only the selected application's worker programs. Stopping a worker leaves its active configuration in place, so it can be started again with ``restart``. Disabling renames its configuration from ``.conf`` to ``.disabled`` and updates Supervisor; ``enable`` restores it. When no instance is supplied, ``enable``, ``disable``, ``stop``, and ``restart`` apply to all matching workers for the application. Destroying an application also removes all enabled and disabled Supervisor configurations prefixed with that application's name and updates Supervisor.
+New configurations run Laravel's ``artisan queue:work`` using Conductor's configured PHP binary and web user. They are created with the ``.disabled`` extension so the default command can be reviewed or edited before Supervisor starts it; Conductor prints the exact ``enable`` command after creation. After editing an enabled worker, Conductor prints the restart command required for the changes to take effect. Restarting workers always runs ``supervisorctl reread`` and ``supervisorctl update`` before restarting only the selected application's worker programs. Stopping a worker leaves its active configuration in place, so it can be started again with ``start``. Starting a disabled worker prints the exact command needed to enable it first. Disabling renames its configuration from ``.conf`` to ``.disabled`` and updates Supervisor; ``enable`` restores it. When no instance is supplied, ``enable``, ``disable``, ``start``, ``stop``, and ``restart`` apply to all matching workers for the application. Destroying an application also removes all enabled and disabled Supervisor configurations prefixed with that application's name and updates Supervisor.
 
 #### ```conductor dump {app name}``` and ```conductor load {app name}```
 
