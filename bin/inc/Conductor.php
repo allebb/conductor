@@ -3108,11 +3108,15 @@ class Conductor extends CliApplication
             $this->writeJsonFile($database_directory . '/credentials.json', $credentials, 0600);
             $included_artifacts[] = 'database/credentials.json';
 
+            $gtid_option = $this->mysqldumpSupportsGtidPurgedOption()
+                ? ' --set-gtid-purged=OFF'
+                : '';
             $dump_command = 'MYSQL_PWD=' . escapeshellarg($this->conf->mysql->password)
                 . ' ' . escapeshellarg($this->conf->binaries->mysqldump)
                 . ' --host=' . escapeshellarg($this->conf->mysql->host)
                 . ' --user=' . escapeshellarg($this->conf->mysql->username)
-                . ' --single-transaction --routines --triggers --events --no-create-db -- '
+                . ' --single-transaction --routines --triggers --events --no-create-db'
+                . $gtid_option . ' -- '
                 . escapeshellarg($credentials['database'])
                 . ' | ' . escapeshellarg($this->conf->binaries->gzip)
                 . ' -c > ' . escapeshellarg($database_directory . '/dump.sql.gz');
@@ -3152,6 +3156,20 @@ class Conductor extends CliApplication
             $this->endWithError();
         }
         umask($previous_umask);
+    }
+
+    /**
+     * Whether the configured dump client supports MySQL's GTID_PURGED option.
+     */
+    private function mysqldumpSupportsGtidPurgedOption()
+    {
+        $output = [];
+        $command = escapeshellarg($this->conf->binaries->mysqldump) . ' --help 2>&1';
+        if ($this->callWithOutput($command, $output) !== 0) {
+            return false;
+        }
+
+        return str_contains(implode("\n", $output), '--set-gtid-purged');
     }
 
     /**
@@ -5440,7 +5458,12 @@ class Conductor extends CliApplication
         $this->mysql->exec('GRANT ALL ON ' . $database . '.* TO ' . $username . '@' . $user_host);
         $this->mysql->exec('FLUSH PRIVILEGES');
 
+        // Application backups must not change server-global GTID state. New dumps
+        // disable GTID_PURGED above; filter it here as well so archives created by
+        // older Conductor releases remain restorable.
         $import_command = 'gunzip -c ' . escapeshellarg($dump_path)
+            . " | sed -e '/^SET @@GLOBAL\\.GTID_PURGED=.*;[[:space:]]*$/d'"
+            . " -e '/^SET @@GLOBAL\\.GTID_PURGED=/,/;[[:space:]]*$/d'"
             . ' | MYSQL_PWD=' . escapeshellarg($this->conf->mysql->password)
             . ' ' . escapeshellarg($this->conf->binaries->mysql)
             . ' --host=' . escapeshellarg($this->conf->mysql->host)

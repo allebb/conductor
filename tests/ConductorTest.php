@@ -3429,6 +3429,12 @@ STATUS;
             public function writeln($line = '')
             {
             }
+
+            public function callWithOutput($command, &$output)
+            {
+                $output = ['  --set-gtid-purged=name'];
+                return 0;
+            }
         };
         $database = new class {
             public function quote($value)
@@ -3507,6 +3513,12 @@ STATUS;
         ] as $entry) {
             $this->assertStringContainsString($entry, $entry_list);
         }
+
+        $database_dump = shell_exec(
+            'tar -xOzf ' . escapeshellarg($archive) . ' ./artifacts/database/dump.sql.gz | gunzip -c'
+        );
+        $this->assertIsString($database_dump);
+        $this->assertStringContainsString('--set-gtid-purged=OFF', $database_dump);
 
         exec('rm -rf -- ' . escapeshellarg($root));
     }
@@ -3846,6 +3858,7 @@ STATUS;
         ], $database->statements);
         $this->assertCount(1, $conductor->commands);
         $this->assertStringContainsString('gunzip -c', $conductor->commands[0]);
+        $this->assertStringContainsString("sed -e '/^SET @@GLOBAL\\.GTID_PURGED=.*;[[:space:]]*$/d'", $conductor->commands[0]);
         $this->assertFileExists($root . '/credentials/myapp.json');
         $this->assertSame(0600, fileperms($root . '/credentials/myapp.json') & 0777);
 
