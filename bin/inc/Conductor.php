@@ -19,7 +19,7 @@ class Conductor extends CliApplication
     /**
      * The main Conductor application version.
      */
-    const CONDUCTOR_VERSION = "6.0.0";
+    const CONDUCTOR_VERSION = "6.0.2";
 
     /**
      * The path to the core application configuration file.
@@ -1007,7 +1007,7 @@ class Conductor extends CliApplication
                 return $this->filterCompletionCandidates($this->completionApplicationNames(), $current);
             case 'workers':
                 if ($current_index == 3) {
-                    return $this->filterCompletionCandidates(['list', 'add', 'edit', 'remove', 'restart'], $current);
+                    return $this->filterCompletionCandidates(['list', 'add', 'edit', 'remove', 'enable', 'disable', 'stop', 'restart'], $current);
                 }
 
                 if ($current_index == 2) {
@@ -3069,7 +3069,7 @@ class Conductor extends CliApplication
             $this->conf->paths->deploykeys . '/' . $this->appname . '.deploykey' => 'deploy-keys/' . $this->appname . '.deploykey',
             $this->conf->paths->deploykeys . '/' . $this->appname . '.deploykey.pub' => 'deploy-keys/' . $this->appname . '.deploykey.pub',
         ];
-        foreach ($this->applicationWorkerConfigurationPaths() as $path) {
+        foreach ($this->applicationWorkerConfigurationPaths(true) as $path) {
             $artifact_paths[$path] = 'supervisor/' . basename($path);
         }
         foreach (glob($this->securityLogDirectory() . '/conductor_' . $this->appname . '.seclog*') ?: [] as $path) {
@@ -4751,6 +4751,18 @@ class Conductor extends CliApplication
             case 'delete':
                 $this->removeApplicationWorker($this->workerInstanceName());
                 return;
+            case 'enable':
+                $instance = $this->getCommand(4) ? $this->workerInstanceName() : null;
+                $this->enableApplicationWorkers($instance);
+                return;
+            case 'disable':
+                $instance = $this->getCommand(4) ? $this->workerInstanceName() : null;
+                $this->disableApplicationWorkers($instance);
+                return;
+            case 'stop':
+                $instance = $this->getCommand(4) ? $this->workerInstanceName() : null;
+                $this->stopApplicationWorkers($instance);
+                return;
             case 'restart':
                 $instance = $this->getCommand(4) ? $this->workerInstanceName() : null;
                 $this->restartApplicationWorkers($instance);
@@ -4821,18 +4833,36 @@ class Conductor extends CliApplication
     /**
      * Return one worker configuration path.
      * @param string $instance
+     * @param bool $disabled
      * @return string
      */
-    private function workerConfigurationPath($instance)
+    private function workerConfigurationPath($instance, $disabled = false)
     {
-        return $this->supervisorConfigurationDirectory() . '/' . $this->appname . '-' . $instance . '.conf';
+        $extension = $disabled ? '.disabled' : '.conf';
+        return $this->supervisorConfigurationDirectory() . '/' . $this->appname . '-' . $instance . $extension;
+    }
+
+    /**
+     * Return an enabled or disabled worker configuration path if one exists.
+     * @param string $instance
+     * @return string|null
+     */
+    private function existingWorkerConfigurationPath($instance)
+    {
+        foreach ([$this->workerConfigurationPath($instance), $this->workerConfigurationPath($instance, true)] as $path) {
+            if (is_file($path)) {
+                return $path;
+            }
+        }
+
+        return null;
     }
 
     /**
      * Return all worker configuration paths belonging to the selected app.
      * @return array
      */
-    private function applicationWorkerConfigurationPaths()
+    private function applicationWorkerConfigurationPaths($include_disabled = false)
     {
         $directory = $this->supervisorConfigurationDirectory();
         if (!is_dir($directory)) {
@@ -4842,7 +4872,9 @@ class Conductor extends CliApplication
         $prefix = $this->appname . '-';
         $paths = [];
         foreach (scandir($directory) as $filename) {
-            if (substr($filename, 0, strlen($prefix)) !== $prefix || substr($filename, -5) !== '.conf') {
+            $enabled = str_ends_with($filename, '.conf');
+            $disabled = $include_disabled && str_ends_with($filename, '.disabled');
+            if (substr($filename, 0, strlen($prefix)) !== $prefix || (!$enabled && !$disabled)) {
                 continue;
             }
 
@@ -4861,33 +4893,35 @@ class Conductor extends CliApplication
      */
     private function listApplicationWorkers()
     {
-        $paths = $this->applicationWorkerConfigurationPaths();
+        $paths = $this->applicationWorkerConfigurationPaths(true);
         if (!$paths) {
             $this->writeln('No queue workers configured for application: ' . $this->appname);
             return;
         }
 
-        $this->writeln(sprintf('%-24s %s', 'Instance', 'Configuration'));
+        $this->writeln(sprintf('%-24s %-10s %s', 'Instance', 'Status', 'Configuration'));
         foreach ($paths as $path) {
-            $filename = basename($path, '.conf');
+            $disabled = str_ends_with($path, '.disabled');
+            $filename = basename($path, $disabled ? '.disabled' : '.conf');
             $instance = substr($filename, strlen($this->appname) + 1);
-            $this->writeln(sprintf('%-24s %s', $instance, $path));
+            $this->writeln(sprintf('%-24s %-10s %s', $instance, $disabled ? 'disabled' : 'enabled', $path));
         }
     }
 
     /**
-     * Create and load a Supervisor worker configuration from the default template.
+     * Create a disabled Supervisor worker configuration from the default template.
      * @param string $instance
      */
     private function addApplicationWorker($instance)
     {
         $this->ensureSupervisorAvailable();
         $directory = $this->supervisorConfigurationDirectory();
-        $config_path = $this->workerConfigurationPath($instance);
+        $config_path = $this->workerConfigurationPath($instance, true);
         $template_path = $this->conf->paths->templates . '/templates/supervisor_worker.tpl';
 
-        if (file_exists($config_path)) {
-            $this->writeln('Worker configuration already exists: ' . $config_path);
+        $existing_path = $this->existingWorkerConfigurationPath($instance);
+        if ($existing_path !== null) {
+            $this->writeln('Worker configuration already exists: ' . $existing_path);
             $this->endWithError();
         }
         if (!file_exists($template_path)) {
@@ -4919,8 +4953,9 @@ class Conductor extends CliApplication
         }
         chmod($config_path, 0644);
 
-        $this->reloadSupervisorConfiguration();
-        $this->writeln('Created and loaded queue worker: ' . $this->appname . '-' . $instance);
+        $this->writeln('Created disabled queue worker: ' . $this->appname . '-' . $instance);
+        $this->writeln('Enable this queue worker when its configuration is ready:');
+        $this->writeln('sudo conductor workers ' . $this->appname . ' enable ' . $instance);
     }
 
     /**
@@ -4929,16 +4964,25 @@ class Conductor extends CliApplication
      */
     private function editApplicationWorker($instance)
     {
-        $config_path = $this->workerConfigurationPath($instance);
-        if (!file_exists($config_path)) {
-            $this->writeln('Worker configuration not found at: ' . $config_path);
+        $config_path = $this->existingWorkerConfigurationPath($instance);
+        if ($config_path === null) {
+            $this->writeln('Worker configuration not found for: ' . $this->appname . '-' . $instance);
             $this->endWithError();
         }
 
-        $this->call(escapeshellarg($this->conf->binaries->editor) . ' ' . escapeshellarg($config_path));
+        $this->call(
+            escapeshellarg($this->conf->binaries->editor)
+            . ' ' . escapeshellarg($config_path)
+            . ' > ' . escapeshellarg('/dev/tty')
+        );
         $this->writeln();
-        $this->writeln('Restart this queue worker for the changes to take effect:');
-        $this->writeln('sudo conductor workers ' . $this->appname . ' restart ' . $instance);
+        if (str_ends_with($config_path, '.disabled')) {
+            $this->writeln('This queue worker is disabled. Enable it for the changes to take effect:');
+            $this->writeln('sudo conductor workers ' . $this->appname . ' enable ' . $instance);
+        } else {
+            $this->writeln('Restart this queue worker for the changes to take effect:');
+            $this->writeln('sudo conductor workers ' . $this->appname . ' restart ' . $instance);
+        }
     }
 
     /**
@@ -4948,9 +4992,9 @@ class Conductor extends CliApplication
     private function removeApplicationWorker($instance)
     {
         $this->ensureSupervisorAvailable();
-        $config_path = $this->workerConfigurationPath($instance);
-        if (!file_exists($config_path)) {
-            $this->writeln('Worker configuration not found at: ' . $config_path);
+        $config_path = $this->existingWorkerConfigurationPath($instance);
+        if ($config_path === null) {
+            $this->writeln('Worker configuration not found for: ' . $this->appname . '-' . $instance);
             $this->endWithError();
         }
         if (!unlink($config_path)) {
@@ -4960,6 +5004,83 @@ class Conductor extends CliApplication
 
         $this->reloadSupervisorConfiguration();
         $this->writeln('Removed queue worker: ' . $this->appname . '-' . $instance);
+    }
+
+    /**
+     * Enable one or all disabled workers belonging to the app.
+     * @param string|null $instance
+     */
+    private function enableApplicationWorkers($instance = null)
+    {
+        $this->ensureSupervisorAvailable();
+        $paths = $instance === null
+            ? array_filter($this->applicationWorkerConfigurationPaths(true), fn ($path) => str_ends_with($path, '.disabled'))
+            : [$this->workerConfigurationPath($instance, true)];
+        $paths = array_values(array_filter($paths, 'is_file'));
+        if (!$paths) {
+            $this->writeln('No matching disabled queue workers configured for application: ' . $this->appname);
+            $this->endWithError();
+        }
+
+        foreach ($paths as $path) {
+            $enabled_path = substr($path, 0, -strlen('.disabled')) . '.conf';
+            if (file_exists($enabled_path) || !rename($path, $enabled_path)) {
+                $this->writeln('Unable to enable worker configuration: ' . $path);
+                $this->endWithError();
+            }
+            $this->writeln('Enabled queue worker: ' . basename($enabled_path, '.conf'));
+        }
+        $this->reloadSupervisorConfiguration();
+    }
+
+    /**
+     * Disable one or all enabled workers belonging to the app.
+     * @param string|null $instance
+     */
+    private function disableApplicationWorkers($instance = null)
+    {
+        $this->ensureSupervisorAvailable();
+        $paths = $instance === null
+            ? $this->applicationWorkerConfigurationPaths()
+            : [$this->workerConfigurationPath($instance)];
+        $paths = array_values(array_filter($paths, 'is_file'));
+        if (!$paths) {
+            $this->writeln('No matching enabled queue workers configured for application: ' . $this->appname);
+            $this->endWithError();
+        }
+
+        foreach ($paths as $path) {
+            $disabled_path = substr($path, 0, -strlen('.conf')) . '.disabled';
+            if (file_exists($disabled_path) || !rename($path, $disabled_path)) {
+                $this->writeln('Unable to disable worker configuration: ' . $path);
+                $this->endWithError();
+            }
+            $this->writeln('Disabled queue worker: ' . basename($disabled_path, '.disabled'));
+        }
+        $this->reloadSupervisorConfiguration();
+    }
+
+    /**
+     * Stop one or all enabled worker processes belonging to the app.
+     * @param string|null $instance
+     */
+    private function stopApplicationWorkers($instance = null)
+    {
+        $this->ensureSupervisorAvailable();
+        $paths = $instance === null
+            ? $this->applicationWorkerConfigurationPaths()
+            : [$this->workerConfigurationPath($instance)];
+        $paths = array_values(array_filter($paths, 'is_file'));
+        if (!$paths) {
+            $this->writeln('No matching enabled queue workers configured for application: ' . $this->appname);
+            $this->endWithError();
+        }
+
+        foreach ($paths as $path) {
+            $program = basename($path, '.conf');
+            $this->runSupervisorCommand(['stop', $program . ':*']);
+            $this->writeln('Stopped queue worker: ' . $program);
+        }
     }
 
     /**
@@ -4992,7 +5113,7 @@ class Conductor extends CliApplication
      */
     private function removeAllApplicationWorkers()
     {
-        $paths = $this->applicationWorkerConfigurationPaths();
+        $paths = $this->applicationWorkerConfigurationPaths(true);
         if (!$paths) {
             return;
         }
@@ -5003,7 +5124,8 @@ class Conductor extends CliApplication
                 $this->writeln('Unable to remove worker configuration: ' . $path);
                 continue;
             }
-            $this->writeln('Removed queue worker: ' . basename($path, '.conf'));
+            $disabled = str_ends_with($path, '.disabled');
+            $this->writeln('Removed queue worker: ' . basename($path, $disabled ? '.disabled' : '.conf'));
         }
 
         if (is_executable($this->supervisorCtlBinary())) {
@@ -5070,7 +5192,7 @@ class Conductor extends CliApplication
     {
         $this->writeln('Usage: conductor workers {name} [list]');
         $this->writeln('       conductor workers {name} add|edit|remove [instance]');
-        $this->writeln('       conductor workers {name} restart [instance]');
+        $this->writeln('       conductor workers {name} enable|disable|stop|restart [instance]');
     }
 
     /**
@@ -5323,7 +5445,7 @@ class Conductor extends CliApplication
         $cron_path = $this->conf->paths->crontabs . '/conductor_' . $this->appname;
         $this->restoreOptionalArtifact($artifacts . '/cron/conductor_' . $this->appname, $cron_path);
 
-        foreach ($this->applicationWorkerConfigurationPaths() as $path) {
+        foreach ($this->applicationWorkerConfigurationPaths(true) as $path) {
             $this->removePath($path);
         }
         $this->restoreDirectoryContents($artifacts . '/supervisor', $this->supervisorConfigurationDirectory());

@@ -3273,19 +3273,29 @@ STATUS;
 
         $conductor->workerControl();
         $worker_path = $supervisor . '/myapp-worker.conf';
-        $this->assertFileExists($worker_path);
-        $worker = file_get_contents($worker_path);
+        $disabled_worker_path = $supervisor . '/myapp-worker.disabled';
+        $this->assertFileDoesNotExist($worker_path);
+        $this->assertFileExists($disabled_worker_path);
+        $worker = file_get_contents($disabled_worker_path);
         $this->assertStringContainsString('[program:myapp-worker]', $worker);
         $this->assertStringContainsString('command=/usr/bin/php8.5 ' . $apps . '/myapp/artisan queue:work', $worker);
         $this->assertStringContainsString('stdout_logfile=' . $logs . '/myapp/myapp-worker.log', $worker);
         $this->assertStringContainsString('user=www-data', $worker);
+        $this->assertCount(0, $conductor->supervisorCommands);
+        $this->assertContains('Created disabled queue worker: myapp-worker', $conductor->lines);
+        $this->assertContains('sudo conductor workers myapp enable worker', $conductor->lines);
+
+        $conductor->commandParts = [2 => 'myapp', 3 => 'enable'];
+        $conductor->supervisorCommands = [];
+        $conductor->workerControl();
+        $this->assertFileExists($worker_path);
+        $this->assertFileDoesNotExist($disabled_worker_path);
         $this->assertCount(2, $conductor->supervisorCommands);
-        $this->assertStringContainsString("'reread'", $conductor->supervisorCommands[0]);
-        $this->assertStringContainsString("'update'", $conductor->supervisorCommands[1]);
 
         $conductor->commandParts = [2 => 'myapp', 3 => 'edit'];
         $conductor->workerControl();
         $this->assertStringContainsString($worker_path, $conductor->shellCommands[0]);
+        $this->assertStringEndsWith(" > '/dev/tty'", $conductor->shellCommands[0]);
         $this->assertContains('sudo conductor workers myapp restart worker', $conductor->lines);
 
         $conductor->commandParts = [2 => 'myapp', 3 => 'list'];
@@ -3299,6 +3309,44 @@ STATUS;
         $this->assertStringContainsString("'reread'", $conductor->supervisorCommands[0]);
         $this->assertStringContainsString("'update'", $conductor->supervisorCommands[1]);
         $this->assertStringContainsString("'restart' 'myapp-worker:*'", $conductor->supervisorCommands[2]);
+
+        $conductor->commandParts = [2 => 'myapp', 3 => 'stop'];
+        $conductor->supervisorCommands = [];
+        $conductor->workerControl();
+        $this->assertCount(1, $conductor->supervisorCommands);
+        $this->assertStringContainsString("'stop' 'myapp-worker:*'", $conductor->supervisorCommands[0]);
+        $this->assertFileExists($worker_path);
+
+        $conductor->commandParts = [2 => 'myapp', 3 => 'disable'];
+        $conductor->supervisorCommands = [];
+        $conductor->workerControl();
+        $this->assertFileDoesNotExist($worker_path);
+        $this->assertFileExists($disabled_worker_path);
+        $this->assertCount(2, $conductor->supervisorCommands);
+        $this->assertStringContainsString("'reread'", $conductor->supervisorCommands[0]);
+        $this->assertStringContainsString("'update'", $conductor->supervisorCommands[1]);
+
+        $conductor->commandParts = [2 => 'myapp', 3 => 'list'];
+        $conductor->lines = [];
+        $conductor->workerControl();
+        $this->assertTrue((bool) array_filter($conductor->lines, fn ($line) => str_contains($line, 'disabled') && str_contains($line, 'myapp-worker.disabled')));
+
+        $conductor->commandParts = [2 => 'myapp', 3 => 'edit'];
+        $conductor->lines = [];
+        $conductor->shellCommands = [];
+        $conductor->workerControl();
+        $this->assertStringContainsString($disabled_worker_path, $conductor->shellCommands[0]);
+        $this->assertStringEndsWith(" > '/dev/tty'", $conductor->shellCommands[0]);
+        $this->assertContains('sudo conductor workers myapp enable worker', $conductor->lines);
+
+        $conductor->commandParts = [2 => 'myapp', 3 => 'enable'];
+        $conductor->supervisorCommands = [];
+        $conductor->workerControl();
+        $this->assertFileExists($worker_path);
+        $this->assertFileDoesNotExist($disabled_worker_path);
+        $this->assertCount(2, $conductor->supervisorCommands);
+        $this->assertStringContainsString("'reread'", $conductor->supervisorCommands[0]);
+        $this->assertStringContainsString("'update'", $conductor->supervisorCommands[1]);
 
         $conductor->commandParts = [2 => 'myapp', 3 => 'remove'];
         $conductor->supervisorCommands = [];
@@ -3393,6 +3441,7 @@ STATUS;
             'auth/.htpasswd_myapp' => 'alice:hash',
             'cron/conductor_myapp' => '* * * * * www-data true',
             'supervisor/myapp-worker.conf' => '[program:myapp-worker]',
+            'supervisor/myapp-notifications.disabled' => '[program:myapp-notifications]',
             'logs/myapp/access.log' => 'access',
             'logs/myapp/myapp-worker.log' => 'worker',
             'seclogs/conductor_myapp.seclog' => 'security',
@@ -3501,6 +3550,7 @@ STATUS;
             './artifacts/auth/.htpasswd_myapp',
             './artifacts/cron/conductor_myapp',
             './artifacts/supervisor/myapp-worker.conf',
+            './artifacts/supervisor/myapp-notifications.disabled',
             './artifacts/logs/access.log',
             './artifacts/logs/myapp-worker.log',
             './artifacts/security-logs/conductor_myapp.seclog',
@@ -3600,6 +3650,7 @@ STATUS;
             'restore/artifacts/auth/.htpasswd_myapp' => 'restored auth',
             'restore/artifacts/cron/conductor_myapp' => 'restored cron',
             'restore/artifacts/supervisor/myapp-worker.conf' => 'restored supervisor',
+            'restore/artifacts/supervisor/myapp-notifications.disabled' => 'restored disabled supervisor',
             'restore/artifacts/logs/access.log' => 'restored log',
             'restore/artifacts/security-logs/conductor_myapp.seclog' => 'restored security log',
             'restore/artifacts/deploy-keys/myapp.deploykey' => 'restored key',
@@ -3614,6 +3665,7 @@ STATUS;
         file_put_contents($root . '/apps/myapp/old.txt', 'old app');
         file_put_contents($root . '/configs/myapp.disabled', 'old nginx');
         file_put_contents($root . '/supervisor/myapp-old.conf', 'old supervisor');
+        file_put_contents($root . '/supervisor/myapp-old-disabled.disabled', 'old disabled supervisor');
         file_put_contents($root . '/logs/myapp/old.log', 'old log');
 
         $conductor = new class extends Conductor {
@@ -3690,7 +3742,9 @@ STATUS;
         $this->assertSame('restored auth', file_get_contents($root . '/auth/.htpasswd_myapp'));
         $this->assertSame('restored cron', file_get_contents($root . '/cron/conductor_myapp'));
         $this->assertSame('restored supervisor', file_get_contents($root . '/supervisor/myapp-worker.conf'));
+        $this->assertSame('restored disabled supervisor', file_get_contents($root . '/supervisor/myapp-notifications.disabled'));
         $this->assertFileDoesNotExist($root . '/supervisor/myapp-old.conf');
+        $this->assertFileDoesNotExist($root . '/supervisor/myapp-old-disabled.disabled');
         $this->assertSame('restored log', file_get_contents($root . '/logs/myapp/access.log'));
         $this->assertFileDoesNotExist($root . '/logs/myapp/old.log');
         $this->assertSame('restored security log', file_get_contents($root . '/seclogs/conductor_myapp.seclog'));

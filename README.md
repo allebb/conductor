@@ -394,13 +394,13 @@ The command tests Nginx after edits or enable/disable changes. Add ``--auto-relo
 
 #### ```conductor workers {app name}```
 
-Lists and manages an application's Supervisor queue-worker configurations. Files are stored in ``/etc/supervisor/conf.d`` as ``{app name}-{instance}.conf``. If no instance is supplied to ``add``, ``edit``, or ``remove``, the instance name defaults to ``worker``.
+Lists and manages an application's Supervisor queue-worker configurations. Enabled files are stored in ``/etc/supervisor/conf.d`` as ``{app name}-{instance}.conf`` and disabled files use the ``.disabled`` extension. If no instance is supplied to ``add``, ``edit``, or ``remove``, the instance name defaults to ``worker``.
 
 ```shell
 # List every worker configured for the application.
 sudo conductor workers {app name}
 
-# Create /etc/supervisor/conf.d/{app name}-worker.conf from the default template.
+# Create /etc/supervisor/conf.d/{app name}-worker.disabled from the default template.
 sudo conductor workers {app name} add
 
 # Create or edit a separately named worker instance.
@@ -410,12 +410,22 @@ sudo conductor workers {app name} edit notifications
 # Reload Supervisor configuration, then restart every worker for this application.
 sudo conductor workers {app name} restart
 
-# Restart or remove one specific worker instance.
+# Stop every worker without disabling its configuration.
+sudo conductor workers {app name} stop
+
+# Disable or re-enable every worker configuration for this application.
+sudo conductor workers {app name} disable
+sudo conductor workers {app name} enable
+
+# Control one specific worker instance.
 sudo conductor workers {app name} restart notifications
+sudo conductor workers {app name} stop notifications
+sudo conductor workers {app name} disable notifications
+sudo conductor workers {app name} enable notifications
 sudo conductor workers {app name} remove notifications
 ```
 
-New configurations run Laravel's ``artisan queue:work`` using Conductor's configured PHP binary and web user. After editing, Conductor prints the exact restart command required for the changes to take effect. Restarting workers always runs ``supervisorctl reread`` and ``supervisorctl update`` before restarting only the selected application's worker programs. Destroying an application also removes all Supervisor configurations prefixed with that application's name and updates Supervisor.
+New configurations run Laravel's ``artisan queue:work`` using Conductor's configured PHP binary and web user. They are created with the ``.disabled`` extension so the default command can be reviewed or edited before Supervisor starts it; Conductor prints the exact ``enable`` command after creation. After editing an enabled worker, Conductor prints the restart command required for the changes to take effect. Restarting workers always runs ``supervisorctl reread`` and ``supervisorctl update`` before restarting only the selected application's worker programs. Stopping a worker leaves its active configuration in place, so it can be started again with ``restart``. Disabling renames its configuration from ``.conf`` to ``.disabled`` and updates Supervisor; ``enable`` restores it. When no instance is supplied, ``enable``, ``disable``, ``stop``, and ``restart`` apply to all matching workers for the application. Destroying an application also removes all enabled and disabled Supervisor configurations prefixed with that application's name and updates Supervisor.
 
 #### ```conductor dump {app name}``` and ```conductor load {app name}```
 
@@ -533,8 +543,8 @@ Applications that must not be included in scheduled backups can be listed in ``/
 ```json
 "scheduled-backups": {
   "exclude-applications": [
-    "large-archive",
-    "externally-backed-up-app"
+    "example-app",
+    "blog"
   ]
 }
 ```
@@ -551,7 +561,7 @@ The above example executes the task daily at midnight. By default, backup files 
 
 You may wish to then have a remote server 'pull' and 'archive' these backups of which will be located in ``/var/conductor/backups/``.
 
-Application backups use Conductor's manifest-based archive format and include the complete application directory plus its external Nginx configuration and environment file, WAF configuration, Basic Auth password file, cron file, Supervisor worker configurations, application and security logs, deployment keys, Certbot certificate/archive/renewal data, and—when present—the compressed database dump and application database credentials. Restore and rollback require this current archive format and restore the same artifacts before reloading the affected services.
+Application backups use Conductor's manifest-based archive format and include the complete application directory plus its external Nginx configuration and environment file, WAF configuration, Basic Auth password file, cron file, enabled and disabled Supervisor worker configurations, application and security logs, deployment keys, Certbot certificate/archive/renewal data, and—when present—the compressed database dump and application database credentials. Restore and rollback require this current archive format and restore the same artifacts before reloading the affected services.
 
 When an application restore includes LetsEncrypt certificate data, Conductor prompts to re-issue the restored certificate after Nginx and the application have restarted. Accepting the default answer forces an immediate Certbot renewal; declining keeps the restored certificate unchanged and will likely fail to automatically renew in future, and will require you to dun ``--force-renew``.
 
