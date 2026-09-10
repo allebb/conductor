@@ -2659,15 +2659,72 @@ final class ConductorTest extends TestCase
         $debian_config = file_get_contents(__DIR__ . '/../bin/conf/conductor.debian.template.json');
         $conductor_source = file_get_contents(__DIR__ . '/../bin/inc/Conductor.php');
 
-        $this->assertStringContainsString('url = http://127.0.0.1', $webhook_config);
+        $this->assertStringContainsString('url =', $webhook_config);
+        $this->assertStringNotContainsString('url = http://127.0.0.1', $webhook_config);
         $this->assertStringContainsString('__LETSENCRYPT_DEPLOY_HOOK__', $debian_config);
         $this->assertStringContainsString('/etc/conductor/utils/letsencrypt_webhook.sh deploy', $conductor_source);
+        $this->assertStringContainsString('""|"http://127.0.0.1") exit 0', $webhook_helper);
         $this->assertStringContainsString('"event"', $webhook_helper);
         $this->assertStringContainsString('"app"', $webhook_helper);
         $this->assertStringContainsString('"lineage"', $webhook_helper);
         $this->assertStringContainsString('"domains"', $webhook_helper);
         $this->assertStringContainsString('-H "Content-Type: application/json"', $webhook_helper);
         $this->assertStringContainsString('/etc/conductor/utils/letsencrypt_webhook.sh renew', $renew_helper);
+    }
+
+    public function testLetsEncryptWebhookHelperSkipsUnconfiguredEndpoints(): void
+    {
+        $root = sys_get_temp_dir() . '/conductor-letsencrypt-webhook-helper-' . uniqid();
+        $bin = $root . '/bin';
+        $config = $root . '/letsencrypt-webhook.conf';
+        $marker = $root . '/curl-was-called';
+        mkdir($root);
+        mkdir($bin);
+        file_put_contents($bin . '/curl', "#!/bin/sh\nprintf '%s\\n' \"\$@\" > \"\${CONDUCTOR_TEST_CURL_MARKER}\"\n");
+        chmod($bin . '/curl', 0755);
+
+        foreach (["url =\n", "url = http://127.0.0.1\n"] as $contents) {
+            file_put_contents($config, $contents);
+            @unlink($marker);
+            $output = [];
+            $exit_code = 0;
+            exec(
+                'PATH=' . escapeshellarg($bin . ':' . (getenv('PATH') ?: ''))
+                . ' CONDUCTOR_LETSENCRYPT_WEBHOOK_CONFIG=' . escapeshellarg($config)
+                . ' CONDUCTOR_TEST_CURL_MARKER=' . escapeshellarg($marker)
+                . ' bash ' . escapeshellarg(__DIR__ . '/../utils/letsencrypt_webhook.sh')
+                . ' deploy myapp 2>&1',
+                $output,
+                $exit_code
+            );
+
+            $this->assertSame(0, $exit_code);
+            $this->assertSame([], $output);
+            $this->assertFileDoesNotExist($marker);
+        }
+
+        $endpoint = 'https://hooks.example.com/certificate?token=abc=123';
+        file_put_contents($config, 'url = ' . $endpoint . PHP_EOL);
+        $output = [];
+        $exit_code = 0;
+        exec(
+            'PATH=' . escapeshellarg($bin . ':' . (getenv('PATH') ?: ''))
+            . ' CONDUCTOR_LETSENCRYPT_WEBHOOK_CONFIG=' . escapeshellarg($config)
+            . ' CONDUCTOR_TEST_CURL_MARKER=' . escapeshellarg($marker)
+            . ' bash ' . escapeshellarg(__DIR__ . '/../utils/letsencrypt_webhook.sh')
+            . ' deploy myapp 2>&1',
+            $output,
+            $exit_code
+        );
+
+        $this->assertSame(0, $exit_code);
+        $this->assertSame([], $output);
+        $this->assertStringContainsString($endpoint, file_get_contents($marker));
+
+        @unlink($bin . '/curl');
+        @unlink($config);
+        @rmdir($bin);
+        @rmdir($root);
     }
 
     public function testFail2BanFiltersExtractClientIpFieldOnly(): void

@@ -530,7 +530,7 @@ If you want to remove an SSL certificate from your server you should use ``sudo 
 
 If you wish to force a renewal of the SSL certificate you can use ``sudo conductor letsencrypt {appname} --force-renew``.
 
-Conductor can also send a JSON ``POST`` webhook after a LetsEncrypt certificate is deployed by ``conductor letsencrypt {appname}``, ``conductor letsencrypt {appname} --force-renew``, or the bundled Certbot renewal helper. Configure the endpoint with:
+Conductor can also send a JSON ``POST`` webhook after a LetsEncrypt certificate is deployed by ``conductor letsencrypt {appname}``, ``conductor letsencrypt {appname} --force-renew``, or the bundled Certbot renewal helper. Webhook delivery is disabled until an endpoint is configured with:
 
 ```shell
 sudo conductor letsencrypt webhook --configure=https://n8n.yourdomain.com/webhook/8b4e7040-3746-4120-b317-50110f074a53

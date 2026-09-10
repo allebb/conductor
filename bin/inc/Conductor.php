@@ -883,9 +883,9 @@ class Conductor extends CliApplication
      */
     private function publicDetectedIpAddress()
     {
-        $body = $this->httpGet('https://ip.hallinet.com');
+        $body = $this->httpGet('https://ip.xcaler.com');
         if ($body === null) {
-            $body = $this->httpGet('http://ip.hallinet.com');
+            $body = $this->httpGet('http://ip.xcaler.com');
         }
 
         if ($body === null) {
