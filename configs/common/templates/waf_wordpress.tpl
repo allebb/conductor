@@ -64,8 +64,8 @@ include /etc/conductor/configs/common/xcaler_community_common_paths.conf;
 ##########################################################################
 # Wordpress-specific (recommended) rulesets.                             #
 #========================================================================#
-# Uncomment to disable XML-RPC if the site does not need Jetpack, pingbacks, or remot
-e publishing.
+# Uncomment to disable XML-RPC if the site does not need Jetpack,
+# pingbacks, or remote publishing.
 #location = /xmlrpc.php {
 #    deny all;
 #    access_log off;
